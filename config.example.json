@@ -1,0 +1,5 @@
+{
+  "library": "/path/to/your/movies",
+  "download": "/path/to/your/downloads",
+  "port": 8730
+}
