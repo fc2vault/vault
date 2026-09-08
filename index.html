@@ -1,0 +1,2008 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault</title>
+<style>
+:root{
+  --bg:#0c0d12; --bg2:#12141c; --panel:#161824; --panel2:#1c1f2e;
+  --line:#262a3b; --txt:#e7e9f2; --dim:#8b90a6; --dim2:#5b6076;
+  --accent:#ff3b6b; --accent2:#7b5bff; --good:#2ecc71; --warn:#f5a623;
+  --scroll:#2b3044;
+  --card-w:210px;
+}
+:root[data-theme="light"]{
+  --bg:#f5f6f9; --bg2:#eceef3; --panel:#ffffff; --panel2:#f0f1f6;
+  --line:#d9dce6; --txt:#191b24; --dim:#5b6076; --dim2:#9096a8;
+  --accent:#e11d54; --accent2:#6b46ff; --good:#1fa85a; --warn:#b9770a;
+  --scroll:#c2c6d2;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--txt);
+  font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  overflow:hidden}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:none}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:6px;border:2px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+
+#app{display:flex;flex-direction:column;height:100%}
+/* ---- top bar ---- */
+header{display:flex;align-items:center;gap:14px;padding:10px 16px;
+  background:linear-gradient(180deg,#14151f,#101119);border-bottom:1px solid var(--line);
+  flex:none;z-index:20}
+.brand{font-weight:800;font-size:19px;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+.brand .dot{width:11px;height:11px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,var(--accent),#a01840);
+  box-shadow:0 0 12px var(--accent)}
+.brand small{color:var(--dim);font-weight:500;font-size:11px;letter-spacing:0}
+.search{flex:1;max-width:520px;position:relative}
+.search input{width:100%;background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;padding:9px 12px 9px 34px;color:var(--txt);outline:none;font-size:14px}
+.search input:focus{border-color:var(--accent2)}
+.search svg{position:absolute;left:10px;top:9px;width:16px;height:16px;fill:var(--dim)}
+.stat{color:var(--dim);font-size:12px;white-space:nowrap}
+.stat b{color:var(--txt)}
+.top-actions{display:flex;gap:8px;margin-left:auto;align-items:center}
+select,.btn{background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  padding:8px 11px;color:var(--txt);font-size:13px}
+select:focus{outline:none;border-color:var(--accent2)}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{padding:8px 12px;color:var(--dim);font-size:13px}
+.seg button.on{background:var(--accent);color:#fff}
+
+/* ---- body ---- */
+.body{display:flex;flex:1;min-height:0}
+aside{width:250px;flex:none;background:var(--bg2);border-right:1px solid var(--line);
+  overflow-y:auto;padding:14px 12px 40px}
+aside h4{margin:16px 6px 8px;font-size:11px;text-transform:uppercase;letter-spacing:1px;
+  color:var(--dim2)}
+aside h4:first-child{margin-top:2px}
+.frow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;
+  cursor:pointer;color:var(--dim);font-size:13px}
+.frow:hover{background:var(--panel)}
+.frow.on{background:var(--panel2);color:var(--txt)}
+.frow .c{margin-left:auto;color:var(--dim2);font-size:11px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:2px 4px}
+.tagbox{max-height:230px;overflow-y:auto;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--bg2)}
+.chip{padding:4px 9px;border:1px solid var(--line);border-radius:20px;font-size:12px;
+  color:var(--dim);cursor:pointer;user-select:none}
+.chip:hover{border-color:var(--accent2);color:var(--txt)}
+.chip.on{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.side-input{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:7px 10px;color:var(--txt);font-size:13px;outline:none}
+.side-input:focus{border-color:var(--accent2)}
+.side-clear{font-size:11px;color:var(--dim2);cursor:pointer;margin:4px 6px 0}
+.side-clear:hover{color:var(--accent)}
+.range{padding:4px 6px}
+.range label{display:flex;justify-content:space-between;color:var(--dim);font-size:12px;margin-bottom:4px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+
+main{flex:1;overflow-y:auto;padding:16px 18px 60px;position:relative}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--card-w),1fr));gap:16px}
+.sentinel{grid-column:1/-1;padding:18px;text-align:center;color:var(--dim);font-size:13px}
+.group-h{grid-column:1/-1;display:flex;align-items:center;gap:12px;margin:18px 2px 2px;
+  padding-bottom:8px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+.group-h:hover{border-color:var(--accent2)}
+.group-h .gcar{color:var(--dim);font-size:24px;line-height:1;width:26px;flex:none;text-align:center;
+  align-self:center;cursor:pointer;transition:transform .12s}
+.group-h .gcar:hover{color:var(--accent2)}
+.group-h.collapsed{border-bottom-style:dashed}
+.group-h.collapsed .gcar{transform:rotate(-90deg)}
+.group-h .pf{width:44px;height:44px;border-radius:50%;object-fit:cover;background:var(--panel2);
+  border:1px solid var(--line)}
+.group-h .nm{font-weight:700;font-size:16px}
+.group-h .sub{color:var(--dim);font-size:12px}
+.group-h .pf,.group-h .nm{cursor:pointer}
+.group-h .pf:hover{box-shadow:0 0 0 2px var(--accent2)}
+.group-h .nm:hover{color:var(--accent2)}
+/* actress overview modal */
+.abox{width:min(1000px,96vw);max-height:92vh;display:flex;flex-direction:column}
+.ahead{display:flex;gap:16px;align-items:flex-start;flex:none}
+.ahead .apf{width:104px;height:104px;border-radius:12px;object-fit:cover;background:var(--panel2);flex:none}
+.ahead .apf.blank{display:flex;align-items:center;justify-content:center;color:var(--dim2);font-size:34px}
+.ahead .anm{font-size:22px;font-weight:800;line-height:1.15}
+.ahead .ajp{color:var(--dim);font-size:14px;margin-top:3px}
+.ahead .astat{color:var(--txt);font-size:13px;margin-top:8px}
+.ahead .aalias{color:var(--dim2);font-size:12px;margin-top:4px}
+.ahead .adesc{color:var(--dim);font-size:13px;font-style:italic;margin-top:8px;line-height:1.5;max-width:760px}
+.aclose{margin-left:auto;font-size:26px;color:var(--dim);line-height:1;cursor:pointer;flex:none}
+.aclose:hover{color:var(--txt)}
+.abody{overflow-y:auto;flex:1;min-height:0;margin-top:4px}
+.asec{margin:14px 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim2)}
+.asec:first-child{margin-top:6px}
+.asec .warnc{color:var(--warn)}
+.amovies{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;position:relative}
+.card:hover{transform:translateY(-4px);border-color:var(--accent2);
+  box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.thumb{position:relative;aspect-ratio:16/9;background:#0a0b10 center/cover no-repeat;
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .ph{color:var(--dim2);font-size:12px}
+.badges{position:absolute;top:7px;left:7px;right:7px;display:flex;gap:5px;flex-wrap:wrap;
+  justify-content:flex-end;pointer-events:none}
+.bdg{background:rgba(0,0,0,.72);backdrop-filter:blur(3px);border-radius:6px;padding:2px 6px;
+  font-size:11px;font-weight:600;color:#fff}
+.bdg.hd{color:#0c0d12;background:var(--warn)}
+.bdg.parts{background:var(--accent2)}
+.play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;
+  transition:opacity .12s;background:rgba(0,0,0,.25)}
+.card:hover .play{opacity:1}
+.play svg{width:52px;height:52px;fill:#fff;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
+.meta{padding:9px 10px 10px}
+.meta .a{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .a.unk{color:var(--dim2);font-weight:500;font-style:italic}
+.meta .c{color:var(--dim);font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .ctitle{color:var(--dim);font-size:11px;line-height:1.35;margin-top:5px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.meta .tags span{font-size:10px;color:var(--dim);background:var(--panel2);border-radius:4px;padding:1px 5px}
+.fav{position:absolute;top:6px;right:6px;z-index:5;width:30px;height:30px;border-radius:50%;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(3px);color:#fff;font-size:16px;line-height:30px;
+  opacity:0;transition:opacity .12s,color .12s,transform .1s}
+.card:hover .fav{opacity:1}
+.fav:hover{transform:scale(1.15)}
+.fav.on{opacity:1;color:var(--accent)}
+.mark{position:absolute;top:6px;left:6px;z-index:5;width:30px;height:30px;border-radius:50%;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(3px);color:#fff;font-size:15px;line-height:30px;
+  font-weight:700;opacity:0;transition:opacity .12s,color .12s,transform .1s}
+.card:hover .mark{opacity:1}
+.mark:hover{transform:scale(1.15)}
+.mark.on{opacity:1;color:var(--good);background:rgba(46,204,113,.22)}
+.mini{position:absolute;bottom:9px;right:9px;display:flex;gap:5px}
+.pill{font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.pill.miss{color:var(--warn);border-color:var(--warn)}
+.pill.rated{color:#ffc400;border-color:#7a5f00;letter-spacing:1px}
+.pill.dup{color:var(--accent2);border-color:var(--accent2)}
+.orgbox{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:min(900px,96vw);
+  max-height:90vh;display:flex;flex-direction:column;padding:20px 22px}
+.setbox{width:min(760px,96vw)}
+.settabs{display:flex;gap:6px;margin:12px 0 14px;flex:none;flex-wrap:wrap}
+.settab{padding:7px 14px;border:1px solid var(--line);border-radius:9px;color:var(--dim);
+  font-size:13px;cursor:pointer;background:var(--bg2)}
+.settab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.setpane{flex:1;overflow-y:auto;min-height:200px}
+.setsearch{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:8px;
+  color:var(--txt);padding:8px 10px;font-size:13px;margin-bottom:10px;box-sizing:border-box}
+.setrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);font-size:13px}
+.setrow:hover{background:var(--bg2)}
+.setrow .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.setrow .cnt{color:var(--dim2);font-size:12px;flex:none}
+.setin{background:var(--panel);border:1px solid var(--line);border-radius:7px;color:var(--txt);
+  padding:5px 8px;font-size:13px;min-width:0}
+.setin:focus{outline:none;border-color:var(--accent2)}
+.setbtn{padding:4px 10px;border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font-size:12px;cursor:pointer;background:var(--bg2);flex:none}
+.setbtn:hover{color:var(--accent2);border-color:var(--accent2)}
+.setbtn.danger:hover{color:var(--accent);border-color:var(--accent)}
+.setsec{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim2);margin:14px 0 8px}
+.setnote{color:var(--dim);font-size:12px;line-height:1.5;margin:4px 0 10px}
+.orghd{font-size:19px;font-weight:800;flex:none}
+.orgsub{color:var(--dim);font-size:13px;margin:8px 0 12px;line-height:1.5;flex:none}
+.pactions{flex:none}
+.enbanner{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5;margin:12px 0}
+.enbanner.ok{background:rgba(52,199,120,.12);border:1px solid rgba(52,199,120,.4);color:#7ee2a8}
+.enbanner.warn{background:rgba(240,170,40,.12);border:1px solid rgba(240,170,40,.45);color:#f2c069}
+.engrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.enr{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:3px 0;border-bottom:1px solid var(--line)}
+.enk{color:var(--dim)}.env{font-weight:700;text-align:right}
+@media(max-width:520px){.engrid{grid-template-columns:1fr}}
+.orglist{flex:1;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:var(--bg2);padding:6px}
+.oggrp{border:1px solid var(--line);border-radius:9px;margin:6px 2px;background:var(--panel);overflow:hidden}
+.oghdr{display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg2);border-bottom:1px solid var(--line)}
+.ogcode{font-family:ui-monospace,Menlo,monospace;font-weight:800;font-size:12px}
+.ogcode.dim{color:var(--dim2);font-weight:600}
+.oghint{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ogrows{padding:2px 6px}
+.orgrow input.ogchk{flex:none;margin:0 2px 0 0;cursor:pointer}
+.orgrow{cursor:default}
+.ogenrich{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:6px 8px;align-items:center;padding:8px 10px;border-top:1px solid var(--line);background:var(--bg2)}
+.ogel{color:var(--dim);font-size:12px}
+.ogin{background:var(--panel);border:1px solid var(--line);border-radius:7px;color:var(--txt);padding:5px 8px;font-size:12px;min-width:0}
+.ogin:focus{outline:none;border-color:var(--accent2)}
+.scbar{height:8px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:10px 0}
+.scbarfill{height:100%;width:0;background:var(--accent);transition:width .3s ease}
+.scwho{margin-left:auto;color:var(--dim);font-size:12px;white-space:nowrap;padding-left:10px}
+.of.dim2{color:var(--dim2)}
+@media(max-width:560px){.ogenrich{grid-template-columns:auto 1fr}}
+.orgrow{display:flex;align-items:center;gap:8px;padding:4px 6px;font-size:12px;border-bottom:1px solid var(--line)}
+.orgrow:last-child{border-bottom:none}
+.ot{flex:none;width:74px;text-transform:uppercase;font-size:10px;font-weight:700;letter-spacing:.5px;
+  padding:2px 6px;border-radius:5px;text-align:center;color:#fff}
+.ot.folder{background:var(--accent2)} .ot.file{background:#3a7} .ot.junk{background:var(--dim2)} .ot.duplicate{background:var(--warn);color:#111}
+.of{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;direction:rtl;text-align:left}
+.oarrow{color:var(--dim2);flex:none} .oto{color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.stars{display:inline-flex;align-items:center;gap:3px;font-size:22px;line-height:1}
+.stars .star{color:#3a3f52;cursor:pointer;transition:color .1s,transform .1s}
+.stars .star:hover{transform:scale(1.15)}
+.stars .star.on{color:#ffc400}
+.stars .star.clr{font-size:13px;color:var(--dim2);margin-left:6px}
+.stars .star.clr:hover{color:var(--accent)}
+.col-rating .stars{font-size:14px}
+.card.ghost{border-style:dashed;background:#101017;opacity:.72;transition:opacity .12s,border-color .12s}
+.card.ghost:hover{opacity:1;transform:translateY(-3px);border-color:var(--warn)}
+.gthumb{aspect-ratio:16/9;background:repeating-linear-gradient(45deg,#141620,#141620 10px,#171a26 10px,#171a26 20px);
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;overflow:hidden}
+.gcover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.gwant{position:absolute;top:6px;left:6px;z-index:2;font-size:10px;font-weight:700;letter-spacing:.5px;
+  color:var(--warn);background:rgba(0,0,0,.62);padding:2px 6px;border-radius:5px}
+.gcode{position:relative;font-size:11px;color:var(--dim2);font-family:ui-monospace,monospace}
+
+.empty{grid-column:1/-1;text-align:center;color:var(--dim);padding:80px 20px}
+/* list view */
+.listwrap{display:block}
+table.ltab{width:100%;border-collapse:collapse;font-size:13px}
+table.ltab th{position:sticky;top:0;background:var(--bg2);text-align:left;padding:9px 10px;color:var(--dim2);
+  font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--line);z-index:2;white-space:nowrap}
+table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.lrow{cursor:pointer}
+.lrow:hover{background:var(--panel)}
+.lrow.lmiss{opacity:.62}.lrow.lmiss:hover{opacity:1}
+.lrow .col-poster{width:76px;padding:4px 8px}
+.lrow .col-poster img,.lrow .col-poster .gimg{width:68px;height:40px;object-fit:cover;border-radius:4px;background:#0a0b10;display:block}
+.lrow .col-poster .gimg{display:flex;align-items:center;justify-content:center;color:var(--warn);border:1px dashed var(--line)}
+.col-code{font-family:ui-monospace,monospace;color:var(--dim);white-space:nowrap}
+.col-actress{font-weight:600}
+.col-tags{color:var(--dim);font-size:11px;max-width:260px}
+.col-status .mtag{color:var(--warn)}
+#colmenu{display:none;position:absolute;right:0;top:38px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:10px;padding:8px;z-index:40;box-shadow:0 12px 30px rgba(0,0,0,.5);min-width:150px}
+#colmenu.on{display:block}
+#colmenu label{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:6px;font-size:13px;color:var(--dim);cursor:pointer}
+#colmenu label:hover{background:var(--panel)}
+.sentinel{grid-column:1/-1;height:1px}
+
+/* ---- modal player ---- */
+.modal{position:fixed;inset:0;background:rgba(4,5,9,.86);backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;z-index:50;padding:24px}
+.modal.on{display:flex}
+.player{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  width:min(1560px,98vw);height:min(880px,94vh);display:flex}
+.p-related{width:196px;flex:none;background:var(--bg2);border-right:1px solid var(--line);
+  overflow-y:auto;padding:10px 8px}
+.p-related h5{margin:4px 4px 8px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim2)}
+.rel{display:flex;gap:8px;padding:6px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.rel:hover{background:var(--panel)}
+.rel.cur{background:var(--panel2);box-shadow:inset 0 0 0 1px var(--accent2)}
+.rel .relimg{width:66px;height:40px;object-fit:cover;border-radius:5px;flex:none;background:#0a0b10}
+.rel .gimg{display:flex;align-items:center;justify-content:center;color:var(--warn);font-size:15px;
+  border:1px dashed var(--line)}
+.rel.grel{opacity:.6}
+.rel.grel:hover{opacity:1}
+.p-missing{background:repeating-linear-gradient(45deg,#0e1017,#0e1017 12px,#12141d 12px,#12141d 24px);position:relative}
+.pm-cover{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.5}
+.pm-box{text-align:center;color:var(--dim);position:relative;z-index:2;background:rgba(6,7,11,.55);padding:22px 28px;border-radius:14px}
+.pm-ico{font-size:44px;color:var(--warn);margin-bottom:8px}
+.pm-t{font-size:18px;font-weight:700;color:var(--txt)}
+.pm-s{font-size:13px;margin-top:4px}
+.pm-code{font-family:ui-monospace,monospace;font-size:12px;color:var(--dim2);margin-top:10px}
+.rel .rt{min-width:0;flex:1}
+.rel .rc{font-size:11px;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rel .rd{font-size:10px;color:var(--dim2);margin-top:3px;display:flex;gap:6px}
+.parts{margin-bottom:6px}
+.prt{display:flex;align-items:center;gap:6px;padding:6px 6px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.prt:hover{background:var(--panel)}
+.prt.cur{background:var(--panel2);box-shadow:inset 0 0 0 1px var(--accent)}
+.prt.child{margin-left:14px}
+.prt .ptree{color:var(--dim2);font-size:12px;width:12px;flex:none;text-align:center}
+.prt.cur .ptree{color:var(--accent)}
+.prt .rt{min-width:0;flex:1}
+.prt .rc{font-size:12px;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prt .rd{font-size:10px;color:var(--dim2);margin-top:2px}
+.mainlbl{font-size:9px;color:var(--accent2);border:1px solid var(--accent2);border-radius:4px;padding:0 4px;margin-left:4px}
+.reldiv{border-top:1px solid var(--line);margin:6px 2px 8px}
+.p-stage{flex:1;min-width:0;background:#000;display:flex;align-items:center;justify-content:center}
+.p-stage video{width:100%;height:100%;max-height:94vh;background:#000;display:block;object-fit:contain}
+.p-side{width:344px;flex:none;overflow-y:auto;padding:16px 18px}
+.p-side .row1{display:flex;align-items:flex-start;gap:14px}
+.astats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.astats span{background:var(--bg2);border:1px solid var(--line);border-radius:999px;
+  padding:3px 10px;font-size:12px;color:var(--txt);white-space:nowrap}
+.astats span b{color:var(--dim);font-weight:600;margin-right:4px}
+/* multi-select */
+.card,.lrow{user-select:none}
+.card.selected{outline:2px solid var(--accent);outline-offset:-2px}
+.card.selected::after{content:"✓";position:absolute;top:8px;left:8px;width:22px;height:22px;z-index:6;
+  background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.lrow.selected{background:rgba(255,59,107,.14)!important}
+.lrow.selected td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.bulkbar{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:200;display:flex;
+  align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:10px 14px;box-shadow:0 10px 34px rgba(0,0,0,.55)}
+.bulkbar .bcount{font-weight:700;font-size:13px;white-space:nowrap}
+.bulk-in{background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--txt);
+  padding:8px 11px;font-size:13px;min-width:220px}
+.bulk-in:focus{outline:none;border-color:var(--accent2)}
+.p-side h2{margin:0;font-size:19px}
+.p-side h2.link{cursor:pointer}
+.p-side h2.link:hover{color:var(--accent)}
+.p-side .jp{color:var(--dim);font-size:13px;margin-top:2px}
+.p-side .entitle{color:var(--txt);font-size:13px;line-height:1.45;margin-top:6px}
+.p-side .code{color:var(--dim2);font-size:12px;font-family:ui-monospace,monospace;margin-top:6px}
+.p-side .close{margin-left:8px;font-size:26px;color:var(--dim);line-height:1;cursor:pointer}
+.p-side .close:hover{color:var(--txt)}
+.p-side .nedit{margin-left:auto;font-size:15px;color:var(--dim);line-height:1;cursor:pointer;
+  border:1px solid var(--line);border-radius:7px;padding:4px 7px;align-self:flex-start}
+.p-side .nedit:hover{color:var(--accent2);border-color:var(--accent2)}
+.nedit-in{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+  color:var(--txt);font-size:14px;outline:none;margin-top:3px}
+.nedit-in:focus{border-color:var(--accent2)}
+.edhead{font-size:14px;font-weight:700;margin-bottom:10px}
+.edhead span{font-weight:400;color:var(--dim2);font-size:12px}
+.edfl{display:block;font-size:11px;color:var(--dim);margin-bottom:8px}
+.edrow{display:flex;gap:8px;margin-bottom:8px}
+.edfl2{flex:1;display:block;font-size:11px;color:var(--dim)}
+.nedit-in.sm{margin-top:3px;padding:6px 8px;font-size:13px;width:100%;min-width:0;box-sizing:border-box}
+.edmovie{font-size:12px;color:var(--dim2);margin-top:10px;font-style:italic}
+.p-side h4.sec{margin:16px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim2)}
+.pdesc{color:var(--dim);font-size:13px;line-height:1.5;margin:12px 0 2px;font-style:italic;
+  border-left:2px solid var(--accent2);padding-left:10px}
+.group-h .desc{color:var(--dim);font-size:12px;font-style:italic;margin-top:3px;max-width:640px}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:6px 0}
+.fact{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fact b{color:var(--dim);font-weight:600;margin-right:5px}
+.pactions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.pactions .btn{padding:9px 12px;border-radius:9px;flex:1;text-align:center;white-space:nowrap}
+.pactions .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.pactions .btn.on{color:var(--good);border-color:var(--good)}
+.pactions .btn.unc{color:var(--good);border-color:var(--good)}
+.pactions .btn:hover{border-color:var(--accent2)}
+.tag-ed{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.etag{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--txt);
+  background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:3px 5px 3px 9px}
+.etag .x{cursor:pointer;color:var(--dim2);font-weight:700;font-size:14px;line-height:1}
+.etag .x:hover{color:var(--accent)}
+.tagadd-wrap{position:relative;display:inline-block}
+.tag-add{background:var(--panel);border:1px dashed var(--line);border-radius:14px;padding:4px 10px;
+  color:var(--txt);font-size:11px;outline:none;width:120px}
+.tag-add:focus{border-color:var(--accent2);border-style:solid}
+.tag-sugg{display:none;position:absolute;left:0;top:28px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:8px;z-index:20;min-width:140px;box-shadow:0 8px 22px rgba(0,0,0,.55);overflow:hidden;max-height:220px;overflow-y:auto}
+.tag-sugg.on{display:block}
+.tag-sugg .sg{padding:6px 11px;font-size:12px;color:var(--dim);cursor:pointer;white-space:nowrap}
+.tag-sugg .sg.hi,.tag-sugg .sg:hover{background:var(--accent2);color:#fff}
+.loading{position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);
+  transform-origin:left;transform:scaleX(0);transition:transform .3s;z-index:30}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel2);
+  border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:13px;z-index:60;
+  opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+/* ================= touch + small screens =================
+   Kept as overrides at the end of the sheet so the desktop rules above are
+   untouched. Nothing here is behind UA sniffing — it keys off viewport width
+   and pointer capability, so a resized desktop window gets it too. */
+
+/* Coarse pointers can't hover, so the card controls would never appear. */
+@media (hover:none){
+  .card .fav,.card .mark{opacity:.92}
+  /* the play overlay is a full-thumb scrim — on touch it just dims every poster,
+     and tapping the card already opens the player */
+  .card .play{opacity:0}
+  .card:hover{transform:none;box-shadow:none}
+  /* badges live top-right by default, exactly where the ♥ button now sits */
+  .badges{top:auto;bottom:7px;justify-content:flex-start}
+}
+
+/* Off-canvas filter drawer. */
+#drawerBtn{display:none}
+.scrim{display:none}
+/* player tab bar + overlay close: mobile only, switched on in the query below */
+.ptabs{display:none}
+.pclose-m{display:none}
+.player{position:relative}
+@media (max-width:820px){
+  header{flex-wrap:wrap;gap:8px;padding:8px 10px}
+  .brand{font-size:16px}
+  .brand small{display:none}
+  .search{order:3;flex:1 0 100%;max-width:none}
+  .stat{order:2;font-size:11px}
+  .top-actions{margin-left:auto;gap:6px;max-width:100%;overflow-x:auto;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .top-actions::-webkit-scrollbar{display:none}
+  /* keep the action row one line tall — wrapped labels doubled the header height */
+  .top-actions .btn,.top-actions select,.seg button{white-space:nowrap;
+    padding:7px 10px;font-size:13px}
+  #drawerBtn{padding:7px 10px;font-size:13px}
+  #drawerBtn{display:inline-flex;align-items:center;gap:6px}
+
+  /* sidebar becomes a slide-over sheet instead of eating half the width */
+  aside{position:fixed;top:0;left:0;bottom:0;width:82vw;max-width:330px;z-index:60;
+    transform:translateX(-100%);transition:transform .22s ease;
+    box-shadow:0 0 40px rgba(0,0,0,.6);padding-bottom:80px}
+  aside.on{transform:translateX(0)}
+  .scrim{display:block;position:fixed;inset:0;background:rgba(4,5,9,.6);z-index:55;
+    opacity:0;pointer-events:none;transition:opacity .22s}
+  .scrim.on{opacity:1;pointer-events:auto}
+
+  :root{--card-w:150px}
+  .grid{gap:10px}
+  #main{padding:10px}
+  /* thumb-size tap targets */
+  .fav,.mark{width:36px;height:36px;line-height:36px;font-size:17px}
+  .group-h{margin:12px 2px 2px}
+  .group-h .desc{display:none}
+  /* modals go full-bleed rather than a floating box */
+  .abox{width:100vw!important;max-width:100vw!important;max-height:100vh!important;
+    border-radius:0!important}
+
+  /* ---- player: video on top, everything else in a tabbed sheet below ----
+     The desktop player is three columns (related 196px + stage + side 344px); that's
+     540px of chrome on a 375px screen. Here it becomes a vertical stack: the video
+     pins to the top and the two side panels become tabs sharing the space under it. */
+  .modal{padding:0}
+  .player{flex-direction:column;width:100vw;max-width:100vw;
+    height:100vh;height:100dvh;           /* dvh so the iOS URL bar doesn't clip it */
+    border-radius:0;border:none}
+  /* DOM order is related → stage → side; flex order puts the video first */
+  .p-stage{flex:none;width:100%;aspect-ratio:16/9;max-height:40vh;order:0}
+  .ptabs{order:1}
+  .p-related,.p-side{order:2}
+  .p-stage video{width:100%;height:100%;max-height:none}
+  .p-missing{aspect-ratio:16/9;max-height:40vh}
+  .pm-box{padding:14px 18px}
+  .pm-ico{font-size:32px}
+
+  .ptabs{display:flex;flex:none;background:var(--bg2);border-bottom:1px solid var(--line)}
+  .ptabs button{flex:1;padding:11px 8px;font-size:13px;font-weight:600;color:var(--dim);
+    border-bottom:2px solid transparent}
+  .ptabs button.on{color:var(--txt);border-bottom-color:var(--accent)}
+  .ptabs .tcount{color:var(--dim2);font-weight:500}
+
+  /* both panels become the full-width scrolling body; the tab picks which one shows */
+  .p-related,.p-side{width:auto;flex:1;min-height:0;overflow-y:auto;
+    border-right:none;padding:12px 14px 34px}
+  .player[data-tab="info"] .p-related{display:none}
+  .player[data-tab="list"] .p-side{display:none}
+  .p-side .row1 .close{display:none}      /* replaced by the overlay button on the video */
+  .p-side h2{font-size:17px}
+
+  /* close button floating over the video */
+  .pclose-m{display:flex;align-items:center;justify-content:center;
+    position:absolute;top:8px;right:8px;z-index:6;width:38px;height:38px;border-radius:50%;
+    background:rgba(0,0,0,.6);backdrop-filter:blur(4px);color:#fff;font-size:24px;line-height:1}
+
+  /* roomier tap targets in the list */
+  .rel{padding:9px 6px}
+  .rel .relimg{width:80px;height:48px}
+  .prt{padding:10px 6px}
+}
+@media (max-width:430px){
+  :root{--card-w:132px}
+  .grid{gap:8px}
+  .card .ctitle{display:none}      /* long JP/EN titles dominate a 132px card */
+  .stat{display:none}
+}
+</style>
+</head>
+<body>
+<script>try{var _t=localStorage.getItem("vault_theme");if(_t)document.documentElement.dataset.theme=_t;}catch(e){}</script>
+<div id="app">
+  <div class="loading" id="load"></div>
+  <header>
+    <button class="btn" id="drawerBtn" title="Filters">☰ Filters</button>
+    <div class="brand"><span class="dot"></span>Vault</div>
+    <div class="search">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 10-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1114 9.5 4.5 4.5 0 019.5 14z"/></svg>
+      <input id="q" placeholder="Search actress, code, tag, title…  ( / )" autocomplete="off">
+    </div>
+    <div class="top-actions">
+      <div class="seg" id="viewseg">
+        <button data-v="grid" class="on">Grid</button>
+        <button data-v="actress">By actress</button>
+        <button data-v="list">List</button>
+      </div>
+      <div style="position:relative">
+        <button class="btn" id="colbtn" style="display:none">Columns ▾</button>
+        <div id="colmenu"></div>
+      </div>
+      <select id="sort">
+        <option value="mtime">Newest added</option>
+        <option value="release">Release date</option>
+        <option value="size">Largest</option>
+        <option value="dur">Longest</option>
+        <option value="rating">Top rated</option>
+        <option value="fav">Most favorited</option>
+        <option value="actress">Actress A–Z</option>
+        <option value="code">Code</option>
+        <option value="shuffle">Shuffle 🎲</option>
+      </select>
+      <button class="btn" id="shuffbtn" title="Reshuffle">🎲</button>
+      <button class="btn" id="resetbtn" title="Clear all filters">⟲ Reset</button>
+      <button class="btn" id="scanlibbtn" title="Fetch missing titles/covers/tags for the whole library from web sources">⟳ Scan library</button>
+      <button class="btn" id="importbtn" title="Import from your download folder: rename, clean, then move into the library — replacing older copies with better ones (preview first)">📥 Import</button>
+      <button class="btn" id="themebtn" title="Toggle light / dark">🌙</button>
+      <button class="btn" id="setbtn" title="Settings — manage actresses, tags, library folder, sources">⚙ Settings</button>
+      <div class="stat" id="stat"></div>
+    </div>
+  </header>
+
+  <div class="body">
+    <aside id="side"></aside>
+    <div class="scrim" id="scrim"></div>
+    <main id="main"><div class="grid" id="grid"></div></main>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="player" id="player"></div>
+</div>
+<div class="modal" id="orgmodal"><div class="orgbox" id="orgbox"></div></div>
+<div class="modal" id="enrichmodal"><div class="orgbox" id="enrichbox"></div></div>
+<div class="modal" id="scanmodal"><div class="orgbox" id="scanbox"></div></div>
+<div class="modal" id="setmodal"><div class="orgbox setbox" id="setbox"></div></div>
+<div class="modal" id="amodal"><div class="orgbox abox" id="abox"></div></div>
+<div class="modal" id="impmodal"><div class="orgbox" id="impbox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const fmtSize=b=>{if(!b)return"";const u=["B","KB","MB","GB","TB"];let i=0,n=b;while(n>=1024&&i<4){n/=1024;i++}return n.toFixed(n<10&&i>1?1:0)+u[i];};
+const fmtDur=s=>{if(!s)return"";const h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=Math.floor(s%60);return h?`${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`:`${m}:${String(ss).padStart(2,'0')}`;};
+const esc=s=>(s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function sukebei(code){const num=(String(code).match(/(\d{5,})/)||[])[1]||code;
+  const url="https://sukebei.nyaa.si/?f=0&c=0_0&q="+encodeURIComponent(num);
+  // ctrl/cmd-click a temp link so the browser opens it in a BACKGROUND tab (keeps focus here)
+  const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";
+  document.body.appendChild(a);
+  const mac=/mac|iphone|ipad/i.test(navigator.platform||navigator.userAgent);
+  a.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true,view:window,
+    ctrlKey:!mac,metaKey:mac}));
+  a.remove();}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),1800);}
+function loadbar(p){const l=$("#load");l.style.transform=`scaleX(${p})`;if(p>=1)setTimeout(()=>l.style.transform="scaleX(0)",300);}
+
+let DATA={items:[],actresses:[],facets:{}};
+let META={};                       // code -> {duration,width,height}
+let ACTBYID={},ACTBYNAME={};
+// can THIS browser decode HEVC/H.265? (Safari yes; Chrome-on-macOS via hardware; else no)
+const HEVC_OK=(()=>{const v=document.createElement("video");
+  return !!(v.canPlayType('video/mp4; codecs="hvc1.1.6.L93.B0"')||v.canPlayType('video/mp4; codecs="hev1"'));})();
+const isHevc=it=>/hevc|hvc1|hev1/i.test(it&&it.vcodec||"");
+function actressOf(it){return (it.actress_id&&ACTBYID[it.actress_id])||ACTBYNAME[(it.actress||"").toLowerCase()]||null;}
+// per-browser persistence (favorites + watched)
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||"[]")}catch(e){return[]}}
+function lsGetObj(k){try{return JSON.parse(localStorage.getItem(k)||"{}")||{}}catch(e){return{}}}
+const STORE={fav:new Set(lsGet("vault_fav")),seen:new Set(lsGet("vault_seen")),rating:lsGetObj("vault_rating")};
+function saveStore(){try{localStorage.setItem("vault_fav",JSON.stringify([...STORE.fav]));
+  localStorage.setItem("vault_seen",JSON.stringify([...STORE.seen]));
+  localStorage.setItem("vault_rating",JSON.stringify(STORE.rating));}catch(e){}}
+function starsHTML(code){const r=STORE.rating[code]||0;
+  return `<span class="stars" data-code="${esc(code)}">${[1,2,3,4,5].map(n=>`<span class="star${n<=r?' on':''}" data-n="${n}">★</span>`).join("")}${r?`<span class="star clr" data-n="0" title="clear">✕</span>`:""}</span>`;}
+function bindStars(root){(root||document).querySelectorAll(".stars .star").forEach(st=>st.onclick=e=>{
+  e.stopPropagation();const w=st.closest(".stars"),code=w.dataset.code,n=+st.dataset.n,cur=STORE.rating[code]||0;
+  const nn=(n===0||cur===n)?0:n;
+  if(nn)STORE.rating[code]=nn;else delete STORE.rating[code];
+  saveStore();refreshStars(code);if(F.sort==="rating")render();});}
+function refreshStars(code){document.querySelectorAll(`.stars[data-code="${cssEsc(code)}"]`).forEach(w=>{
+  const r=STORE.rating[code]||0;w.innerHTML=starsHTMLInner(code);});
+  // rebind after innerHTML swap
+  document.querySelectorAll(`.stars[data-code="${cssEsc(code)}"]`).forEach(w=>bindStars(w.parentElement));}
+function starsHTMLInner(code){const r=STORE.rating[code]||0;
+  return `${[1,2,3,4,5].map(n=>`<span class="star${n<=r?' on':''}" data-n="${n}">★</span>`).join("")}${r?`<span class="star clr" data-n="0" title="clear">✕</span>`:""}`;}
+function toggleFav(code,btn){
+  const now=!STORE.fav.has(code);
+  if(now)STORE.fav.add(code);else STORE.fav.delete(code);
+  saveStore();
+  $$(`.card[data-code="${cssEsc(code)}"] .fav`).forEach(b=>b.classList.toggle('on',now));
+  if(btn)btn.classList.toggle('on',now);
+  const fc=$("#favc");if(fc)fc.textContent=STORE.fav.size;
+  const pf=$("#pfav");if(pf)pf.classList.toggle('on',now);
+  if(F.favonly&&!now)render();
+}
+/* ---- body measurements: stored in the DB as centimetres (canonical, integer),
+   converted to imperial only at DISPLAY time via a per-browser preference ---- */
+let UNITS=(()=>{try{return localStorage.getItem("vault_units")||"metric"}catch(e){return "metric"}})();
+function setUnits(u){UNITS=u;try{localStorage.setItem("vault_units",u)}catch(e){}}
+function fmtHeight(cm){if(!cm)return"";
+  if(UNITS==="imperial"){const t=Math.round(cm/2.54),f=Math.floor(t/12);return `${f}'${t-f*12}"`;}
+  return cm+" cm";}
+function fmtMeas(cm){if(!cm)return"";return UNITS==="imperial"?Math.round(cm/2.54)+'"':String(cm);}
+function toggleSeen(code,btn){
+  const now=!STORE.seen.has(code);
+  if(now)STORE.seen.add(code);else STORE.seen.delete(code);
+  saveStore();
+  $$(`.card[data-code="${cssEsc(code)}"] .mark`).forEach(b=>b.classList.toggle('on',now));
+  if(btn&&!btn.classList.contains('mark'))btn.classList.toggle('on',now);
+  const pw=$("#pseen");if(pw){pw.classList.toggle('on',now);
+    pw.innerHTML=now?'✓ Played':'○ Mark played';}
+  if((F.watch==="un"&&now)||(F.watch==="seen"&&!now))render();
+}
+const F={q:"",ident:"all",showMissing:false,fmt:"all",actress:"all",cups:new Set(),res:new Set(),
+         tags:new Set(),ageMin:0,ageMax:99,durMin:0,durMax:999,sort:"mtime",view:"grid",hd:false,parts:false,
+         watch:"all",favonly:false,censOnly:false};
+const TAG_MIN=3;   // sidebar shows tags used on >= this many movies by default (search reaches all)
+const resBucket=h=>!h?"":h>=1800?"4K":h>=1000?"1080p":h>=700?"720p":"SD";
+const COLS=[
+  {k:"poster",label:"",html:it=>it.missing?(it.cover?`<img loading="lazy" referrerpolicy="no-referrer" src="${esc(it.cover)}">`:`<div class="gimg">◇</div>`):`<img loading="lazy" src="/thumb/${encodeURIComponent(it.code)}.jpg">`},
+  {k:"code",label:"Code",get:it=>it.code},
+  {k:"actress",label:"Actress",get:it=>it.identified?it.actress:"—"},
+  {k:"jp",label:"JP name",get:it=>it.actress_jp||""},
+  {k:"title",label:"Title",get:it=>it.title_en||it.title||""},
+  {k:"age",label:"Age",get:it=>it.age?it.age+"y":""},
+  {k:"cup",label:"Cup",get:it=>it.cup||""},
+  {k:"studio",label:"Studio",get:it=>it.producer||""},
+  {k:"release",label:"Released",get:it=>it.release||""},
+  {k:"duration",label:"Length",get:it=>{const m=META[it.code];return m&&m.duration?fmtDur(m.duration):(it.missing?"":"")}},
+  {k:"res",label:"Res",get:it=>{const m=META[it.code];return m&&m.height?resBucket(m.height):""}},
+  {k:"size",label:"Size",get:it=>it.missing?"—":fmtSize(it.size)},
+  {k:"fav",label:"Favs",get:it=>it.fav?"♥"+it.fav:""},
+  {k:"rating",label:"Rating",html:it=>starsHTML(it.code)},
+  {k:"tags",label:"Tags",get:it=>(it.tags||[]).join(", ")},
+  {k:"status",label:"Status",html:it=>it.missing?'<span class="mtag">missing</span>':(it.avail||"available")},
+];
+F.cols=(()=>{try{const c=JSON.parse(localStorage.getItem("vault_cols"));return Array.isArray(c)&&c.length?c:null;}catch(e){return null;}})()
+  ||["poster","code","actress","release","duration","res","size","tags"];
+
+async function boot(){
+  loadbar(.3);
+  const r=await fetch("/api/data");DATA=await r.json();
+  DATA.items.forEach(it=>{it._rnd=Math.random();if(it.dur||it.h)META[it.code]={duration:it.dur,width:it.w,height:it.h,vcodec:it.vcodec};});
+  DATA.actresses.forEach(a=>{if(a.id)ACTBYID[a.id]=a;if(a.name_en)ACTBYNAME[a.name_en.toLowerCase()]=a;});
+  loadbar(.8);
+  buildSidebar();bindUI();render();
+  loadbar(1);
+}
+
+/* ---------------- sidebar ---------------- */
+function buildSidebar(){
+  const f=DATA.facets;const s=$("#side");
+  const cups=f.cups||[],tags=(f.tags||[]),fmts=f.formats||[];
+  s.innerHTML=`
+   <h4>Library</h4>
+   ${frow('ident','all','All movies',f.total)}
+   ${frow('ident','yes','Identified',f.identified)}
+   ${frow('ident','no','Amateur / unknown',f.total-f.identified)}
+   <div class="frow" id="favrow" style="cursor:pointer">♥ Favorites<span class="c" id="favc">${STORE.fav.size}</span></div>
+
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="wishchk" ${F.showMissing?'checked':''}> Show wishlist<span class="c">${f.missing||0} missing</span></label>
+   ${frow('watch','all','Any watched state')}
+   ${frow('watch','un','Unwatched only')}
+   ${frow('watch','seen','Watched only')}
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="hdchk"> HD only (≥720p)</label>
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="censchk"> Censored only</label>
+
+   <h4>Actress</h4>
+   <input class="side-input" id="actressInput" list="actressList" placeholder="type a name…" autocomplete="off">
+   <datalist id="actressList">${DATA.actresses.filter(a=>a.name_en).map(a=>`<option value="${esc(a.name_en)}">${a.count} title${a.count>1?'s':''}</option>`).join("")}</datalist>
+   <datalist id="tagList">${(f.tags||[]).filter(([t])=>!/[぀-ヿ一-鿿]/.test(t)).map(([t,n])=>`<option value="${esc(t)}">${n}</option>`).join("")}</datalist>
+
+   <h4>Studio</h4>
+   <input class="side-input" id="studioInput" list="studioList" placeholder="type a studio…" autocomplete="off">
+   <datalist id="studioList">${(f.studios||[]).map(([s,n])=>`<option value="${esc(s)}">${n}</option>`).join("")}</datalist>
+
+   <h4>Resolution</h4>
+   <div class="chips" id="reschips">${(f.res||[]).map(([c,n])=>`<span class="chip" data-res="${esc(c)}">${esc(c)} <em style="color:var(--dim2)">${n}</em></span>`).join("")||'<span class="stat">—</span>'}</div>
+
+   <h4>Duration</h4>
+   <div class="range">
+     <label><span>Min <b id="dmi">any</b></span><span>Max <b id="dma">any</b></span></label>
+     <input type="range" id="durmin" min="0" max="180" step="5" value="0">
+     <input type="range" id="durmax" min="0" max="180" step="5" value="180">
+   </div>
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="partschk"> Multi-part only</label>
+
+   <h4>Cup size</h4>
+   <div class="chips" id="cupchips">${cups.map(([c,n])=>`<span class="chip" data-cup="${esc(c)}">${esc(c)} <em style="color:var(--dim2)">${n}</em></span>`).join("")||'<span class="stat">—</span>'}</div>
+
+   <h4>Age</h4>
+   <div class="range">
+     <label><span>Min <b id="agemi">any</b></span><span>Max <b id="agema">any</b></span></label>
+     <input type="range" id="agemin" min="18" max="45" value="18">
+     <input type="range" id="agemax" min="18" max="45" value="45">
+   </div>
+
+   <h4>Tags <span class="stat" style="text-transform:none;font-weight:400">${tags.filter(([t,n])=>n>=TAG_MIN).length} of ${tags.length}</span></h4>
+   <input class="side-input" id="tagfilter" placeholder="filter tags (search reaches all)…" autocomplete="off" style="margin-bottom:6px">
+   <div class="chips tagbox" id="tagchips">${tags.map(([t,n])=>`<span class="chip${n<TAG_MIN?' rare':''}" data-tag="${esc(t)}" data-tl="${esc(t.toLowerCase())}"${n<TAG_MIN?' style="display:none"':''}>${esc(t)} <em style="color:var(--dim2)">${n}</em></span>`).join("")||'<span class="stat">no tags in db yet</span>'}</div>
+  `;
+  // events
+  $$('.frow[data-k]',s).forEach(el=>el.onclick=()=>{
+    const k=el.dataset.k,v=el.dataset.v;F[k]=v;
+    $$('.frow[data-k="'+k+'"]').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
+    render();
+  });
+  syncFrow();
+  $("#hdchk").onchange=e=>{F.hd=e.target.checked;render();};
+  $("#partschk").onchange=e=>{F.parts=e.target.checked;render();};
+  $("#wishchk").onchange=e=>{F.showMissing=e.target.checked;render();};
+  $("#censchk").onchange=e=>{F.censOnly=e.target.checked;render();};
+  $("#favrow").onclick=()=>{F.favonly=!F.favonly;$("#favrow").classList.toggle('on',F.favonly);render();};
+  $$('#cupchips .chip').forEach(c=>c.onclick=()=>{tog(F.cups,c.dataset.cup);c.classList.toggle('on');render();});
+  $$('#reschips .chip').forEach(c=>c.onclick=()=>{tog(F.res,c.dataset.res);c.classList.toggle('on');render();});
+  $$('#tagchips .chip').forEach(c=>{if(F.tags.has(c.dataset.tag))c.classList.add('on');c.onclick=()=>{tog(F.tags,c.dataset.tag);c.classList.toggle('on');render();};});
+  const tf=$("#tagfilter");if(tf)tf.oninput=e=>{const q=e.target.value.toLowerCase();
+    // no query -> default view (only common tags, count>=TAG_MIN); query -> search ALL
+    $$('#tagchips .chip').forEach(c=>{c.style.display=(q?c.dataset.tl.includes(q):!c.classList.contains('rare'))?"":"none";});};
+  $("#actressInput").oninput=e=>{F.actress=e.target.value.trim();render();};
+  $("#studioInput").oninput=e=>{F.studio=e.target.value.trim();render();};
+  const dmi=$("#durmin"),dma=$("#durmax");
+  const upD=()=>{let a=+dmi.value,b=+dma.value;if(a>b)[a,b]=[b,a];F.durMin=a;F.durMax=b>=180?999:b;
+    $("#dmi").textContent=a<=0?'any':a+'m';$("#dma").textContent=b>=180?'any':b+'m';render();};
+  dmi.oninput=upD;dma.oninput=upD;
+  const mi=$("#agemin"),ma=$("#agemax");
+  const upA=()=>{let a=+mi.value,b=+ma.value;if(a>b){[a,b]=[b,a];}F.ageMin=a<=18?0:a;F.ageMax=b>=45?99:b;
+    $("#agemi").textContent=a<=18?'any':a;$("#agema").textContent=b>=45?'any':b;render();};
+  mi.oninput=upA;ma.oninput=upA;
+}
+function frow(k,v,label,count){return `<div class="frow${F[k]===v?' on':''}" data-k="${k}" data-v="${v}">${label}<span class="c">${count??''}</span></div>`;}
+function syncFrow(){$$('.frow[data-k]').forEach(x=>x.classList.toggle('on',F[x.dataset.k]===x.dataset.v));}
+function tog(set,v){set.has(v)?set.delete(v):set.add(v);}
+// Token-aware autocomplete for the comma-separated Tags field in the Organize modal.
+// Native <datalist> matches the whole field value, so we rebuild #tagList options as
+// "<already-typed tags>, <candidate>" — English tags only — so each new token completes.
+function tagTokenAC(inp){
+  const dl=document.getElementById("tagList");if(!dl)return;
+  const v=inp.value,ci=v.lastIndexOf(",");
+  const prefix=ci>=0?v.slice(0,ci+1).replace(/\s*$/,"")+" ":"";
+  const tags=(DATA.facets.tags||[]).filter(([t])=>!/[぀-ヿ一-鿿]/.test(t)).map(([t])=>t);
+  dl.innerHTML=tags.map(t=>`<option value="${esc(prefix+t)}"></option>`).join("");
+}
+/* ---------------- Import pipeline (download folder -> library) ---------------- */
+let IMPORT_RUNNING=false, importPollTimer=null;
+function startImport(){
+  const m=$("#impmodal"),b=$("#impbox");m.classList.add("on");
+  b.innerHTML='<div class="orghd">Import — analyzing…</div><div class="orgsub">Previewing rename &amp; migration from your download folder…</div>';
+  fetch("/api/import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({preview:true})})
+   .then(r=>r.json()).then(j=>{
+     if(j.error){b.innerHTML=`<div class="orghd">Can't import</div><div class="orgsub">${esc(j.error)}</div><div class="pactions"><button class="btn" id="impClose">Close</button></div>`;$("#impClose").onclick=()=>m.classList.remove("on");return;}
+     renderImportPlan(j);
+   }).catch(()=>{b.innerHTML='<div class="orghd">Could not analyze the download folder</div><div class="pactions"><button class="btn" id="impClose">Close</button></div>';const x=$("#impClose");if(x)x.onclick=()=>m.classList.remove("on");});
+}
+function renderImportPlan(j){
+  const b=$("#impbox"),m=$("#impmodal"),close=()=>m.classList.remove("on");
+  const rn=j.rename||{},mg=j.migrate||{},c=mg.counts||{},rows=mg.rows||[];
+  const nothing=!rows.length && !rn.folders && !rn.loose;
+  const tag=a=>a==="REPLACE TARGET"?'<span class="ot" style="background:var(--warn);color:#000">replace</span>'
+              :a==="DELETE SOURCE"?'<span class="ot" style="background:var(--line)">del src</span>'
+              :'<span class="ot" style="background:var(--accent2)">add</span>';
+  const rowHtml=rows.map(r=>`<div class="orgrow"><span class="ot file">${esc(r.code)}</span><span class="of">${esc(r.src)}${r.lib!=='-'?` <span style="color:var(--dim2)">(lib ${esc(r.lib)})</span>`:''}</span><span class="oarrow">→</span>${tag(r.action)}</div>`).join("");
+  const coll=(rn.collisions||[]);
+  b.innerHTML=`
+    <div class="orghd">Import from download folder</div>
+    <div class="orgsub">
+      <code>${esc(j.download)}</code> → <code>${esc(j.library)}</code><br>
+      <b>Clean:</b> ${rn.folders||0} folder(s)${rn.loose?` + ${rn.loose} loose file(s)`:''}, ${rn.deletes||0} junk/spam removed.
+      &nbsp; <b>Migrate:</b> <span style="color:var(--accent2)">${c.move||0} add</span> ·
+      <span style="color:var(--warn)">${c.replace||0} replace</span> ·
+      <span style="color:var(--dim2)">${c.delete_source||0} source dupes</span>.
+      ${coll.length?`<br><span style="color:var(--warn)">⚠ ${coll.length} folder collision(s): ${coll.map(esc).join(', ')} — kept the larger rip.</span>`:''}
+    </div>
+    ${nothing?'<div class="orgsub">Nothing to import — download folder is empty or already migrated 🎉</div>':`<div class="orglist">${rowHtml||'<div class="orgrow" style="color:var(--dim2)">Clean-only (no migrations)</div>'}</div>`}
+    ${c.replace?`<label class="orgrow" style="border:1px solid var(--warn);border-radius:8px;margin:8px 2px;cursor:pointer"><input type="checkbox" id="impConfirm" style="flex:none"><span><b style="color:var(--warn)">Replace ${c.replace} older library copies</b> with the better versions (deletes the old library file). Leave unticked to skip those and only add + clean.</span></label>`:''}
+    <div class="pactions">
+      ${nothing?'':'<button class="btn pri" id="impGo">▶ Run import</button>'}
+      <button class="btn" id="impCancel">${nothing?'Close':'Cancel'}</button>
+    </div>`;
+  $("#impCancel").onclick=close;
+  const go=$("#impGo");
+  if(go)go.onclick=()=>{
+    const cf=!!($("#impConfirm")&&$("#impConfirm").checked);
+    fetch("/api/import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirm_lib_deletes:cf})})
+     .then(r=>r.json()).then(res=>{if(res.error){toast(res.error);return;}renderImportProgress();pollImportProgress();})
+     .catch(()=>toast("Could not start import"));
+  };
+}
+function renderImportProgress(){
+  IMPORT_RUNNING=true;
+  $("#impbox").innerHTML=`
+    <div class="orghd">Importing…</div>
+    <div class="orgsub" id="impPhase">Starting…</div>
+    <div class="scbar"><div class="scbarfill" id="impFill" style="width:8%"></div></div>
+    <div class="orgsub" id="impLine" style="font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+    <div class="orgsub" style="color:var(--dim2)">Large cross-drive copies can take a while — safe to run in the background.</div>
+    <div class="pactions"><button class="btn" id="impHide">Run in background</button></div>`;
+  $("#impHide").onclick=()=>$("#impmodal").classList.remove("on");
+}
+function pollImportProgress(){
+  clearTimeout(importPollTimer);
+  fetch("/api/importprogress").then(r=>r.json()).then(p=>{
+    const ph=$("#impPhase"),ln=$("#impLine"),fill=$("#impFill");
+    if(p.running){
+      IMPORT_RUNNING=true;
+      if(ph)ph.textContent=p.phase||"Working…";
+      if(ln)ln.textContent=p.line||"";
+      if(fill)fill.style.width=((p.phase||"").indexOf("Migrating")>=0?65:30)+"%";
+      importPollTimer=setTimeout(pollImportProgress,1000);
+    }else{
+      IMPORT_RUNNING=false;
+      if(fill)fill.style.width="100%";
+      if($("#impmodal").classList.contains("on")&&$("#impPhase")){
+        $("#impbox").innerHTML=`<div class="orghd">Import complete 🎉</div><div class="orgsub">${esc(p.line||"All done.")}</div><div class="pactions"><button class="btn pri" id="impDone">Close</button></div>`;
+        $("#impDone").onclick=()=>$("#impmodal").classList.remove("on");
+      }
+      toast("Import complete");reloadData&&reloadData();
+    }
+  }).catch(()=>{importPollTimer=setTimeout(pollImportProgress,2000);});
+}
+function organizeLibrary(){
+  const m=$("#orgmodal"),b=$("#orgbox");m.classList.add("on");
+  const close=()=>m.classList.remove("on");
+  b.innerHTML='<div class="orghd">Analyzing library…</div><div class="orgsub">Scanning folders (this can take a few seconds).</div>';
+  fetch("/api/organize",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})
+   .then(r=>r.json()).then(j=>{
+     if(j.error){b.innerHTML=`<div class="orghd">Error</div><div class="orgsub">${esc(j.error)}</div><div class="pactions"><button class="btn" id="orgCancel">Close</button></div>`;$("#orgCancel").onclick=close;return;}
+     if(!j.total){b.innerHTML=`<div class="orghd">Already tidy 🎉</div><div class="orgsub">Every folder is normalized, no junk, no duplicates.</div><div class="pactions"><button class="btn" id="orgCancel">Close</button></div>`;$("#orgCancel").onclick=close;return;}
+     const c=j.counts;
+     // group actions by code (null -> "no code"), preserving first-seen order
+     const groups=new Map();
+     for(const a of (j.actions||[])){
+       const k=a.code||" ";
+       if(!groups.has(k))groups.set(k,{code:a.code,orig:null,acts:[]});
+       const g=groups.get(k);g.acts.push(a);
+       if(a.type==="folder")g.orig=a.from;                 // the un-normalized folder name
+     }
+     const dispTag=t=>t==="duplicate"?"dup":t;
+     const blocks=[...groups.values()].map(g=>{
+       const rows=g.acts.map(a=>`<label class="orgrow"><input type="checkbox" class="ogchk" data-id="${esc(a.id)}" checked><span class="ot ${a.type}">${dispTag(a.type)}</span><span class="of">${esc(a.from)}</span><span class="oarrow">→</span><span class="oto">${esc(a.to)}</span></label>`).join("");
+       if(!g.code){                                        // uncategorizable: no enrich inputs
+         return `<div class="oggrp"><div class="oghdr"><span class="ogcode dim">no code</span></div><div class="ogrows">${rows}</div></div>`;
+       }
+       const hint=g.orig?`<span class="oghint">from “${esc(g.orig)}”</span>`:"";
+       return `<div class="oggrp">
+         <div class="oghdr"><span class="ogcode">${esc(g.code)}</span>${hint}</div>
+         <div class="ogrows">${rows}</div>
+         <div class="ogenrich">
+           <span class="ogel">Actress</span><input class="ogin ogact" data-code="${esc(g.code)}" placeholder="type a name (optional)" list="actressList" autocomplete="off">
+           <span class="ogel">Tags</span><input class="ogin ogtag" data-code="${esc(g.code)}" list="tagList" autocomplete="off" placeholder="comma, separated (optional)" oninput="tagTokenAC(this)" onfocus="tagTokenAC(this)">
+         </div></div>`;
+     }).join("");
+     b.innerHTML=`
+       <div class="orghd">Organize library — preview</div>
+       <div class="orgsub"><b>${c.folder||0}</b> folders · <b>${c.file||0}</b> files · <b>${c.junk||0}</b> junk → <code>_vault_trash/</code> · <b>${c.duplicate||0}</b> dupes → <code>_Duplicates/</code>. Uncheck any change to skip it; nothing is deleted or overwritten. Optionally add an actress/tags per folder (manual — deduce from the original name shown).</div>
+       <div class="orglist">${blocks}${j.truncated?'<div class="orgrow" style="color:var(--dim2)">…more changes not shown (they will still apply unless the list is complete)</div>':''}</div>
+       <div class="pactions">
+         <button class="btn pri" id="orgApply">Apply selected</button>
+         <button class="btn" id="orgCancel">Cancel</button>
+       </div>`;
+     $("#orgCancel").onclick=close;
+     $("#orgApply").onclick=e=>{
+       const ab=e.currentTarget;ab.textContent="Working…";ab.disabled=true;
+       const skip=[...b.querySelectorAll(".ogchk:not(:checked)")].map(x=>x.dataset.id);
+       const enrich={};
+       b.querySelectorAll(".ogin").forEach(inp=>{
+         const code=inp.dataset.code,v=inp.value.trim();if(!v)return;
+         (enrich[code]=enrich[code]||{})[inp.classList.contains("ogact")?"actress":"tags"]=v;
+       });
+       fetch("/api/organize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apply:true,skip,enrich})})
+        .then(r=>r.json()).then(res=>{
+          const d=(res.applied||{}).done||{};
+          toast(`Organized · ${d.folder||0} folders, ${d.file||0} files, ${d.junk||0} junk, ${d.duplicate||0} dups${skip.length?` · ${skip.length} skipped`:''}`);
+          close();reloadData();
+        }).catch(()=>{toast("Organize failed");ab.disabled=false;ab.textContent="Apply selected";});
+     };
+   }).catch(()=>{b.innerHTML='<div class="orghd">Could not analyze the library</div><div class="pactions"><button class="btn" id="orgCancel">Close</button></div>';const x=$("#orgCancel");if(x)x.onclick=close;});
+}
+let scanPollTimer=null,SCANCANDS=[],SCANSCOPE="missing";
+function startLibraryScan(){
+  const m=$("#scanmodal"),b=$("#scanbox");m.classList.add("on");
+  b.innerHTML='<div class="orghd">Scan library — metadata</div><div class="orgsub">Re-indexing files & checking what\'s missing…</div>';
+  // one preview (re-indexes to catch new drops); we filter missing/all client-side
+  fetch("/api/scanlib",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({preview:true,scope:"all"})})
+   .then(r=>r.json()).then(j=>{
+     if(j.error){b.innerHTML=`<div class="orghd">Can't scan</div><div class="orgsub">${esc(j.error)}</div><div class="pactions"><button class="btn" id="scClose">Close</button></div>`;$("#scClose").onclick=()=>m.classList.remove("on");return;}
+     SCANCANDS=j.candidates||[];SCANSCOPE="missing";
+     renderScanModal();
+   }).catch(()=>{b.innerHTML='<div class="orghd">Could not reach the scanner</div><div class="pactions"><button class="btn" id="scClose">Close</button></div>';const x=$("#scClose");if(x)x.onclick=()=>m.classList.remove("on");});
+}
+function scanList(){return SCANSCOPE==="all"?SCANCANDS:SCANCANDS.filter(c=>!c.title_en);}
+function renderScanModal(){
+  const b=$("#scanbox"),m=$("#scanmodal"),close=()=>m.classList.remove("on");
+  const nMiss=SCANCANDS.filter(c=>!c.title_en).length,nAll=SCANCANDS.length;
+  const list=scanList();
+  const rows=list.map(c=>{
+    const status=c.title_en?`<span class="of">${esc(c.title_en)}</span>`
+                           :`<span class="of dim2">— no title yet${c.cover?' · has cover':''}</span>`;
+    const who=c.actress?`<span class="scwho">${esc(c.actress)}</span>`:"";
+    return `<label class="orgrow"><input type="checkbox" class="scchk" data-code="${esc(c.code)}" checked><span class="ot file">${esc(c.code)}</span>${status}${who}</label>`;
+  }).join("")||'<div class="orgrow" style="color:var(--dim2)">Nothing to scan in this scope 🎉</div>';
+  b.innerHTML=`
+    <div class="orghd">Scan library — fetch metadata</div>
+    <div class="seg" id="scSeg" style="margin:10px 0 4px;width:max-content;flex:none">
+      <button data-scope="missing" class="${SCANSCOPE==='missing'?'on':''}">Missing titles (${nMiss})</button>
+      <button data-scope="all" class="${SCANSCOPE==='all'?'on':''}">All movies (${nAll})</button>
+    </div>
+    <div class="orgsub">Fetches English/Japanese titles, covers, dates & tags from web sources (123av, ffjav). Uncheck any to skip. Newest-added first; empty fields only are filled.</div>
+    <div class="orglist" id="scList">${rows}</div>
+    <div class="pactions">
+      <button class="btn pri" id="scGo">Scan <span id="scN">${list.length}</span> selected</button>
+      <button class="btn" id="scWish" title="Fetch titles & covers for ALL wishlist / missing items from javfc2.xyz (no login needed)">🖼 Wishlist covers</button>
+      <button class="btn" id="scCancel">Cancel</button>
+    </div>`;
+  $("#scCancel").onclick=close;
+  $("#scWish").onclick=()=>{
+    fetch("/api/wishlistcovers",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})
+     .then(r=>r.json()).then(j=>{if(j.error){toast(j.error);return;}renderScanProgress(0,"Fetching wishlist covers…");pollScanProgress();})
+     .catch(()=>toast("Could not start"));
+  };
+  $("#scSeg").querySelectorAll("button").forEach(bt=>bt.onclick=()=>{SCANSCOPE=bt.dataset.scope;renderScanModal();});
+  const upd=()=>{$("#scN").textContent=b.querySelectorAll(".scchk:checked").length;};
+  b.querySelectorAll(".scchk").forEach(x=>x.onchange=upd);
+  $("#scGo").onclick=()=>{
+    const codes=[...b.querySelectorAll(".scchk:checked")].map(x=>x.dataset.code);
+    if(!codes.length){toast("Nothing selected");return;}
+    fetch("/api/scanlib",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codes})})
+     .then(r=>r.json()).then(j=>{if(j.error){toast(j.error);return;}renderScanProgress(codes.length);pollScanProgress();})
+     .catch(()=>toast("Could not start scan"));
+  };
+}
+function renderScanProgress(n,label){
+  $("#scanbox").innerHTML=`
+    <div class="orghd">${label||('Scanning '+n+' movies…')}</div>
+    <div class="orgsub" id="scStat">Starting…</div>
+    <div class="scbar"><div class="scbarfill" id="scFill"></div></div>
+    <div class="orgsub" id="scNow" style="font-family:ui-monospace,monospace"></div>
+    <div class="pactions"><button class="btn" id="scHide">Run in background</button></div>`;
+  $("#scHide").onclick=()=>$("#scanmodal").classList.remove("on");
+}
+function pollScanProgress(){
+  clearTimeout(scanPollTimer);
+  fetch("/api/scanprogress").then(r=>r.json()).then(p=>{
+    const b=$("#scanlibbtn"),open=$("#scanmodal").classList.contains("on");
+    if(p.running){
+      b.textContent=p.total?`⟳ ${p.done}/${p.total} (${p.hits}✓)`:`⟳ ${p.code||'working…'}`;b.disabled=true;
+      const st=$("#scStat"),fill=$("#scFill"),now=$("#scNow");
+      if(st&&p.total){st.textContent=`${p.done} / ${p.total} · ${p.hits} updated`;fill.style.width=(100*p.done/p.total)+"%";now.textContent=p.code||"";}
+      else if(st){st.textContent=p.code||"working…";}
+      scanPollTimer=setTimeout(pollScanProgress,1200);
+    }else{
+      b.disabled=false;b.textContent="⟳ Scan library";
+      const st=$("#scStat");
+      if(st){st.textContent=`Done — ${p.hits||0} updated.`;const f=$("#scFill");if(f)f.style.width="100%";
+        const pa=$("#scanbox").querySelector(".pactions");if(pa)pa.innerHTML='<button class="btn pri" id="scDone">Close</button>';
+        const d=$("#scDone");if(d)d.onclick=()=>$("#scanmodal").classList.remove("on");}
+      reloadData();
+    }
+  }).catch(()=>{});
+}
+/* ---------------- settings ---------------- */
+let SET=null, SETTAB="library";
+function post2(url,body,cb){fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})}).then(r=>r.json()).then(cb).catch(()=>toast("Request failed"));}
+function fmtBytes(b){return b>1e9?(b/1e9).toFixed(1)+' GB':b>1e6?(b/1e6).toFixed(0)+' MB':b>1e3?(b/1e3).toFixed(0)+' KB':(b||0)+' B';}
+function openSettings(){
+  const m=$("#setmodal"),b=$("#setbox");m.classList.add("on");
+  b.innerHTML='<div class="orghd">Settings</div><div class="orgsub">Loading…</div>';
+  fetch("/api/settings").then(r=>r.json()).then(j=>{SET=j;renderSettings();})
+    .catch(()=>{b.innerHTML='<div class="orghd">Settings unavailable</div><div class="pactions"><button class="btn" id="setClose">Close</button></div>';$("#setClose").onclick=()=>m.classList.remove("on");});
+}
+function refreshSettings(tab){if(tab)SETTAB=tab;
+  fetch("/api/settings").then(r=>r.json()).then(j=>{SET=j;renderSettings();reloadData&&reloadData();});}
+function renderSettings(){
+  const b=$("#setbox"),close=()=>$("#setmodal").classList.remove("on");
+  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"]];
+  b.innerHTML=`<div class="orghd">Settings</div>
+    <div class="settabs">${tabs.map(([t,l])=>`<div class="settab${SETTAB===t?' on':''}" data-t="${t}">${l}</div>`).join("")}</div>
+    <div class="setpane" id="setpane"></div>
+    <div class="pactions"><button class="btn" id="setClose">Close</button></div>`;
+  b.querySelectorAll(".settab").forEach(t=>t.onclick=()=>{SETTAB=t.dataset.t;renderSettings();});
+  $("#setClose").onclick=close;
+  const pane=$("#setpane");
+  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources}[SETTAB]||renderSetLibrary)(pane);
+}
+function applyUnits(u){setUnits(u);render();
+  if($("#modal").classList.contains("on")){const c=$("#modal").dataset.code,o=DATA.items.find(x=>x.code===c);if(o)openPlayer(o);}}
+function renderSetLibrary(pane){
+  const c=SET.cache||{};
+  pane.innerHTML=`
+    <div class="setsec">Display</div>
+    <div class="setnote">How body measurements (height, bust/waist/hip) are shown.</div>
+    <div class="seg" id="unitSeg" style="width:max-content;flex:none">
+      <button data-u="metric" class="${UNITS!=='imperial'?'on':''}">Metric (cm)</button>
+      <button data-u="imperial" class="${UNITS==='imperial'?'on':''}">Imperial (in)</button>
+    </div>
+    <div class="setsec">Library source folder</div>
+    <div class="setnote">The folder Vault scans for your movies. Changing it triggers a full re-scan.</div>
+    <div style="display:flex;gap:8px"><input class="setin" id="libPath" style="flex:1" value="${esc(SET.library||'')}"><button class="setbtn" id="libSave">Save &amp; rescan</button></div>
+    <div class="setsec">Download / import folder</div>
+    <div class="setnote">Where new downloads land. The <b>📥 Import</b> button (top bar) renames &amp; cleans this folder, then moves releases into the library — adding new ones and replacing older copies with better versions. Nothing in the library is deleted without your confirmation.</div>
+    <div style="display:flex;gap:8px"><input class="setin" id="dlPath" style="flex:1" value="${esc(SET.download||'')}" placeholder="/path/to/downloads"><button class="setbtn" id="dlSave">Save</button></div>
+    <div class="setsec">Library maintenance</div>
+    <div class="setnote">Tidy the library folder itself: normalize names, quarantine junk, flag duplicates. Rarely needed now that Import handles new files.</div>
+    <button class="setbtn" id="orgOpen">🧹 Organize library…</button>
+    <div class="setsec">Cache</div>
+    <div class="setnote">Cached scan index, video probes and poster thumbnails. Clearing is safe — everything regenerates on the next scan.</div>
+    <div class="setrow"><span class="grow">Scan index</span><span class="cnt">${fmtBytes(c.index)}</span><button class="setbtn danger" data-clear="index">Clear</button></div>
+    <div class="setrow"><span class="grow">Video probes</span><span class="cnt">${fmtBytes(c.probe)}</span><button class="setbtn danger" data-clear="probe">Clear</button></div>
+    <div class="setrow"><span class="grow">Thumbnails (${c.thumbs_n||0})</span><span class="cnt">${fmtBytes(c.thumbs)}</span><button class="setbtn danger" data-clear="thumbs">Clear</button></div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="setbtn danger" id="clearAll">Clear all cache</button>
+      <button class="setbtn" id="rebuild">↻ Rebuild index now</button>
+    </div>`;
+  pane.querySelectorAll("#unitSeg button").forEach(bt=>bt.onclick=()=>{applyUnits(bt.dataset.u);renderSettings();});
+  $("#libSave").onclick=()=>{const p=$("#libPath").value.trim();if(!p)return;
+    post2("/api/setlibrary",{path:p},j=>{if(j.error){toast(j.error);return;}toast("Library set — rescanning…");});};
+  $("#dlSave").onclick=()=>{const p=$("#dlPath").value.trim();if(!p)return;
+    post2("/api/setdownload",{path:p},j=>{if(j.error){toast(j.error);return;}toast("Download folder set");SET.download=p;});};
+  $("#orgOpen").onclick=()=>{$("#setmodal").classList.remove("on");organizeLibrary();};
+  pane.querySelectorAll("[data-clear]").forEach(x=>x.onclick=()=>post2("/api/clearcache",{targets:[x.dataset.clear]},j=>{toast("Cleared "+(j.cleared||[]).join(", ")+" — rebuilding");}));
+  $("#clearAll").onclick=()=>post2("/api/clearcache",{targets:["index","probe","thumbs"]},j=>toast("Cache cleared — rebuilding"));
+  $("#rebuild").onclick=()=>{toast("Rebuilding…");fetch("/api/rescan").then(r=>r.json()).then(j=>{toast("Rebuilt: "+j.count+" items");reloadData();});};
+}
+function renderSetTags(pane){
+  const rows=SET.tags||[];   // [{en, jp, count}]
+  pane.innerHTML=`
+    <input class="setsearch" id="tagQ" placeholder="filter tags…">
+    <div class="setnote">Each tag has an <b>English</b> (left) and <b>Japanese</b> (right) form — either may be blank. Movies show the English; if only Japanese is set, they show the Japanese. Edit a field and press Enter (or click away) to save; renaming an English tag to an existing one <b>merges</b> them.</div>
+    <div class="setrow" style="border:none;font-weight:700;color:var(--dim2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">
+      <span class="grow">English</span><span style="width:150px">Japanese 日本語</span><span class="cnt" style="width:38px;text-align:right">#</span><span style="width:22px"></span></div>
+    <div id="tagList">${rows.map((t,i)=>`<div class="setrow" data-name="${esc(((t.en||'')+' '+(t.jp||'')).toLowerCase())}" data-key="${esc(t.en||t.jp||'')}">
+       <input class="setin grow tgen" value="${esc(t.en||'')}" placeholder="(English)">
+       <input class="setin tgjp" style="width:150px" value="${esc(t.jp||'')}" placeholder="日本語">
+       <span class="cnt" style="width:38px;text-align:right">${t.count||0}</span>
+       <button class="setbtn danger" data-del title="remove tag from all movies">×</button>
+     </div>`).join("")||'<div class="setnote">No tags yet.</div>'}</div>`;
+  $("#tagQ").oninput=e=>{const q=e.target.value.toLowerCase();pane.querySelectorAll("#tagList .setrow").forEach(r=>r.style.display=r.dataset.name.includes(q)?"":"none");};
+  pane.querySelectorAll("#tagList .setrow").forEach((row,idx)=>{
+    const t=rows[idx],key=row.dataset.key,en=row.querySelector(".tgen"),jp=row.querySelector(".tgjp");
+    const save=()=>{const ne=en.value.trim(),nj=jp.value.trim();
+      if(ne===(t.en||'')&&nj===(t.jp||''))return;
+      post2("/api/tagedit",{key,en:ne,jp:nj},j=>{if(j.error){toast(j.error);en.value=t.en||'';return;}toast("Saved");refreshSettings("tags");});};
+    [en,jp].forEach(inp=>{inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();inp.blur();}};inp.onblur=save;});
+    row.querySelector("[data-del]").onclick=()=>{
+      if(!confirm(`Remove tag "${t.en||t.jp}" from all movies? (movies are not deleted)`))return;
+      post2("/api/tagdelete",{tag:key},j=>{toast("Removed "+(j.removed||0));refreshSettings("tags");});
+    };
+  });
+}
+function renderSetActresses(pane){
+  const byId={};SET.actresses.forEach(a=>byId[a.id]=a);
+  pane.innerHTML=`
+    <input class="setsearch" id="actQ" placeholder="filter actresses…">
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
+      <button class="setbtn" id="findDupes">🔍 Find duplicates</button>
+      <button class="setbtn" id="mergeSel">Merge ticked →</button>
+      <span class="setnote" style="margin:0">tick 2+ rows then Merge (the one with most owned titles is kept)</span></div>
+    <div id="actList">${SET.actresses.map(a=>`<div class="setrow" data-name="${esc(((a.name_en||'')+' '+(a.name_jp||'')).toLowerCase())}">
+       <input type="checkbox" class="actsel" data-id="${a.id}">
+       <input class="setin grow" value="${esc(a.name_en||'')}" data-id="${a.id}" placeholder="(no romaji)">
+       <input class="setin" style="width:120px" value="${esc(a.name_jp||'')}" data-jp placeholder="日本語">
+       <span class="cnt" title="owned / total">${a.owned||0}/${a.total||0}</span>
+       <button class="setbtn" data-arename="${a.id}">Save</button>
+     </div>`).join("")}</div>`;
+  $("#actQ").oninput=e=>{const q=e.target.value.toLowerCase();pane.querySelectorAll("#actList .setrow").forEach(r=>r.style.display=r.dataset.name.includes(q)?"":"none");};
+  pane.querySelectorAll("[data-arename]").forEach(btn=>btn.onclick=()=>{
+    const row=btn.closest(".setrow"),id=btn.dataset.arename;
+    post2("/api/actressrename",{id,name_en:row.querySelector("[data-id]").value.trim(),name_jp:row.querySelector("[data-jp]").value.trim()},
+      j=>{if(j.error){toast(j.error);return;}toast("Saved");refreshSettings("actresses");});
+  });
+  $("#mergeSel").onclick=()=>{
+    const ids=[...pane.querySelectorAll(".actsel:checked")].map(x=>+x.dataset.id);
+    if(ids.length<2){toast("Tick at least 2 rows");return;}
+    const target=ids.slice().sort((x,y)=>(byId[y].owned||0)-(byId[x].owned||0)||(byId[y].total||0)-(byId[x].total||0))[0];
+    const sources=ids.filter(i=>i!==target),tn=byId[target].name_en||byId[target].name_jp||('#'+target);
+    if(!confirm(`Merge ${sources.length} record(s) into "${tn}"? Their titles, aliases and info fold in; the duplicates are removed. No movie is deleted.`))return;
+    post2("/api/actressmerge",{target,sources},j=>{toast("Merged into "+tn);refreshSettings("actresses");});
+  };
+  $("#findDupes").onclick=()=>{toast("Scanning…");
+    post2("/api/dedupe",{},j=>{
+      const g=j.groups||[];
+      if(!g.length){toast("No duplicate records found 🎉");return;}
+      const lines=g.map(x=>x.rows.map(r=>r.name_en||r.name_jp||('#'+r.id)).join("  =  ")).join("\n");
+      if(confirm(`Found ${g.length} duplicate group(s):\n\n${lines}\n\nMerge all automatically? (keeps the owned record, folds the rest in)`))
+        post2("/api/dedupe",{apply:true,groups:g},res=>{toast(`Merged ${res.merged} group(s)`);refreshSettings("actresses");});
+    });
+  };
+}
+function renderSetSources(pane){
+  const src=(SET.sources||[]).map(s=>Object.assign({},s));
+  const db=SET.fc2db||{};
+  pane.innerHTML=`
+    <div class="setsec">fc2ppv-db.com — premium source ${db.connected?'<span style="color:var(--good)">● connected</span>':'<span style="color:var(--dim2)">○ not connected</span>'}</div>
+    <div class="setnote">Richest source (actress + face + aliases, JP title, dates, tags). It's behind a human-check, so the server rides <b>your</b> logged-in session: log in at <a href="https://fc2ppv-db.com/en/login" target="_blank" rel="noopener">fc2ppv-db.com</a> in a browser <b>on this machine</b>, then paste the cookie + user-agent below. Stored ${db.encrypted?'in the macOS Keychain (encrypted)':'in a local 0600 file'}.</div>
+    <textarea class="setin" id="fcCookie" style="width:100%;height:52px;box-sizing:border-box;font-family:ui-monospace,monospace;font-size:11px" placeholder="Cookie header — DevTools → Network → any fc2ppv-db request → Request Headers → cookie (includes cf_clearance + session)"></textarea>
+    <input class="setin" id="fcUA" style="width:100%;margin-top:6px;box-sizing:border-box;font-size:11px" placeholder="User-Agent — DevTools console: navigator.userAgent">
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="setbtn" id="fcSave">Save session</button>
+      <button class="setbtn" id="fcTest">Test connection</button>
+      ${db.connected?'<button class="setbtn" id="fcScanMiss">Scan missing →</button><button class="setbtn" id="fcScanAll">Scan all →</button>':''}
+    </div>
+    <div class="setnote" id="fcResult" style="margin-top:6px"></div>
+    <div class="setsec">Other sources</div>
+    <div class="setnote">Shell scrapers wired into the scanner. Toggle any on/off.</div>
+    <div id="srcList">${src.map((s,i)=>`<div class="setrow">
+       <input type="checkbox" class="srcen" data-i="${i}" ${s.enabled?'checked':''} title="enabled">
+       <div class="grow"><b>${esc(s.name)}</b><div class="cnt" style="white-space:normal;margin-top:2px">${esc(s.url||'')}${s.provides?' — '+esc(s.provides):''}</div></div>
+     </div>`).join("")}</div>
+    <div style="margin-top:12px"><button class="setbtn" id="srcSave">Save on/off changes</button></div>`;
+  const collect=()=>src.map((s,i)=>{const c=pane.querySelector(`.srcen[data-i="${i}"]`);return Object.assign({},s,{enabled:c?c.checked:s.enabled});});
+  $("#srcSave").onclick=()=>post2("/api/sourcesave",{sources:collect()},j=>{toast("Saved");refreshSettings("sources");});
+  $("#fcSave").onclick=()=>{const cookie=$("#fcCookie").value.trim(),ua=$("#fcUA").value.trim();
+    if(!cookie){toast("Paste the cookie header");return;}
+    post2("/api/fc2db/save",{cookie,ua},j=>{toast(j.ok?"Session saved"+(j.encrypted?" (Keychain)":""):"Save failed");refreshSettings("sources");});};
+  $("#fcTest").onclick=()=>{$("#fcResult").textContent="Testing…";
+    post2("/api/fc2db/test",{},j=>{
+      if(j.error){$("#fcResult").innerHTML='<span style="color:var(--accent)">'+esc(j.error)+'</span>';return;}
+      const d=j.data||{};
+      $("#fcResult").innerHTML=(j.ok?'<span style="color:var(--good)">✓ '+esc(j.note)+'</span>':'<span style="color:var(--warn)">⚠ '+esc(j.note)+'</span>')
+        +(d.title_jp?'<br>sample: '+esc(d.title_jp.slice(0,60))+(d.actresses&&d.actresses.length?' · 👤 '+esc((d.actresses[0].name||'')):''):'');
+    });};
+  const startFc=scope=>post2("/api/fc2db/scan",{scope},j=>{if(j.error){toast(j.error);return;}toast("Scanning "+j.count+" from fc2ppv-db…");$("#setmodal").classList.remove("on");pollScanProgress();});
+  if($("#fcScanMiss"))$("#fcScanMiss").onclick=()=>startFc("missing");
+  if($("#fcScanAll"))$("#fcScanAll").onclick=()=>startFc("all");
+}
+function reloadData(done){
+  fetch("/api/data").then(r=>r.json()).then(d=>{
+    DATA=d;META={};ACTBYID={};ACTBYNAME={};
+    DATA.items.forEach(it=>{it._rnd=Math.random();if(it.dur||it.h)META[it.code]={duration:it.dur,width:it.w,height:it.h,vcodec:it.vcodec};});
+    DATA.actresses.forEach(a=>{if(a.id)ACTBYID[a.id]=a;if(a.name_en)ACTBYNAME[a.name_en.toLowerCase()]=a;});
+    render();
+    if(typeof done==="function")done();
+  });
+}
+function resetFilters(){
+  F.q="";F.ident="all";F.showMissing=false;F.actress="";F.studio="";F.cups.clear();F.res.clear();F.tags.clear();
+  F.ageMin=0;F.ageMax=99;F.durMin=0;F.durMax=999;F.hd=false;F.parts=false;F.watch="all";F.favonly=false;F.censOnly=false;
+  F.sort="mtime";
+  $("#q").value="";$("#sort").value="mtime";
+  buildSidebar();
+  toast("Filters reset");render();
+}
+
+/* ---------------- filtering ---------------- */
+function filtered(){
+  const q=F.q.toLowerCase().trim();
+  return DATA.items.filter(it=>{
+    if(!F.showMissing&&it.missing)return false;   // global wishlist toggle
+    if(F.censOnly&&it.uncensored!==false)return false;   // censored-only
+    if(F.ident==="yes"&&!it.identified)return false;
+    if(F.ident==="no"&&it.identified)return false;
+    if(F.actress&&F.actress!=="all"){const a=F.actress.toLowerCase();
+      if((it.actress||"").toLowerCase()!==a && (it.actress_jp||"").toLowerCase()!==a
+         && !(it.actress||"").toLowerCase().includes(a)
+         && !(it.aka||"").toLowerCase().includes(a))return false;}
+    if(F.studio&&it.producer!==F.studio)return false;
+    if(F.favonly&&!STORE.fav.has(it.code))return false;
+    if(F.watch==="un"&&STORE.seen.has(it.code))return false;
+    if(F.watch==="seen"&&!STORE.seen.has(it.code))return false;
+    if(F.fmt!=="all"&&it.ext!==F.fmt)return false;
+    if(F.cups.size&&!F.cups.has(it.cup))return false;
+    if(F.parts&&it.nparts<2)return false;
+    if(F.res.size){const b=resBucket(it.h);if(!F.res.has(b))return false;}
+    if(F.durMin>0||F.durMax<999){const d=(it.dur||0)/60;if(!it.dur)return false;if(d<F.durMin||d>F.durMax)return false;}
+    if(F.hd){if(!it.h||it.h<720)return false;}
+    if(F.ageMin>0&&(!it.age||it.age<F.ageMin))return false;
+    if(F.ageMax<99&&(!it.age||it.age>F.ageMax))return false;
+    if(F.tags.size){const t=new Set(it.tags||[]);for(const x of F.tags)if(!t.has(x))return false;}
+    if(q){
+      const hay=(it.actress+" "+it.actress_jp+" "+(it.aka||"")+" "+it.code+" "+it.title+" "+(it.title_en||"")+" "+(it.tags||[]).join(" ")).toLowerCase();
+      if(!hay.includes(q))return false;
+    }
+    return true;
+  });
+}
+function sortItems(arr){
+  const s=F.sort;
+  const dur=c=>(META[c]&&META[c].duration)||0;
+  const cmp={
+    mtime:(a,b)=>((b.added||b.mtime)-(a.added||a.mtime))||(b.mtime-a.mtime),
+    release:(a,b)=>(b.release||"").localeCompare(a.release||""),
+    size:(a,b)=>b.size-a.size,
+    dur:(a,b)=>dur(b.code)-dur(a.code),
+    rating:(a,b)=>((STORE.rating[b.code]||0)-(STORE.rating[a.code]||0))||b.mtime-a.mtime,
+    fav:(a,b)=>(b.fav||0)-(a.fav||0),
+    actress:(a,b)=>(a.actress||"~").toLowerCase().localeCompare((b.actress||"~").toLowerCase()),
+    code:(a,b)=>a.code.localeCompare(b.code),
+    shuffle:(a,b)=>a._rnd-b._rnd,
+  }[s];
+  return arr.sort(cmp);
+}
+
+/* ---------------- render ---------------- */
+let io=null;      // thumb observer
+/* ---------- progressive rendering ----------
+   The grid used to build a DOM node for every item at once. At 4000+ movies that is
+   ~80k nodes plus an IntersectionObserver per thumb, which iOS Safari kills the tab
+   over. Instead each view hands startChunks() a list of jobs; one job runs now and
+   the rest run as a sentinel at the end of the grid scrolls into view. */
+const CHUNK=120;
+let CHUNKQ=[], chunkIO=null, chunkSentinel=null;
+function resetChunks(){
+  CHUNKQ=[];
+  if(chunkIO){chunkIO.disconnect();chunkIO=null;}
+  if(chunkSentinel){chunkSentinel.remove();chunkSentinel=null;}
+}
+function startChunks(grid,jobs){
+  CHUNKQ=jobs;
+  chunkSentinel=document.createElement("div");
+  chunkSentinel.className="sentinel";
+  chunkSentinel.textContent="loading more…";
+  // Run jobs until we've appended a batch worth of cards. Jobs report how many they
+  // added, so cheap jobs (an actress group header) don't count as a whole batch —
+  // otherwise the by-actress view would trickle in one header per scroll.
+  const pump=()=>{
+    let cards=0,steps=0;
+    while(CHUNKQ.length&&cards<CHUNK&&steps<40){cards+=(CHUNKQ.shift()()||0);steps++;}
+    if(F.view!=="list")wireThumbs();
+    paintSel();
+    if(!CHUNKQ.length){
+      if(chunkIO){chunkIO.disconnect();chunkIO=null;}
+      if(chunkSentinel){chunkSentinel.remove();chunkSentinel=null;}
+      return;
+    }
+    // re-observe so the callback fires again while the sentinel is still on screen
+    if(chunkSentinel&&chunkIO){
+      chunkIO.unobserve(chunkSentinel);
+      grid.appendChild(chunkSentinel);
+      chunkIO.observe(chunkSentinel);
+    }
+  };
+  chunkIO=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)pump();});},
+                                   {root:$("#main"),rootMargin:"800px"});
+  pump();
+}
+function gridJobs(items,grid){
+  const jobs=[];
+  for(let i=0;i<items.length;i+=CHUNK){
+    const slice=items.slice(i,i+CHUNK);
+    jobs.push(()=>{const f=document.createDocumentFragment();
+                   slice.forEach(it=>f.appendChild(card(it)));
+                   grid.appendChild(f);return slice.length;});
+  }
+  return jobs;
+}
+function render(){
+  let items=sortItems(filtered());
+  // when searching, surface items whose ACTRESS matches the query above incidental
+  // title/code substring hits — so "search a name + show missing" clusters her owned
+  // AND wishlist together at the top, the way filtering by actress does.
+  if(F.q){const q=F.q.toLowerCase().trim();
+    const hit=it=>((it.actress||"")+" "+(it.actress_jp||"")+" "+(it.aka||"")).toLowerCase().includes(q);
+    items=[...items.filter(hit),...items.filter(it=>!hit(it))];}
+  const nMiss=items.filter(i=>i.missing).length;
+  SELORDER=items.map(i=>i.code);                 // display order for shift-range selection
+  $("#stat").innerHTML=`<b>${items.length}</b> of ${DATA.facets.total}${nMiss?` <span style="color:var(--warn)">(${nMiss}◇)</span>`:''} · <b>${fmtSize(items.reduce((s,i)=>s+i.size,0))}</b>`;
+  const grid=$("#grid");
+  $("#colbtn").style.display=F.view==="list"?"":"none";
+  if(F.view!=="list")$("#colmenu").classList.remove("on");
+  grid.className=F.view==="list"?"listwrap":"grid";
+  resetChunks();resetThumbs();
+  grid.innerHTML="";
+  if(!items.length){grid.innerHTML='<div class="empty">No matches. Loosen the filters.</div>';return;}
+  if(F.view==="actress")renderByActress(items,grid);
+  else if(F.view==="list")renderList(items,grid);
+  else startChunks(grid,gridJobs(items,grid));
+}
+function renderList(items,grid){
+  const cols=COLS.filter(c=>F.cols.includes(c.k));
+  const th=cols.map(c=>`<th>${c.label}</th>`).join("");
+  grid.innerHTML=`<table class="ltab"><thead><tr>${th}</tr></thead><tbody></tbody></table>`;
+  const tb=grid.querySelector("tbody");
+  // one delegated listener instead of one per row
+  tb.onclick=e=>{
+    if(e.target.closest(".stars"))return;   // let star clicks rate, not open
+    const r=e.target.closest(".lrow");if(!r)return;
+    const o=DATA.items.find(x=>x.code===r.dataset.code);if(o)handleItemClick(o,e);};
+  const rowHTML=it=>`<tr class="lrow${it.missing?' lmiss':''}" data-code="${esc(it.code)}">${
+    cols.map(c=>`<td class="col-${c.k}">${c.html?c.html(it):esc(c.get(it))}</td>`).join("")}</tr>`;
+  const jobs=[];
+  for(let i=0;i<items.length;i+=CHUNK){
+    const slice=items.slice(i,i+CHUNK);
+    jobs.push(()=>{tb.insertAdjacentHTML("beforeend",slice.map(rowHTML).join(""));
+                   if(F.cols.includes("rating"))bindStars(grid);return slice.length;});
+  }
+  startChunks(grid,jobs);
+}
+function buildColMenu(){
+  const menu=$("#colmenu");
+  menu.innerHTML=COLS.map(c=>`<label><input type="checkbox" data-col="${c.k}" ${F.cols.includes(c.k)?'checked':''}> ${c.label||'Poster'}</label>`).join("");
+  menu.querySelectorAll("input").forEach(chk=>chk.onchange=()=>{
+    const k=chk.dataset.col;
+    F.cols=COLS.map(c=>c.k).filter(x=>x===k?chk.checked:F.cols.includes(x));
+    try{localStorage.setItem("vault_cols",JSON.stringify(F.cols));}catch(e){}
+    render();});
+}
+function renderByActress(items,grid){
+  const groups=new Map();
+  items.forEach(it=>{const k=it.actress||"~ Unknown / amateur";if(!groups.has(k))groups.set(k,[]);groups.get(k).push(it);});
+  const ordered=[...groups.entries()].sort((a,b)=>{
+    if(a[0].startsWith("~"))return 1;if(b[0].startsWith("~"))return -1;
+    return b[1].length-a[1].length;});
+  const aById=new Map();DATA.actresses.forEach(a=>{if(a.name_en)aById.set(a.name_en,a);});
+  GROUPITEMS=new Map(ordered);
+  const jobs=[];
+  ordered.forEach(([name,arr])=>{
+    jobs.push(()=>{grid.appendChild(actressHeader(name,arr,aById));return 0;});
+    if(ACOLLAPSED.has(name))return;          // collapsed: build no cards at all
+    for(let i=0;i<arr.length;i+=CHUNK){
+      const slice=arr.slice(i,i+CHUNK);
+      jobs.push(()=>{const f=document.createDocumentFragment();
+        slice.forEach(it=>{const c=card(it);c.dataset.agroup=name;f.appendChild(c);});
+        grid.appendChild(f);return slice.length;});
+    }
+  });
+  startChunks(grid,jobs);
+}
+function actressHeader(name,arr,aById){
+  const a=aById.get(name);const it0=arr[0];
+  const firstOwned=arr.find(x=>!x.missing);
+  const owned=arr.filter(x=>!x.missing).length,miss=arr.filter(x=>x.missing).length;
+  const collapsed=ACOLLAPSED.has(name);
+  const h=document.createElement("div");h.className="group-h"+(collapsed?" collapsed":"");
+  h.dataset.agroup=name;
+  const pf=(a&&a.has_portrait&&a.id)
+    ? `<img class="pf" src="/portrait/${a.id}.jpg">`
+    : (firstOwned?`<img class="pf" loading="lazy" src="/thumb/${encodeURIComponent(firstOwned.code)}.jpg" style="object-position:center 25%">`
+    : `<div class="pf"></div>`);
+  const sub=[a&&a.age?a.age+"y":"",a&&a.cup?a.cup+" cup":"",a&&a.height?fmtHeight(a.height):""].filter(Boolean).join(" · ");
+  const dsc=(a&&a.description)?`<div class="desc">${esc(a.description)}</div>`:"";
+  const cnt=`${owned} owned${miss?` · <span style="color:var(--warn)">${miss} wishlist</span>`:''}`;
+  h.innerHTML=`<span class="gcar">▾</span>${pf}<div><div class="nm">${esc(name.replace(/^~ /,''))}${it0.actress_jp?` <span class="sub">${esc(it0.actress_jp)}</span>`:''}</div><div class="sub">${cnt}${sub?' · '+sub:''}</div>${dsc}</div>`;
+  h.onclick=()=>toggleActressGroup(name,h);
+  // clicking the icon or name opens the actress overview instead of collapsing
+  const openA=e=>{e.stopPropagation();openActressModal(name);};
+  const pfEl=h.querySelector(".pf"),nmEl=h.querySelector(".nm");
+  if(pfEl)pfEl.onclick=openA;if(nmEl)nmEl.onclick=openA;
+  return h;
+}
+let ACOLLAPSED=(()=>{try{return new Set(JSON.parse(localStorage.getItem("vault_actress_collapsed")||"[]"))}catch(e){return new Set()}})();
+let GROUPITEMS=new Map();                    // actress -> her items, for lazy expand
+function toggleActressGroup(name,h){
+  const now=!ACOLLAPSED.has(name);
+  if(now)ACOLLAPSED.add(name);else ACOLLAPSED.delete(name);
+  try{localStorage.setItem("vault_actress_collapsed",JSON.stringify([...ACOLLAPSED]));}catch(e){}
+  h.classList.toggle("collapsed",now);
+  const grid=h.parentElement;
+  const mine=[...grid.querySelectorAll(".card")].filter(c=>c.dataset.agroup===name);
+  if(!now&&!mine.length){                    // expanding a group whose cards were never built
+    const arr=GROUPITEMS.get(name)||[];
+    const f=document.createDocumentFragment();
+    arr.forEach(it=>{const c=card(it);c.dataset.agroup=name;f.appendChild(c);});
+    h.after(f);wireThumbs();paintSel();
+    return;
+  }
+  mine.forEach(c=>c.style.display=now?"none":"");
+}
+function openActressModal(name){
+  const clean=name.replace(/^~ /,'');
+  const arr=DATA.items.filter(it=>(it.actress||"~ Unknown / amateur")===name);
+  const a=DATA.actresses.find(x=>x.name_en===name)||ACTBYNAME[clean.toLowerCase()]||null;
+  const it0=arr[0]||{};
+  const byDate=(p,q)=>(q.release||"").localeCompare(p.release||"");
+  const owned=arr.filter(x=>!x.missing).sort(byDate);
+  const miss=arr.filter(x=>x.missing).sort(byDate);
+  const jp=(a&&a.name_jp)||it0.actress_jp||"";
+  const firstOwned=owned[0];
+  const pf=(a&&a.has_portrait&&a.id)?`<img class="apf" src="/portrait/${a.id}.jpg">`
+    :(firstOwned?`<img class="apf" src="/thumb/${encodeURIComponent(firstOwned.code)}.jpg" style="object-position:center 25%">`
+    :`<div class="apf blank">☺</div>`);
+  const meas=(a&&a.bust&&a.waist&&a.hip)?`${fmtMeas(a.bust)} – ${fmtMeas(a.waist)} – ${fmtMeas(a.hip)}`:"";
+  const stat=[a&&a.age?`Age ${a.age}`:"",a&&a.cup?`${esc(a.cup)} cup`:"",a&&a.height?fmtHeight(a.height):"",meas?`B·W·H ${meas}`:""].filter(Boolean).join(" · ");
+  const aka=(it0.aka||"").trim();
+  const desc=(a&&a.description)?`<div class="adesc">${esc(a.description)}</div>`:"";
+  const row=(it,ghost)=>{
+    const thumb=ghost
+      ?(it.cover?`<img class="relimg" loading="lazy" referrerpolicy="no-referrer" src="${esc(it.cover)}" onerror="this.outerHTML='<div class=\\'relimg gimg\\'>◇</div>'">`:`<div class="relimg gimg">◇</div>`)
+      :`<img class="relimg" loading="lazy" src="/thumb/${encodeURIComponent(it.code)}.jpg">`;
+    const rd=ghost?`<span class="rd"><span style="color:var(--warn)">missing → search</span> · ${esc(it.release||'—')}</span>`
+                  :`<span class="rd">${esc(it.release||'—')}${it.nparts>1?` · ${it.nparts}p`:''}</span>`;
+    return `<div class="rel${ghost?' grel':''}" data-code="${esc(it.code)}" data-ghost="${ghost?1:0}">${thumb}<div class="rt"><div class="rc">${esc(it.code.replace(/^FC2-PPV-/,'PPV '))}</div>${rd}</div></div>`;
+  };
+  const b=$("#abox");
+  b.innerHTML=`
+    <div class="ahead">
+      ${pf}
+      <div style="min-width:0">
+        <div class="anm">${esc(clean)}</div>
+        ${jp?`<div class="ajp">${esc(jp)}</div>`:''}
+        ${stat?`<div class="astat">${stat}</div>`:''}
+        ${aka?`<div class="aalias">a.k.a. ${esc(aka)}</div>`:''}
+        ${desc}
+      </div>
+      <span class="aclose" title="Close (Esc)">×</span>
+    </div>
+    <div class="abody">
+      <h4 class="asec">Owned · ${owned.length}</h4>
+      <div class="amovies">${owned.map(it=>row(it,false)).join("")||'<span class="stat">none owned</span>'}</div>
+      <h4 class="asec">Missing / wishlist · <span class="warnc">${miss.length}</span> <span style="text-transform:none;color:var(--dim2)">— click to search on sukebei</span></h4>
+      <div class="amovies">${miss.map(it=>row(it,true)).join("")||'<span class="stat">nothing missing 🎉</span>'}</div>
+    </div>`;
+  $("#amodal").classList.add("on");
+  b.querySelector(".aclose").onclick=()=>$("#amodal").classList.remove("on");
+  b.querySelectorAll(".rel").forEach(r=>r.onclick=()=>{
+    const code=r.dataset.code;
+    if(r.dataset.ghost==="1"){
+      sukebei(code);                                     // wishlist item -> search on sukebei
+    }else{
+      const o=DATA.items.find(x=>x.code===code);
+      if(o){$("#amodal").classList.remove("on");openPlayer(o);}
+    }
+  });
+}
+function ghostCard(it,el){
+  el.classList.add("ghost");
+  const isfav=STORE.fav.has(it.code);
+  const tags=(it.tags||[]).slice(0,3).map(t=>`<span>${esc(t)}</span>`).join("");
+  el.innerHTML=`
+   <button class="fav${isfav?' on':''}" title="Add to wishlist">♥</button>
+   <div class="gthumb">${it.cover?`<img class="gcover" src="${esc(it.cover)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:''}<span class="gwant">◇ WISHLIST</span>${it.cover?'':`<div class="gcode">${esc(it.code)}</div>`}</div>
+   <div class="meta">
+     <div class="a">${esc(it.actress||it.code)}</div>
+     <div class="c">${esc(it.code)}${it.release?" · "+esc(it.release):""}</div>
+     ${tags?`<div class="tags">${tags}</div>`:''}
+     <div style="display:flex;gap:6px;margin-top:6px"><span class="pill miss">missing</span>${it.fav?`<span class="pill">★${it.fav}</span>`:''}${it.producer?`<span class="pill">${esc(it.producer.slice(0,14))}</span>`:''}</div>
+   </div>`;
+  el.onclick=()=>openPlayer(it);
+  el.querySelector(".fav").onclick=(e)=>{e.stopPropagation();toggleFav(it.code,e.target);
+    if(F.favonly&&!STORE.fav.has(it.code))render();};
+  return el;
+}
+function card(it){
+  const el=document.createElement("div");el.className="card";el.dataset.code=it.code;
+  if(it.missing)return ghostCard(it,el);
+  const parts=it.nparts>1?`<span class="bdg parts">${it.nparts}×</span>`:"";
+  const nm=it.identified?esc(it.actress):esc(it.code);
+  const codeline=it.identified?esc(it.code)+(it.actress_jp?" · "+esc(it.actress_jp):""):esc(it.ext.toUpperCase()+" · "+fmtSize(it.size));
+  const tags=(it.tags||[]).slice(0,3).map(t=>`<span>${esc(t)}</span>`).join("");
+  const isfav=STORE.fav.has(it.code),seen=STORE.seen.has(it.code);
+  el.innerHTML=`
+   <button class="fav${isfav?' on':''}" title="Favorite">♥</button>
+   <button class="mark${seen?' on':''}" title="Played / mark unplayed">✓</button>
+   <div class="thumb" data-code="${esc(it.code)}">
+     <div class="ph">loading…</div>
+     <div class="badges">${parts}<span class="bdg hd" style="display:none"></span><span class="bdg dur" style="display:none"></span></div>
+     <div class="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+   </div>
+   <div class="meta">
+     <div class="a ${it.identified?'':'unk'}">${nm}</div>
+     <div class="c">${codeline}</div>
+     ${it.title_en?`<div class="ctitle">${esc(it.title_en)}</div>`:''}
+     ${tags?`<div class="tags">${tags}</div>`:''}
+     <div style="display:flex;gap:6px;margin-top:6px">${it.dup?'<span class="pill dup">⧉ dup</span>':''}${STORE.rating[it.code]?`<span class="pill rated">${'★'.repeat(STORE.rating[it.code])}</span>`:''}<span class="pill">${fmtSize(it.size)}</span>${it.fav?`<span class="pill">♥${it.fav}</span>`:''}${it.age?`<span class="pill">${it.age}y</span>`:''}${it.cup?`<span class="pill">${esc(it.cup)}</span>`:''}</div>
+   </div>`;
+  el.onclick=(e)=>handleItemClick(it,e);
+  el.querySelector(".fav").onclick=(e)=>{e.stopPropagation();toggleFav(it.code,e.target);};
+  el.querySelector(".mark").onclick=(e)=>{e.stopPropagation();toggleSeen(it.code,e.target);};
+  return el;
+}
+
+/* -------- multi-select (shift/⌘-click) -> bulk assign actress -------- */
+let SEL=new Set(), SELORDER=[], SELANCHOR=null;
+function handleItemClick(it,e){
+  if(it.missing){openPlayer(it);return;}           // wishlist ghosts: just open
+  if(e.shiftKey){e.preventDefault();selectRange(it.code);return;}
+  if(e.metaKey||e.ctrlKey){e.preventDefault();toggleSel(it.code);return;}
+  if(SEL.size)clearSel();
+  openPlayer(it);
+}
+function toggleSel(code){SEL.has(code)?SEL.delete(code):SEL.add(code);SELANCHOR=code;paintSel();}
+function selectRange(code){
+  const a=SELORDER.indexOf(SELANCHOR),b=SELORDER.indexOf(code);
+  if(SELANCHOR&&a>=0&&b>=0){const[lo,hi]=a<b?[a,b]:[b,a];
+    for(let i=lo;i<=hi;i++){const it=DATA.items.find(x=>x.code===SELORDER[i]);if(it&&!it.missing)SEL.add(SELORDER[i]);}}
+  else{SEL.add(code);}
+  SELANCHOR=code;paintSel();
+}
+function clearSel(){SEL.clear();SELANCHOR=null;paintSel();}
+function paintSel(){
+  document.querySelectorAll('.card,.lrow').forEach(el=>el.classList.toggle('selected',SEL.has(el.dataset.code)));
+  renderBulkBar();
+}
+function renderBulkBar(){
+  let bar=$("#bulkbar");
+  if(!SEL.size){if(bar)bar.remove();return;}
+  if(!bar){
+    bar=document.createElement("div");bar.id="bulkbar";bar.className="bulkbar";
+    bar.innerHTML=`<span class="bcount"></span>
+      <input class="bulk-in" id="bulkAct" list="actressList" placeholder="assign actress (name)…" autocomplete="off">
+      <button class="btn pri" id="bulkApply">Assign actress</button>
+      <button class="btn" id="bulkClear">Clear</button>`;
+    document.body.appendChild(bar);
+    $("#bulkAct").onkeydown=e=>{if(e.key==="Enter")$("#bulkApply").click();if(e.key==="Escape")clearSel();};
+    $("#bulkClear").onclick=clearSel;
+    $("#bulkApply").onclick=()=>{
+      const name=$("#bulkAct").value.trim();if(!name){toast("Enter an actress name");return;}
+      const codes=[...SEL],ab=$("#bulkApply");ab.disabled=true;ab.textContent="Saving…";
+      post2("/api/bulkactress",{codes,name_en:name},j=>{
+        if(j.error){toast(j.error);ab.disabled=false;ab.textContent="Assign actress";return;}
+        const set=new Set(codes);
+        DATA.items.forEach(x=>{if(set.has(x.code)){x.actress=j.actress;x.actress_en=j.name_en;x.actress_jp=j.name_jp;
+          x.actress_id=j.actress_id;x.identified=!!j.actress;x.age=j.age;x.cup=j.cup;x.height=j.height;x.bust=j.bust;x.waist=j.waist;x.hip=j.hip;}});
+        toast(`Assigned ${j.actress} to ${j.count} movie${j.count>1?'s':''}`);
+        clearSel();render();
+      });
+    };
+    setTimeout(()=>{const i=$("#bulkAct");if(i)i.focus();},0);
+  }
+  bar.querySelector(".bcount").textContent=`${SEL.size} selected`;
+}
+
+/* -------- lazy thumbnails + meta batching -------- */
+/* The observer is built once and reused. render() calls resetThumbs() to drop stale
+   targets; each appended chunk calls wireThumbs(), which observes only new thumbs
+   (previously this re-observed every thumb in the grid on every single call). */
+const THPEND=new Set();
+let thTimer=null;
+function flushMeta(){
+  if(!THPEND.size)return;
+  const codes=[...THPEND].slice(0,60);THPEND.clear();
+  fetch("/api/meta?codes="+encodeURIComponent(codes.join(","))).then(r=>r.json()).then(m=>{
+    Object.assign(META,m);
+    codes.forEach(c=>applyMeta(c));
+  }).catch(()=>{});
+}
+function resetThumbs(){if(io){io.disconnect();io=null;}}
+function wireThumbs(){
+  if(!io){
+    io=new IntersectionObserver((es)=>{
+      es.forEach(e=>{
+        if(!e.isIntersecting)return;
+        const t=e.target,code=t.dataset.code;
+        io.unobserve(t);
+        const img=new Image();
+        img.onload=()=>{t.innerHTML="";
+          img.style.width="100%";img.style.height="100%";img.style.objectFit="cover";
+          t.appendChild(img);t.appendChild(badgeEl(code));t.appendChild(playEl());applyMeta(code);};
+        img.onerror=()=>{t.querySelector(".ph")&&(t.querySelector(".ph").textContent="no preview");};
+        img.src="/thumb/"+encodeURIComponent(code)+".jpg";
+        if(META[code]===undefined){THPEND.add(code);clearTimeout(thTimer);thTimer=setTimeout(flushMeta,120);}
+      });
+    },{root:$("#main"),rootMargin:"400px"});
+  }
+  $$(".thumb:not([data-obs])").forEach(t=>{t.dataset.obs="1";io.observe(t);});
+}
+function badgeEl(code){const it=DATA.items.find(x=>x.code===code);const d=document.createElement("div");d.className="badges";
+  const parts=it&&it.nparts>1?`<span class="bdg parts">${it.nparts}×</span>`:"";
+  d.innerHTML=`${parts}<span class="bdg hd" style="display:none"></span><span class="bdg dur" style="display:none"></span>`;return d;}
+function playEl(){const d=document.createElement("div");d.className="play";d.innerHTML='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';return d;}
+function applyMeta(code){
+  const m=META[code];if(!m)return;
+  $$(`.thumb[data-code="${cssEsc(code)}"]`).forEach(t=>{
+    const dur=t.querySelector(".bdg.dur"),hd=t.querySelector(".bdg.hd");
+    if(dur&&m.duration){dur.textContent=fmtDur(m.duration);dur.style.display="";}
+    if(hd&&m.height){const b=m.height>=1800?"4K":m.height>=1080?"1080p":m.height>=700?"720p":"";
+      if(b){hd.textContent=b;hd.style.display="";}}
+  });
+}
+const cssEsc=s=>s.replace(/["\\]/g,"\\$&");
+
+/* ---------------- player modal (3-column) ---------------- */
+function relatedTo(it){
+  let rel;
+  if(it.actress_id) rel=DATA.items.filter(o=>o.actress_id===it.actress_id);
+  else if(it.actress) rel=DATA.items.filter(o=>o.actress&&o.actress===it.actress);
+  else if(it.producer) rel=DATA.items.filter(o=>o.producer===it.producer);
+  else rel=[it];
+  // STABLE order — always by release date (newest first), independent of what's playing
+  return rel.slice().sort((a,b)=>(b.release||"").localeCompare(a.release||"")||(b.mtime||0)-(a.mtime||0));
+}
+function partsHTML(it){        // part rows nested under the current row in the left list
+  const parts=it.parts||[];
+  if(parts.length<2)return "";
+  return `<div class="parts">`+parts.map((pp,i)=>`<div class="prt child${i===0?' cur':''}" data-part="${i}">
+     <span class="ptree">└</span>
+     <div class="rt"><div class="rc">Part ${i+1}${i===0?' <span class="mainlbl">main</span>':''}</div>
+       <div class="rd"><span>${fmtSize(pp.size)}</span></div></div></div>`).join("")+`</div>`;
+}
+function relColHTML(it){
+  const rel=relatedTo(it);
+  const label=(it.actress_id||it.actress)?"Filmography":(it.producer?"Same studio":"Library");
+  const owned=rel.filter(o=>!o.missing).length,miss=rel.filter(o=>o.missing).length;
+  const rows=rel.map(o=>{
+    const md=META[o.code]||{},cur=o.code===it.code;
+    const thumb=o.missing
+      ?(o.cover?`<img class="relimg" loading="lazy" referrerpolicy="no-referrer" src="${esc(o.cover)}" onerror="this.outerHTML='<div class=\\'relimg gimg\\'>◇</div>'">`:`<div class="relimg gimg">◇</div>`)
+      :`<img class="relimg" loading="lazy" src="/thumb/${encodeURIComponent(o.code)}.jpg">`;
+    const rd=cur?'<span style="color:var(--accent)">▶ now</span>':o.missing?'<span style="color:var(--warn)">missing</span>':(md.duration?`<span>${fmtDur(md.duration)}</span>`:'');
+    const relrow=`<div class="rel${cur?' cur':''}${o.missing?' grel':''}" data-code="${esc(o.code)}">${thumb}<div class="rt"><div class="rc">${esc(o.code.replace(/^FC2-PPV-/,'PPV '))}</div><div class="rd"><span>${esc(o.release||'—')}</span>${rd}</div></div></div>`;
+    return cur ? relrow+partsHTML(it) : relrow;   // nest this release's parts under the playing row
+  }).join("");
+  return `<h5>${label} · ${owned}${miss?` +${miss}◇`:''}</h5>${rows||'<div class="stat" style="padding:8px">No related titles</div>'}`;
+}
+function facesHTML(it,meta){
+  return [
+    meta.duration?`<div class="fact"><b>Length</b>${fmtDur(meta.duration)}</div>`:"",
+    (meta.width&&meta.height)?`<div class="fact"><b>Res</b>${meta.width}×${meta.height}</div>`:"",
+    meta.vcodec?`<div class="fact"><b>Codec</b>${meta.vcodec}</div>`:"",
+    it.producer?`<div class="fact"><b>Studio</b>${esc(it.producer)}</div>`:"",
+    `<div class="fact"><b>Size</b>${fmtSize(it.size)}${it.nparts>1?' · '+it.nparts+'p':''}</div>`,
+    it.release?`<div class="fact"><b>Released</b>${esc(it.release)}</div>`:"",
+    it.fav?`<div class="fact"><b>Favorites</b>★${it.fav}</div>`:"",
+    it.avail?`<div class="fact"><b>Status</b>${esc(it.avail)}</div>`:"",
+  ].join("");
+}
+function tagEdHTML(it){
+  const chips=(it.tags||[]).map(t=>`<span class="etag" data-tag="${esc(t)}">${esc(t)}<b class="x" title="remove">×</b></span>`).join("");
+  return `${chips}<span class="tagadd-wrap"><input class="tag-add" placeholder="+ tag" autocomplete="off"><div class="tag-sugg"></div></span>`;
+}
+function actressStatsLine(it){
+  const meas=(it.bust&&it.waist&&it.hip)?`${fmtMeas(it.bust)} – ${fmtMeas(it.waist)} – ${fmtMeas(it.hip)}`:"";
+  const bits=[it.age?`<span><b>Age</b>${it.age}</span>`:"",
+              it.cup?`<span><b>Cup</b>${esc(it.cup)}</span>`:"",
+              it.height?`<span><b>Height</b>${fmtHeight(it.height)}</span>`:"",
+              meas?`<span><b>B·W·H</b>${meas}</span>`:""].filter(Boolean).join("");
+  return bits?`<div class="astats">${bits}</div>`:"";
+}
+/* On phones the player stacks vertically, so the two side panels become tabs under
+   the video. Built for every open (the elements are display:none above 820px, so the
+   same markup serves both layouts and nothing needs re-rendering on rotate/resize). */
+function buildPlayerTabs(p,it){
+  const nParts=(it.parts||[]).length;
+  const nRel=p.querySelectorAll(".p-related .rel").length;
+  // name the list tab after whatever is actually in it
+  const label=nParts>1?`Parts <span class="tcount">${nParts}</span>`
+             :nRel?`Related <span class="tcount">${nRel}</span>`:"Related";
+  const tabs=document.createElement("div");
+  tabs.className="ptabs";
+  tabs.innerHTML=`<button data-tab="info" class="on">Info</button><button data-tab="list">${label}</button>`;
+  p.appendChild(tabs);
+  const close=document.createElement("button");
+  close.className="pclose-m";close.title="Close";close.innerHTML="&times;";
+  close.onclick=closePlayer;
+  p.appendChild(close);
+  p.dataset.tab="info";
+  tabs.onclick=e=>{
+    const b=e.target.closest("button[data-tab]");if(!b)return;
+    p.dataset.tab=b.dataset.tab;
+    tabs.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+    if(b.dataset.tab==="list"){
+      // the panel was display:none when openPlayer scrolled it, so do it now
+      const cur=p.querySelector(".p-related .prt.cur,.p-related .rel.cur");
+      if(cur)cur.scrollIntoView({block:"nearest"});
+    }else{const s=p.querySelector(".p-side");if(s)s.scrollTop=0;}
+  };
+}
+function openPlayer(it){
+  const m=$("#modal"),p=$("#player");
+  p.classList.remove("editing");
+  const meta=META[it.code]||{};
+  if(!it.missing&&!STORE.seen.has(it.code)){STORE.seen.add(it.code);saveStore();
+    $$(`.card[data-code="${cssEsc(it.code)}"] .mark`).forEach(b=>b.classList.add("on"));}
+  const isfav=STORE.fav.has(it.code),seen=STORE.seen.has(it.code);
+  const title=it.identified?esc(it.actress):esc(it.code);
+  const act=actressOf(it);
+  const desc=act&&act.description?`<div class="pdesc">${esc(act.description)}</div>`:"";
+  const stage=it.missing
+    ? `<div class="p-stage p-missing">${it.cover?`<img class="pm-cover" src="${esc(it.cover)}" referrerpolicy="no-referrer">`:''}<div class="pm-box"><div class="pm-ico">◇</div><div class="pm-t">Not in your library</div><div class="pm-s">Part of ${esc(it.actress||"this")} filmography — wishlist</div><div class="pm-code">${esc(it.code)}</div></div></div>`
+    : (isHevc(it)&&!HEVC_OK)
+    ? `<div class="p-stage p-missing"><div class="pm-box"><div class="pm-ico">▶</div><div class="pm-t">HEVC / H.265 video</div><div class="pm-s">This browser can't decode HEVC. Open it in your external player (or view in Safari).</div><button class="btn pri" id="hevcopen" style="margin-top:14px">▶ Open in external player</button></div></div>`
+    : `<div class="p-stage"><video controls autoplay playsinline preload="auto" src="/video/${encodeURIComponent(it.code)}${(it.parts||[]).length>1?'?part=0':''}"></video></div>`;
+  const seenBtn=it.missing?"":`<button class="btn${seen?' on':''}" id="pseen">${seen?'✓ Played':'○ Mark played'}</button>`;
+  const playActions=it.missing?"":`
+      <div class="pactions">
+        <button class="btn pri" data-act="open">▶ External player</button>
+        <button class="btn" data-act="reveal">Finder</button>
+      </div>`;
+  p.innerHTML=`
+    <div class="p-related">${relColHTML(it)}</div>
+    ${stage}
+    <div class="p-side">
+      <div class="row1">
+        <div id="nameBlock">
+          <h2${it.identified?' class="link" title="Show all of her titles"':''}>${title}</h2>
+          ${it.identified&&it.actress_en&&it.actress_jp?`<div class="jp">${esc(it.actress_jp)}</div>`:''}
+          <div class="code">${esc(it.code)}</div>
+          ${it.identified?actressStatsLine(it):''}
+          ${it.title_en?`<div class="entitle">${esc(it.title_en)}</div>`:''}
+          ${it.title?`<div class="jp mjp">${esc(it.title)}</div>`:''}
+        </div>
+        <button class="nedit" id="nedit" title="Edit actress name">✎</button>
+        <button class="close" title="Close (Esc)">×</button>
+      </div>
+      <h4 class="sec">Tags <span style="text-transform:none;color:var(--dim2)">— click × to remove</span></h4>
+      <div class="tag-ed" id="tagEd">${tagEdHTML(it)}</div>
+      ${desc}
+      <h4 class="sec">Metadata</h4>
+      <div class="facts">${facesHTML(it,meta)}</div>
+      ${it.missing?`<div class="pactions"><button class="btn pri" id="pmSukebei" title="Open a sukebei search for this code in a background tab">🔍 Search on sukebei</button></div>`:''}
+      <div class="pactions">
+        <button class="btn" id="pfav" title="Favorite">${isfav?'♥ Favorited':'♡ Favorite'}</button>
+        ${seenBtn}
+        <button class="btn${it.uncensored!==false?' unc':''}" id="pcensor" title="Toggle censored / uncensored">${it.uncensored!==false?'🔓 Uncensored':'🔒 Censored'}</button>
+      </div>
+      ${playActions}
+      <div class="pactions"><button class="btn" id="pscan" title="Fetch title / cover / tags from web sources">⟳ Scan metadata</button></div>
+      <h4 class="sec">Your rating</h4>
+      <div class="prate">${starsHTML(it.code)}</div>
+    </div>`;
+  buildPlayerTabs(p,it);
+  m.classList.add("on");
+  m.dataset.code=it.code;
+  p.querySelector(".close").onclick=closePlayer;
+  p.querySelector("#nedit").onclick=()=>editActress(it);
+  p.querySelector("#pfav").classList.toggle("on",isfav);
+  if(isfav)p.querySelector("#pfav").style.color="var(--accent)";
+  const hh=p.querySelector("h2.link");if(hh)hh.onclick=()=>{
+    closePlayer();$("#q").value=it.actress;F.q=it.actress;
+    const ai=$("#actressInput");if(ai&&it.actress_id){ai.value=it.actress;F.actress=it.actress;$("#q").value="";F.q="";}
+    render();$("#main").scrollTop=0;};
+  const ob=p.querySelector('[data-act="open"]');if(ob)ob.onclick=()=>post("/api/open",it.code,"Opening in player…");
+  const rb=p.querySelector('[data-act="reveal"]');if(rb)rb.onclick=()=>post("/api/reveal",it.code,"Revealing in Finder…");
+  p.querySelector("#pfav").onclick=e=>{toggleFav(it.code,e.currentTarget);
+    e.currentTarget.innerHTML=STORE.fav.has(it.code)?'♥ Favorited':'♡ Favorite';
+    e.currentTarget.style.color=STORE.fav.has(it.code)?'var(--accent)':'';};
+  const sb=p.querySelector("#pseen");if(sb)sb.onclick=e=>toggleSeen(it.code,e.currentTarget);
+  p.querySelector("#pcensor").onclick=e=>{
+    const b=e.currentTarget;              // capture now; it's null inside the async .then
+    const now=(it.uncensored===false);    // flipping to uncensored?
+    fetch("/api/setcensor",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({code:it.code,uncensored:now})}).then(r=>r.json()).then(j=>{
+        if(j.error){toast(j.error);return;}
+        it.uncensored=now;const di=DATA.items.find(x=>x.code===it.code);if(di)di.uncensored=now;
+        b.innerHTML=now?'🔓 Uncensored':'🔒 Censored';b.classList.toggle('unc',now);
+        toast(now?'Marked uncensored':'Marked censored');
+      }).catch(()=>toast("Failed"));
+  };
+  p.querySelector("#pscan").onclick=e=>{
+    const b=e.currentTarget;b.textContent="⟳ Scanning…";b.disabled=true;
+    fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({code:it.code,force:true})}).then(r=>r.json()).then(j=>{
+        if(j.error){toast("Scan error: "+j.error);b.textContent="⟳ Scan metadata";b.disabled=false;return;}
+        const c=j.item||{};
+        it.title=c.title;it.title_en=c.title_en;it.release=c.release;it.cover=c.cover;it.tags=c.tags||it.tags;
+        const di=DATA.items.find(x=>x.code===it.code);if(di)Object.assign(di,{title:c.title,title_en:c.title_en,release:c.release,cover:c.cover,tags:c.tags});
+        toast(Object.keys(j.changed||{}).length?"Updated: "+Object.keys(j.changed).join(", "):"No new data found");
+        openPlayer(it);
+      }).catch(()=>{toast("Scan failed");b.textContent="⟳ Scan metadata";b.disabled=false;});
+  };
+  const ho=p.querySelector("#hevcopen");if(ho)ho.onclick=()=>post("/api/open",it.code,"Opening in player…");
+  const ps=p.querySelector("#pmSukebei");if(ps)ps.onclick=()=>sukebei(it.code);
+  bindTagEditor(it);
+  bindStars(p);
+  // related nav + keep the current one in view
+  p.querySelectorAll(".p-related .rel:not(.cur)").forEach(r=>r.onclick=()=>{
+    const o=DATA.items.find(x=>x.code===r.dataset.code);if(o)openPlayer(o);});
+  const curEl=p.querySelector(".p-related .rel.cur");if(curEl)curEl.scrollIntoView({block:"nearest"});
+  // multi-part playback: click a part to play it; auto-advance when one ends
+  const vid=p.querySelector(".p-stage video");
+  if(vid&&(it.parts||[]).length>1){
+    let curPart=0;
+    const playPart=idx=>{curPart=idx;
+      vid.src="/video/"+encodeURIComponent(it.code)+"?part="+idx;vid.play().catch(()=>{});
+      p.querySelectorAll(".prt").forEach(x=>x.classList.toggle("cur",+x.dataset.part===idx));};
+    p.querySelectorAll(".prt").forEach(el=>el.onclick=()=>playPart(+el.dataset.part));
+    vid.addEventListener("ended",()=>{if(curPart+1<it.parts.length)playPart(curPart+1);});
+  }
+}
+function bindTagEditor(it){
+  const ed=$("#tagEd");if(!ed)return;
+  ed.querySelectorAll(".etag .x").forEach(x=>x.onclick=()=>{
+    const t=x.parentElement.dataset.tag;
+    it.tags=(it.tags||[]).filter(z=>z!==t);saveTags(it);});
+  const inp=ed.querySelector(".tag-add"),sugg=ed.querySelector(".tag-sugg");
+  const allTags=(DATA.facets.tags||[]).map(t=>t[0]);
+  let matches=[],hi=-1;
+  const close=()=>{sugg.classList.remove("on");sugg.innerHTML="";matches=[];hi=-1;};
+  const updHi=()=>sugg.querySelectorAll(".sg").forEach((el,i)=>el.classList.toggle("hi",i===hi));
+  const show=()=>{
+    const v=inp.value.trim().toLowerCase();
+    const have=new Set((it.tags||[]).map(t=>t.toLowerCase()));
+    matches=v?allTags.filter(t=>!have.has(t.toLowerCase())&&t.toLowerCase().includes(v)).slice(0,8):[];
+    if(!matches.length){close();return;}
+    hi=0;
+    sugg.innerHTML=matches.map((t,i)=>`<div class="sg${i===0?' hi':''}" data-i="${i}">${esc(t)}</div>`).join("");
+    sugg.classList.add("on");
+  };
+  const add=v=>{v=(v||"").trim();
+    if(v&&!(it.tags||[]).some(z=>z.toLowerCase()===v.toLowerCase())){it.tags=[...(it.tags||[]),v];close();saveTags(it);}
+    else{inp.value="";close();}};
+  inp.oninput=show;
+  inp.onkeydown=e=>{
+    if(e.key==="ArrowDown"){e.preventDefault();if(matches.length){hi=(hi+1)%matches.length;updHi();}}
+    else if(e.key==="ArrowUp"){e.preventDefault();if(matches.length){hi=(hi-1+matches.length)%matches.length;updHi();}}
+    else if(e.key==="Enter"){e.preventDefault();add(hi>=0&&matches[hi]?matches[hi]:inp.value);}
+    else if(e.key==="Escape"){close();inp.value="";}
+    else if(e.key===","){e.preventDefault();add(inp.value);}};
+  sugg.onmousedown=e=>{const d=e.target.closest(".sg");if(d){e.preventDefault();add(matches[+d.dataset.i]);}};
+  inp.onblur=()=>setTimeout(close,150);
+}
+function saveTags(it){
+  fetch("/api/settags",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({code:it.code,tags:it.tags||[]})})
+    .then(r=>r.json()).then(j=>{if(j.tags)it.tags=j.tags;
+      const ed=$("#tagEd");if(ed){ed.innerHTML=tagEdHTML(it);bindTagEditor(it);
+        const inp=ed.querySelector(".tag-add");if(inp)inp.focus();}
+      updateCardTags(it);}).catch(()=>toast("Tag save failed"));
+}
+function updateCardTags(it){
+  $$(`.card[data-code="${cssEsc(it.code)}"]`).forEach(card=>{
+    const meta=card.querySelector(".meta");if(!meta)return;
+    let tr=meta.querySelector(".tags");
+    const html=(it.tags||[]).slice(0,3).map(t=>`<span>${esc(t)}</span>`).join("");
+    if(!tr&&html){tr=document.createElement("div");tr.className="tags";
+      meta.querySelector(".c").after(tr);}
+    if(tr)tr.innerHTML=html;
+  });
+}
+function editActress(it){
+  // render into the WHOLE side panel (not the narrow name block) and widen it, so the
+  // fields use the full available width.
+  const nb=document.querySelector("#player .p-side");if(!nb)return;
+  const pl=$("#player");if(pl)pl.classList.add("editing");
+  const v=x=>(x==null?"":x);
+  const opt=(val,cur)=>`<option value="${val}"${String(cur)===String(val)?' selected':''}>${val}</option>`;
+  const ageOpts=['<option value="">–</option>'].concat(
+    Array.from({length:38},(_,i)=>opt(i+18,it.age))).join("");     // 18–55
+  const cupOpts=['<option value="">–</option>'].concat(
+    "ABCDEFGHIJK".split("").map(c=>opt(c,it.cup))).join("");
+  const num=(id,val,mn,mx)=>`<input class="nedit-in sm" id="${id}" type="number" inputmode="numeric" min="${mn}" max="${mx}" step="1" value="${v(val)}">`;
+  nb.innerHTML=`
+    <div class="edhead">Edit <span>— saves to the movie / actress, never the filename</span></div>
+    <label class="edfl">Movie title (English)
+      <input class="nedit-in" id="edTitle" value="${esc(it.title_en||'')}"></label>
+    <label class="edfl">Movie title (Japanese) 日本語
+      <input class="nedit-in" id="edTitleJp" value="${esc(it.title||'')}"></label>
+    <label class="edfl">Actress · English (romaji)
+      <input class="nedit-in" id="edEn" list="actressList" autocomplete="off" placeholder="e.g. Hasumi Chise" value="${esc(it.actress_en||'')}"></label>
+    <label class="edfl">Actress · Japanese 日本語
+      <input class="nedit-in" id="edJp" placeholder="例：蓮実ちせ" value="${esc(it.actress_jp||'')}"></label>
+    <div class="edrow">
+      <label class="edfl2">Age<select class="nedit-in sm" id="edAge">${ageOpts}</select></label>
+      <label class="edfl2">Cup<select class="nedit-in sm" id="edCup">${cupOpts}</select></label>
+    </div>
+    <div class="edrow">
+      <label class="edfl2">Height (cm)${num("edH",it.height,100,220)}</label>
+      <label class="edfl2">Bust (cm)${num("edB",it.bust,50,150)}</label>
+    </div>
+    <div class="edrow">
+      <label class="edfl2">Waist (cm)${num("edW",it.waist,40,120)}</label>
+      <label class="edfl2">Hip (cm)${num("edHip",it.hip,50,150)}</label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn pri" id="edSave">Save</button>
+      <button class="btn" id="edCancel">Cancel</button>
+      <button class="btn" id="edEnrich" title="Scrape javdatabase + jav.guru for body info &amp; aliases. Only applied if one of her library codes appears in her filmography (verifies it's the right person).">🌐 Enrich from web</button>
+    </div>
+    <div class="code" style="margin-top:8px">${esc(it.code)}</div>`;
+  $("#edEn").focus();
+  $("#edCancel").onclick=()=>openPlayer(it);
+  const save=()=>{
+    const body={code:it.code,
+      title_en:$("#edTitle").value.trim(), title:$("#edTitleJp").value.trim(),
+      name_en:$("#edEn").value.trim(), name_jp:$("#edJp").value.trim(),
+      age:$("#edAge").value.trim(), cup:$("#edCup").value.trim(),
+      height:$("#edH").value.trim(), bust:$("#edB").value.trim(),
+      waist:$("#edW").value.trim(), hip:$("#edHip").value.trim()};
+    fetch("/api/setmeta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+      .then(r=>r.json()).then(j=>{
+        if(j.error){toast("Error: "+j.error);return;}
+        applyMetaUpdate(it,j);toast("Saved");
+        openPlayer(DATA.items.find(x=>x.code===it.code)||it);render();
+      }).catch(()=>toast("Save failed"));
+  };
+  $("#edSave").onclick=save;
+  $("#edEnrich").onclick=(e)=>enrichFromWeb(it,e.currentTarget);
+  // picking a KNOWN actress fills her stored body numbers into the form (so you see what
+  // will be pulled) and marks the profile fields read-only — editing her switches away
+  // from clobbering; you edit her profile from her own record.
+  $("#edEn").onchange=e=>{
+    const rec=ACTBYNAME[(e.target.value||"").trim().toLowerCase()];
+    if(!rec)return;
+    $("#edJp").value=rec.name_jp||"";
+    $("#edAge").value=rec.age||"";$("#edCup").value=rec.cup||"";
+    $("#edH").value=rec.height||"";$("#edB").value=rec.bust||"";
+    $("#edW").value=rec.waist||"";$("#edHip").value=rec.hip||"";
+  };
+  // only the Save button persists; Enter no longer auto-saves (so Cancel/Esc truly discard)
+  nb.querySelectorAll("input,select").forEach(el=>el.onkeydown=e=>{
+    if(e.key==="Escape"){e.preventDefault();openPlayer(it);}});
+}
+function applyMetaUpdate(it,j){
+  const c=j.item||{},aid=c.actress_id,set=new Set(j.affected||[]);
+  const di=DATA.items.find(x=>x.code===it.code);if(di){di.title_en=c.title_en;di.title=c.title;}
+  DATA.items.forEach(x=>{if(set.has(x.code)){
+    x.actress_id=aid;x.actress_en=c.name_en||"";x.actress_jp=c.name_jp||"";x.actress=c.actress;
+    x.identified=!!c.actress;x.age=c.age;x.cup=c.cup;x.height=c.height;x.bust=c.bust;x.waist=c.waist;x.hip=c.hip;}});
+  if(aid){const rec=ACTBYID[aid]||{id:aid,count:0,missing_count:0,has_portrait:false};
+    Object.assign(rec,{id:aid,name_en:c.name_en||null,name_jp:c.name_jp||null,age:c.age,cup:c.cup,
+      height:c.height,bust:c.bust,waist:c.waist,hip:c.hip});
+    ACTBYID[aid]=rec;if(!DATA.actresses.some(a=>a.id===aid))DATA.actresses.push(rec);
+    if(c.name_en)ACTBYNAME[c.name_en.toLowerCase()]=rec;}
+}
+function enrichFromWeb(it,btn){
+  const m=$("#enrichmodal"),b=$("#enrichbox");m.classList.add("on");
+  b.innerHTML='<div class="orghd">Looking online…</div><div class="orgsub">Fetching profile from javdatabase & jav.guru.</div>';
+  const close=()=>m.classList.remove("on");
+  // 1) PREVIEW (dry — writes nothing)
+  fetch("/api/enrichactress",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({code:it.code,dry:true})})
+   .then(r=>r.json()).then(j=>{
+     if(j.error){b.innerHTML=`<div class="orghd">Can't enrich yet</div><div class="orgsub">${esc(j.error)}</div><div class="pactions"><button class="btn" id="enClose">Close</button></div>`;$("#enClose").onclick=close;return;}
+     const r=j.report||{},p=r.profile;
+     if(!p){b.innerHTML=`<div class="orghd">Nothing found online</div><div class="orgsub">No javdatabase profile for <b>${esc(r.name||it.actress_en||"this actress")}</b> (tried: ${esc((r.tried||[]).join(", ")||"—")}). The site may not list this performer, or her name is spelled differently.</div><div class="pactions"><button class="btn" id="enClose">Close</button></div>`;$("#enClose").onclick=close;return;}
+     const row=(k,v)=>v?`<div class="enr"><span class="enk">${k}</span><span class="env">${esc(String(v))}</span></div>`:"";
+     const meas=(p.bust&&p.waist&&p.hip)?`B${p.bust} / W${p.waist} / H${p.hip}`:"";
+     const grid=`<div class="engrid">
+        ${row("Name (EN)",p.name_en)}${row("Name (JP)",p.name_jp)}
+        ${row("Born",p.dob)}${row("Age",p.age)}
+        ${row("Height",p.height&&p.height+" cm")}${row("Cup",p.cup)}
+        ${row("Measurements",meas)}
+      </div>`;
+     const verified=r.verified===true;
+     const banner=verified
+        ? `<div class="enbanner ok">✓ Verified — matches your library code ${esc((r.matched_codes||[]).join(", "))}</div>`
+        : `<div class="enbanner warn">⚠ Not verified — none of this actress's <b>${r.owned_codes||0}</b> owned code(s) appear in the <b>${r.javguru_codes||0}</b> works listed for her online. This could be a different person with the same name — check the profile matches before applying.</div>`;
+     const src=[p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">javdatabase</a>`:"",
+                r.javguru_source?`<a href="${esc(r.javguru_source)}" target="_blank" rel="noopener">jav.guru</a>`:""].filter(Boolean).join(" · ");
+     b.innerHTML=`
+       <div class="orghd">Enrich · ${esc(r.name||it.actress_en||"")}</div>
+       ${banner}
+       ${grid}
+       <div class="orgsub" style="margin-top:8px">Empty fields only are filled — your curated values are never overwritten. Sources: ${src||"—"}</div>
+       <div class="pactions">
+         <button class="btn ${verified?'pri':''}" id="enApply">${verified?'Apply':'Apply anyway (unverified)'}</button>
+         <button class="btn" id="enCancel">Cancel</button>
+       </div>`;
+     $("#enCancel").onclick=close;
+     $("#enApply").onclick=e=>{
+       const ab=e.currentTarget;ab.textContent="Saving…";ab.disabled=true;
+       // 2) APPLY (force only when unverified)
+       fetch("/api/enrichactress",{method:"POST",headers:{"Content-Type":"application/json"},
+         body:JSON.stringify({code:it.code,force:!verified})})
+        .then(r=>r.json()).then(res=>{
+          const rr=res.report||{};
+          if(!rr.applied){toast(rr.note||res.error||"Nothing applied");ab.disabled=false;ab.textContent="Apply";return;}
+          toast("✓ Saved "+[p.name_jp,p.age&&p.age+"y",p.cup&&p.cup+"-cup",p.height&&p.height+"cm",meas].filter(Boolean).join(" · ")+(rr.wishlist_added?` · +${rr.wishlist_added} wishlist`:''));
+          close();
+          // refresh data, then reopen the edit panel so the new values are visible immediately
+          reloadData&&reloadData(()=>{const fresh=(DATA.items||[]).find(x=>x.code===it.code)||it;editActress(fresh);});
+        }).catch(()=>{toast("Enrich failed");ab.disabled=false;ab.textContent="Apply";});
+     };
+   }).catch(()=>{b.innerHTML='<div class="orghd">Lookup failed</div><div class="orgsub">Could not reach the metadata sites.</div><div class="pactions"><button class="btn" id="enClose">Close</button></div>';const x=$("#enClose");if(x)x.onclick=close;});
+}
+function closePlayer(){const m=$("#modal");const v=m.querySelector("video");if(v){v.pause();v.src="";}m.classList.remove("on");}
+function post(url,code,msg){fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code})})
+  .then(r=>r.json()).then(j=>toast(j.ok?msg:("Error: "+(j.error||"?")))).catch(e=>toast("Error"));}
+
+/* ---------------- UI wiring ---------------- */
+function bindUI(){
+  $("#q").oninput=e=>{F.q=e.target.value;render();};
+  // filter drawer (small screens only; the button is display:none above 820px)
+  const drawer=(on)=>{$("#side").classList.toggle("on",on);$("#scrim").classList.toggle("on",on);};
+  $("#drawerBtn").onclick=()=>drawer(!$("#side").classList.contains("on"));
+  $("#scrim").onclick=()=>drawer(false);
+  // picking a filter on a phone should reveal the results, not stay in the sheet
+  $("#side").addEventListener("click",e=>{
+    if(window.matchMedia("(max-width:820px)").matches&&e.target.closest(".chip,.frow"))
+      setTimeout(()=>drawer(false),160);});
+  $("#sort").onchange=e=>{F.sort=e.target.value;render();};
+  $("#shuffbtn").onclick=()=>{DATA.items.forEach(it=>it._rnd=Math.random());F.sort="shuffle";$("#sort").value="shuffle";render();};
+  $("#resetbtn").onclick=resetFilters;
+  $("#scanlibbtn").onclick=startLibraryScan;
+  const setThemeIcon=()=>{const b=$("#themebtn");if(b)b.textContent=document.documentElement.dataset.theme==="light"?"☀️":"🌙";};
+  setThemeIcon();
+  $("#themebtn").onclick=()=>{const cur=document.documentElement.dataset.theme==="light"?"light":"dark";
+    const next=cur==="light"?"dark":"light";document.documentElement.dataset.theme=next;
+    try{localStorage.setItem("vault_theme",next);}catch(e){}setThemeIcon();};
+  $("#importbtn").onclick=startImport;
+  $("#impmodal").onclick=e=>{if(e.target.id==="impmodal"&&!IMPORT_RUNNING)$("#impmodal").classList.remove("on");};
+  $("#setbtn").onclick=openSettings;
+  $("#orgmodal").onclick=e=>{if(e.target.id==="orgmodal")$("#orgmodal").classList.remove("on");};
+  pollScanProgress();  // reflect an already-running scan on load
+  $$("#viewseg button").forEach(b=>b.onclick=()=>{
+    F.view=b.dataset.v;$$("#viewseg button").forEach(x=>x.classList.toggle("on",x===b));render();});
+  buildColMenu();
+  $("#colbtn").onclick=e=>{e.stopPropagation();$("#colmenu").classList.toggle("on");};
+  document.addEventListener("click",e=>{if(!e.target.closest("#colmenu")&&e.target.id!=="colbtn")$("#colmenu").classList.remove("on");});
+  $("#modal").onclick=e=>{if(e.target.id==="modal")closePlayer();};
+  $("#amodal").onclick=e=>{if(e.target.id==="amodal")$("#amodal").classList.remove("on");};
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape"){closePlayer();$("#amodal").classList.remove("on");}
+    const typing=/^(INPUT|SELECT|TEXTAREA)$/.test((e.target.tagName||""));
+    if(e.key==="/"&&!typing){e.preventDefault();$("#q").focus();return;}
+    if(typing)return;
+    const v=$("#modal").classList.contains("on")?$("#modal").querySelector("video"):null;
+    if(!v)return;
+    const K=e.key.toLowerCase(),step=e.shiftKey?60:10;
+    if(K===" "||K==="k"){e.preventDefault();v.paused?v.play():v.pause();}
+    else if(e.key==="ArrowRight"||K==="l"){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+step);}
+    else if(e.key==="ArrowLeft"||K==="j"){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-step);}
+    else if(e.key==="ArrowUp"){e.preventDefault();v.volume=Math.min(1,v.volume+0.1);}
+    else if(e.key==="ArrowDown"){e.preventDefault();v.volume=Math.max(0,v.volume-0.1);}
+    else if(K==="m"){v.muted=!v.muted;}
+    else if(K==="f"){if(document.fullscreenElement)document.exitFullscreen();else v.requestFullscreen&&v.requestFullscreen();}
+    else if(K>="0"&&K<="9"){if(v.duration)v.currentTime=v.duration*(+K)/10;}
+    else if(e.key===">"||e.key===".")  {v.playbackRate=Math.min(4,+(v.playbackRate+0.25).toFixed(2));toast("Speed "+v.playbackRate+"×");}
+    else if(e.key==="<"||e.key===",")  {v.playbackRate=Math.max(0.25,+(v.playbackRate-0.25).toFixed(2));toast("Speed "+v.playbackRate+"×");}
+  });
+}
+boot();
+</script>
+</body>
+</html>
