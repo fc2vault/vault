@@ -24,6 +24,7 @@ A feature‑by‑feature walkthrough. For install & setup see the main **[README
 
 ## 1. The main window
 
+![Grid view](images/grid.png)
 
 - **Top bar:** search, the **Grid / By actress / List** view switcher, a sort dropdown, a shuffle die, **Reset** filters, **Scan library**, **Organize**, and **Settings**. The right side shows how many titles match and the total library size.
 - **Left sidebar:** all your filters (see below).
@@ -80,6 +81,7 @@ The **censorship** state is a one‑click toggle (🔓 Uncensored / 🔒 Censore
 
 In Grid or List view, **⌘‑click** (or Ctrl‑click) to toggle individual cards, or **shift‑click** to select a range. Selected cards get a pink outline and a ✓ badge, and a bar appears at the bottom:
 
+![Multi‑select bulk bar](images/multiselect.png)
 
 Type an actress name (autocompletes) and hit **Assign actress** to attach her to every selected movie at once. Bulk edit touches **only the actress** — never per‑movie fields — and uses the same smart matcher, so it won’t spawn duplicates.
 
@@ -87,17 +89,20 @@ Type an actress name (autocompletes) and hit **Assign actress** to attach her to
 
 Point Vault at a **download folder** (Settings → Library), then hit **📥 Import** (top bar). It previews the whole pipeline first, then: renames & cleans the downloads (strips source prefixes, removes junk/spam clips), and moves each release into the library — **adding** new ones and **replacing** older copies with better versions.
 
+![Import from download folder](images/import.png)
 
 - Library deletes (replacing an older copy) are gated behind a **confirmation checkbox** — leave it unticked to only add + clean. Nothing in the library is removed without it.
 - The move runs in the background (large cross‑drive copies can take a while).
 
 **Organize** (Settings → Library → *Organize library…*) tidies files already in the library — junk to `_vault_trash/`, duplicates to `_Duplicates/` (largest kept), names normalized to `…/<CODE>/<CODE>.ext`. It previews first and never deletes or overwrites. Rarely needed now that Import handles new files.
 
+![Organize preview](images/organize.png)
 
 ## 8. Scan metadata from the web
 
 **Scan library** fetches missing English/Japanese titles, covers, dates, and tags from the shell sources (123av, ffjav).
 
+![Scan preview](images/scan.png)
 
 - It re‑indexes the filesystem first (so newly added movies are found), then shows a checklist.
 - Toggle **Missing titles** vs **All movies**; untick any code to skip it.
@@ -117,6 +122,7 @@ Open **Settings** from the top bar. Four tabs:
 
 ### Library & cache
 
+![Settings — Library](images/settings_library.png)
 
 - **Display:** switch measurements between **Metric (cm)** and **Imperial (in)**.
 - **Library source folder:** change where Vault scans (triggers a full re‑scan).
@@ -124,6 +130,7 @@ Open **Settings** from the top bar. Four tabs:
 
 ### Tags & translations
 
+![Settings — Tags translations](images/settings_tags.png)
 
 - **In use:** every tag in your library with its count. **Rename** a tag (renaming to an existing one **merges** them — e.g. fix a typo), or remove it.
 - **Translations:** a JP→EN dictionary (seeded with common FC2 tags). Set the **English label** a raw/Japanese tag displays under — e.g. `中出し → Creampie`. Japanese tags coming from fc2ppv‑db show under these labels automatically; leave a mapping blank to show the raw tag.
@@ -136,6 +143,7 @@ Open **Settings** from the top bar. Four tabs:
 
 ### Sources & fc2ppv‑db
 
+![Settings — Sources](images/settings_sources.png)
 
 - Toggle the built‑in scrapers on/off.
 - **fc2ppv‑db.com** — the richest source (actress faces, aliases, JP titles, dates, tags, full filmographies). It’s behind a human‑check (Cloudflare Turnstile), so the server can’t log in on its own. Instead:
