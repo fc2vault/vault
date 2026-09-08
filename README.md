@@ -6,6 +6,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 
 > **Read [Privacy & safety](#privacy--safety) before exposing it.** Vault listens on **all interfaces** and has **no login and no HTTPS**. On a trusted home network that is the point; it is not safe to port‑forward to the internet.
 
+![Vault — grid view](docs/images/grid.png)
 
 ---
 
@@ -138,6 +139,7 @@ Nothing here is authenticated — see [Privacy & safety](#privacy--safety).
 
 **Settings** is where you manage everything — library folder & cache, tags, actresses, and sources.
 
+![Settings — Sources & fc2ppv‑db](docs/images/settings_sources.png)
 
 See the **[full user guide](docs/USER_GUIDE.md)** for a screenshot walkthrough of every feature.
 
@@ -184,9 +186,28 @@ docs/            # this guide + screenshots
 ```bash
 ./make_release.sh            # full build — ships YOUR ownership flags. Personal.
 ./make_release.sh --rc       # shareable release candidate (see below)
+./make_release.sh --public   # --rc, plus sanitized imagery. This is what's on GitHub.
 ```
 
-Both strip the author's absolute paths from the shipped scripts. They differ in what the bundled catalog says about *you*.
+All three strip the author's absolute paths from the shipped scripts. They differ in what the bundled catalog says about *you*, and in what the screenshots show.
+
+### `--public` — the published build
+
+Everything `--rc` does, plus:
+
+- **Actress portrait blobs are cleared** from the catalog (text metadata is untouched).
+- **Screenshots are swapped for a sanitized set** in `docs/images_public/`:
+  - Library views (grid, multi‑select) keep their layout with the **poster art pixelated**.
+  - The settings / scan / organize / import dialogs are **cropped to the dialog** — nothing needs censoring once the library behind them is out of frame.
+  - The player and actress‑overview shots are omitted, and the docs that referenced them are pruned so no image link dangles.
+
+Regenerate the sanitized set after taking new screenshots:
+
+```bash
+python3 tools/censor_shots.py docs/images /tmp/px     # pixelate poster art
+```
+
+`tools/censor_shots.py` finds photographic regions structurally rather than by hand‑placed coordinates — Vault's chrome is flat and near‑black while poster art is bright, textured and coloured — then boxes each region so a whole poster is covered even where detection only caught part of it. UI text stays sharp.
 
 ### `--rc` — the shareable build
 
@@ -247,7 +268,9 @@ Watched state, favorites and ratings never enter this picture — they live in t
 
 ## A note on this build
 
-This is the **public build**. It ships no screenshots, and the bundled catalog contains no
-actress portraits — text metadata only (names, aliases, measurements, titles, tags, dates,
-cover URLs). Vault still displays and stores portraits normally: **Enrich from web** fetches
-them into your own local catalog, and posters are generated from your own files.
+This is the **public build**. Its screenshots are sanitized — poster art in the library views
+is pixelated, and the settings/scan/import dialogs are cropped to the dialog itself — and the
+bundled catalog carries no actress portraits, only text metadata (names, aliases, measurements,
+titles, tags, dates, cover URLs). Vault itself is unchanged: **Enrich from web** fetches
+portraits into your own local catalog, and posters are generated from your own files, so your
+install looks like the real thing.
