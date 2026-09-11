@@ -334,6 +334,12 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .p-side .nedit{margin-left:auto;font-size:15px;color:var(--dim);line-height:1;cursor:pointer;
   border:1px solid var(--line);border-radius:7px;padding:4px 7px;align-self:flex-start}
 .p-side .nedit:hover{color:var(--accent2);border-color:var(--accent2)}
+.p-side .nedit + .nedit{margin-left:6px}
+.racur{font-size:13px;color:var(--dim);margin:2px 0 10px}
+.racur .code{color:var(--dim2)}
+.raNew{font-size:12.5px;margin-top:7px}
+.raNew .raok{color:var(--good)}
+.raNew .rawarn{color:var(--warn)}
 .nedit-in{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;
   color:var(--txt);font-size:14px;outline:none;margin-top:3px}
 .nedit-in:focus{border-color:var(--accent2)}
@@ -1696,7 +1702,8 @@ function openPlayer(it){
           ${it.title_en?`<div class="entitle">${esc(it.title_en)}</div>`:''}
           ${it.title?`<div class="jp mjp">${esc(it.title)}</div>`:''}
         </div>
-        <button class="nedit" id="nedit" title="Edit actress name">✎</button>
+        ${it.missing?'':'<button class="nedit" id="nreassign" title="Reassign — move this movie to another actress">⇄</button>'}
+        <button class="nedit" id="nedit" title="Edit title &amp; profile">✎</button>
         <button class="close" title="Close (Esc)">×</button>
       </div>
       <h4 class="sec">Tags <span style="text-transform:none;color:var(--dim2)">— click × to remove</span></h4>
@@ -1720,6 +1727,7 @@ function openPlayer(it){
   m.dataset.code=it.code;
   p.querySelector(".close").onclick=closePlayer;
   p.querySelector("#nedit").onclick=()=>editActress(it);
+  {const rb=p.querySelector("#nreassign");if(rb)rb.onclick=()=>reassignActress(it);}
   p.querySelector("#pfav").classList.toggle("on",isfav);
   if(isfav)p.querySelector("#pfav").style.color="var(--accent)";
   const hh=p.querySelector("h2.link");if(hh)hh.onclick=()=>openActressModal(it.actress);
@@ -1820,6 +1828,52 @@ function updateCardTags(it){
       meta.querySelector(".c").after(tr);}
     if(tr)tr.innerHTML=html;
   });
+}
+// Move ONE movie to another actress (for a misgrouped/misfoldered title). Unlike the edit
+// form — which renames the currently-linked actress — this relinks only this movie, via the
+// same safe find-or-create path the multi-select bulk-assign uses (never renames anyone).
+function reassignActress(it){
+  const nb=document.querySelector("#player .p-side");if(!nb)return;
+  const pl=$("#player");if(pl)pl.classList.add("editing");
+  const cur=it.identified?esc(it.actress):"— unidentified —";
+  nb.innerHTML=`
+    <div class="edhead">Reassign actress <span>— moves this movie only; the catalog regroups, files aren't touched</span></div>
+    <div class="racur">Currently: <b>${cur}</b> · <span class="code">${esc(it.code)}</span></div>
+    <label class="edfl">Move to actress
+      <input class="nedit-in" id="raIn" list="actressList" autocomplete="off" placeholder="type an existing name…"></label>
+    <div class="raNew" id="raNew" hidden></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn pri" id="raGo">Move</button>
+      <button class="btn" id="raCancel">Cancel</button>
+    </div>`;
+  const input=$("#raIn"),hint=$("#raNew");
+  input.focus();
+  // tell the user whether the typed name links to an existing actress or would create a new one
+  input.oninput=()=>{
+    const v=input.value.trim();
+    if(!v){hint.hidden=true;return;}
+    const rec=ACTBYNAME[v.toLowerCase()];
+    hint.hidden=false;
+    hint.innerHTML=rec
+      ? `<span class="raok">✓ Links to existing “${esc(rec.name_en||v)}”${rec.name_jp?" · "+esc(rec.name_jp):""}</span>`
+      : `<span class="rawarn">⚠ No exact match — will create a new actress “${esc(v)}” (word-order / Japanese-name matches are still resolved on save)</span>`;
+  };
+  const cancel=()=>openPlayer(it);
+  const go=()=>{
+    const name=input.value.trim();
+    if(!name){toast("Enter an actress name");return;}
+    if(it.identified && name.toLowerCase()===(it.actress||"").toLowerCase()){cancel();return;}
+    const btn=$("#raGo");btn.disabled=true;btn.textContent="Moving…";
+    post2("/api/bulkactress",{codes:[it.code],name_en:name},j=>{
+      if(j.error){toast(j.error);btn.disabled=false;btn.textContent="Move";return;}
+      toast(`Moved ${it.code.replace(/^FC2-PPV-/,'PPV ')} → ${j.actress}`);
+      // reload so both actresses' counts + grouping refresh, then reopen on the moved title
+      reloadData(()=>{const fresh=BYCODE.get(it.code);if(fresh)openPlayer(fresh);});
+    });
+  };
+  $("#raGo").onclick=go;
+  $("#raCancel").onclick=cancel;
+  input.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();go();}if(e.key==="Escape"){e.preventDefault();cancel();}};
 }
 function editActress(it){
   // render into the WHOLE side panel (not the narrow name block) and widen it, so the
