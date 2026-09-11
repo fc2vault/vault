@@ -19,8 +19,10 @@ Never touched here (owned by richer sources / the user):
 Importable (serve.py uses scan_code / scan_library) and runnable standalone.
 """
 import html as htmlmod
+import http.client
 import os
 import re
+import socket
 import sqlite3
 import sys
 import time
@@ -211,13 +213,43 @@ def _fill_actress_from_title(con, code, jp, en):
     return out
 
 
-def _get(url, timeout=20, headers=None):
+# ---- IPv4-only opener -----------------------------------------------------
+# Cloudflare binds a cf_clearance cookie to the exact IP that solved its check.
+# On a dual-stack connection the browser typically solves it over IPv4, but
+# Python's urllib prefers IPv6 (often a rotating privacy address) — a different
+# source IP, so CF re-challenges (403 cf-mitigated=challenge) even with a fresh,
+# correct cookie + user-agent. Forcing IPv4 makes the server exit from the same
+# address family the browser used, so fc2ppv-db sessions validate.
+class _V4HTTPSConnection(http.client.HTTPSConnection):
+    def connect(self):
+        infos = socket.getaddrinfo(self.host, self.port or 443,
+                                   socket.AF_INET, socket.SOCK_STREAM)
+        af, socktype, proto, _cn, sa = infos[0]
+        sock = socket.socket(af, socktype, proto)
+        if self.timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+            sock.settimeout(self.timeout)
+        if self.source_address:
+            sock.bind(self.source_address)
+        sock.connect(sa)
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+
+class _V4HTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_V4HTTPSConnection, req)
+
+
+_V4_OPENER = urllib.request.build_opener(_V4HTTPSHandler)
+
+
+def _get(url, timeout=20, headers=None, ipv4=False):
     try:
         h = {"User-Agent": UA}
         if headers:
             h.update(headers)
         req = urllib.request.Request(url, headers=h)
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        opener = _V4_OPENER.open if ipv4 else urllib.request.urlopen
+        with opener(req, timeout=timeout) as r:
             if r.status != 200:
                 return None
             return r.read().decode("utf-8", "ignore")
@@ -532,17 +564,20 @@ def fetch_fc2ppvdb(code, cookie=None, ua=None):
         headers["User-Agent"] = ua
     if cookie:
         headers["Cookie"] = cookie
-    html = _get(f"{FC2DB}/en/videos/{num}", headers=headers, timeout=25)
+    # fc2ppv-db is Cloudflare-gated; force IPv4 so the cf_clearance cookie (bound
+    # to the IPv4 the browser solved the check on) validates. See _V4HTTPSConnection.
+    html = _get(f"{FC2DB}/en/videos/{num}", headers=headers, timeout=25, ipv4=True)
     return parse_fc2ppvdb_video(html or "")
 
 
-def _download(url, cookie=None, ua=None, timeout=20):
+def _download(url, cookie=None, ua=None, timeout=20, ipv4=False):
     try:
         h = {"User-Agent": ua or UA}
         if cookie:
             h["Cookie"] = cookie
         req = urllib.request.Request(url, headers=h)
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        opener = _V4_OPENER.open if ipv4 else urllib.request.urlopen
+        with opener(req, timeout=timeout) as r:
             return r.read() if r.status == 200 else None
     except Exception:
         return None

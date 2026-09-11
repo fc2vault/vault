@@ -324,6 +324,8 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .p-side h2{margin:0;font-size:19px}
 .p-side h2.link{cursor:pointer}
 .p-side h2.link:hover{color:var(--accent)}
+.ncaret{display:inline-block;margin-left:6px;color:var(--dim2);font-weight:400;transition:transform .15s,color .15s}
+.p-side h2.link:hover .ncaret{color:var(--accent);transform:translateX(3px)}
 .p-side .jp{color:var(--dim);font-size:13px;margin-top:2px}
 .p-side .entitle{color:var(--txt);font-size:13px;line-height:1.45;margin-top:6px}
 .p-side .code{color:var(--dim2);font-size:12px;font-family:ui-monospace,monospace;margin-top:6px}
@@ -1687,7 +1689,7 @@ function openPlayer(it){
     <div class="p-side">
       <div class="row1">
         <div id="nameBlock">
-          <h2${it.identified?' class="link" title="Show all of her titles"':''}>${title}</h2>
+          <h2${it.identified?' class="link" title="Show her profile & all titles"':''}>${title}${it.identified?'<span class="ncaret">›</span>':''}</h2>
           ${it.identified&&it.actress_en&&it.actress_jp?`<div class="jp">${esc(it.actress_jp)}</div>`:''}
           <div class="code">${esc(it.code)}</div>
           ${it.identified?actressStatsLine(it):''}
@@ -1720,10 +1722,7 @@ function openPlayer(it){
   p.querySelector("#nedit").onclick=()=>editActress(it);
   p.querySelector("#pfav").classList.toggle("on",isfav);
   if(isfav)p.querySelector("#pfav").style.color="var(--accent)";
-  const hh=p.querySelector("h2.link");if(hh)hh.onclick=()=>{
-    closePlayer();$("#q").value=it.actress;F.q=it.actress;
-    const ai=$("#actressInput");if(ai&&it.actress_id){ai.value=it.actress;F.actress=it.actress;$("#q").value="";F.q="";}
-    render();$("#main").scrollTop=0;};
+  const hh=p.querySelector("h2.link");if(hh)hh.onclick=()=>openActressModal(it.actress);
   const ob=p.querySelector('[data-act="open"]');if(ob)ob.onclick=()=>post("/api/open",it.code,"Opening in player…");
   const rb=p.querySelector('[data-act="reveal"]');if(rb)rb.onclick=()=>post("/api/reveal",it.code,"Revealing in Finder…");
   p.querySelector("#pfav").onclick=e=>{toggleFav(it.code,e.currentTarget);

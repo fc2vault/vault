@@ -1866,8 +1866,9 @@ class Handler(BaseHTTPRequestHandler):
                            "note": ("session works — the server can read fc2ppv-db"
                                     if ok else
                                     "no data — the session was rejected (Cloudflare). "
-                                    "Re-copy the cookie from the SAME browser/IP, or the "
-                                    "server's IP differs from your browser's.")})
+                                    "The cookie has likely expired — re-copy a fresh one "
+                                    "from the same browser. If it still fails, your browser "
+                                    "may be on a different IP than the server (e.g. a VPN).")})
 
     def _fc2db_scan(self, scope):
         if not scanmod or not hasattr(scanmod, "scan_fc2db"):
