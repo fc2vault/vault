@@ -1,0 +1,47 @@
+name: ✨ Feature request
+description: Suggest an idea or improvement for Vault
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping shape Vault! For open-ended ideas or questions, the
+        **[Discussions → Ideas](https://github.com/fc2vault/vault/discussions/categories/ideas)**
+        board is often a better fit. Use this form for a concrete, actionable request.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do that's hard or impossible today?
+      placeholder: "When I browse by actress I can't…"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it work? Sketch the UI/behavior if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds you use now, or other approaches you weighed.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Grid / browsing
+        - Player / detail view
+        - Actress catalogue
+        - Tags / filtering
+        - Import / library management
+        - Settings
+        - Other
+    validations:
+      required: false

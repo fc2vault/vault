@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💡 Ideas & feature discussion
+    url: https://github.com/fc2vault/vault/discussions/categories/ideas
+    about: Open-ended ideas and feature brainstorming live here.
+  - name: 🙋 Questions & help
+    url: https://github.com/fc2vault/vault/discussions/categories/q-a
+    about: Ask how to set up or use Vault.
