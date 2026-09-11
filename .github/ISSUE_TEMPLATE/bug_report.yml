@@ -1,0 +1,38 @@
+name: 🐛 Bug report
+description: Report something that isn't working
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open …
+        2. Click …
+        3. See …
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, browser, and how you run Vault (python3 serve.py / Vault.app).
+      placeholder: "macOS 15, Safari 18, Vault.app"
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console / server log (optional)
+      description: Any errors from the browser console or the server output.
+      render: shell
+    validations:
+      required: false
