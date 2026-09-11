@@ -871,6 +871,7 @@ def rebuild_index(fs_items=None):
     STATE["actresses"] = alist
     STATE["facets"] = facets
     STATE["scanned_at"] = int(time.time())
+    STATE["data_json"] = None                 # invalidate the /api/data serialization cache
     sys.stderr.write(f"[{src}] {facets['total']} items in {time.time()-t0:.1f}s "
                      f"({facets['identified']} identified, "
                      f"{facets['total_bytes']/1e12:.2f} TB)\n")
@@ -1167,6 +1168,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw or b"{}")
         except Exception:
             body = {}
+        STATE["data_json"] = None   # any POST may mutate state -> invalidate the /api/data cache
         if p == "/api/open":
             return self._open_external(body.get("code"), reveal=False)
         if p == "/api/reveal":
@@ -1249,6 +1251,12 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, ctype, body, {"Cache-Control": "no-cache"})
 
     def _api_data(self):
+        # serve a cached serialization; it only changes when the index/state does
+        # (do_POST and rebuild_index clear STATE["data_json"])
+        body = STATE.get("data_json")
+        if body is not None:
+            return self._send(200, "application/json; charset=utf-8", body,
+                              {"Cache-Control": "no-store"})
         # ship a compact projection (omit absolute paths)
         out_items = []
         for it in STATE["items"]:
@@ -1288,13 +1296,16 @@ class Handler(BaseHTTPRequestHandler):
                 "missing": bool(it.get("missing")),
                 "dup": bool(it.get("dup")),
             })
-        self._json({
+        body = json.dumps({
             "items": out_items,
             "actresses": STATE["actresses"],
             "facets": STATE["facets"],
             "scanned_at": STATE["scanned_at"],
             "library": STATE["library"],
-        })
+        }).encode("utf-8")
+        STATE["data_json"] = body
+        self._send(200, "application/json; charset=utf-8", body,
+                   {"Cache-Control": "no-store"})
 
     def _api_meta(self, q):
         codes = (q.get("codes", [""])[0]).split(",")
@@ -2265,15 +2276,9 @@ class Handler(BaseHTTPRequestHandler):
             if aid:                                   # rename the linked actress
                 con.execute("UPDATE actresses SET name_en=?, name_jp=? WHERE id=?",
                             (en or None, jp or None, aid))
-            else:                                     # find or create, then link
-                row = None
-                if en:
-                    row = con.execute("SELECT id FROM actresses WHERE name_en=?", (en,)).fetchone()
-                if not row and jp:
-                    row = con.execute("SELECT id FROM actresses WHERE name_jp=?", (jp,)).fetchone()
-                if row:
-                    aid = row[0]
-                else:
+            else:                                     # find (alias/word-order aware) or create
+                aid = _find_actress(con, en) or (_find_actress(con, jp) if jp else None)
+                if aid is None:
                     cur = con.execute(
                         "INSERT INTO actresses(name_en,name_jp,source) VALUES(?,?,'manual')",
                         (en or None, jp or None))
