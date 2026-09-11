@@ -61,6 +61,8 @@ Click any owned card to open the detail/player view.
 - **Left rail:** her **Filmography** — every title (owned + `◇` wishlist), with the current one highlighted.
 - **Center:** the video (range‑streamed for fast seeking; multi‑part titles auto‑advance).
 - **Right panel:** actress name in a fixed order — **English → Japanese → code** — then her stats as pills (age · cup · height · B·W·H), technical **metadata**, favorite / played / **censored toggle**, external‑player & Finder buttons, **Scan metadata**, your star rating, and editable **tags**.
+  - **Click her name** (the **›** caret) to fold out her full **overview** — portrait, bio, and everything owned + missing — without leaving the movie.
+  - **⇄** (next to the ✎ edit button) **reassigns just this movie** to another actress — see [§5](#5-editing-a-movie).
 
 **Keyboard:** `space`/`k` play‑pause · `←`/`→` (or `j`/`l`) seek ±10s (hold `shift` for ±60s) · `↑`/`↓` volume · `m` mute · `f` fullscreen · `0–9` jump to % · `<`/`>` speed.
 
@@ -76,6 +78,17 @@ Click the **✎** in the detail panel to edit. You can set the movie’s English
 > **Only the actress identity is written when you *switch* a movie to an existing performer** — her body numbers are pulled from her record, never overwritten with the form’s stale values. Edit her profile only when you’re editing that same actress.
 
 The **censorship** state is a one‑click toggle (🔓 Uncensored / 🔒 Censored) right in the detail panel — no edit mode needed.
+
+### Reassign vs. edit — moving one misgrouped movie
+
+There are two different actions on the actress, and it matters which you use:
+
+- **✎ Edit** operates on **the actress record**. Changing the name here on an already‑identified movie **renames that actress** (it affects *all* her titles) — use it to fix a spelling or edit her profile.
+- **⇄ Reassign** (next to ✎) operates on **this one movie**. It relinks only the open title to another actress — the actress it *left* is never renamed and keeps her other movies. Use it when a title was grouped under the wrong person.
+
+The reassign box autocompletes against your catalog and tells you live whether the name you type **links to an existing actress** or **will create a new one** (word‑order and Japanese‑name matches are still resolved on save, so “Sora Mikumo” finds “Mikumo Sora”). It regroups the catalog immediately; it does **not** move files on disk — see [Organize by actress](#7-import-from-your-download-folder) for that.
+
+For moving *many* movies to one actress at once, use [multi‑select](#6-multi-select-bulk-assign-an-actress).
 
 ## 6. Multi‑select: bulk‑assign an actress
 
@@ -97,6 +110,10 @@ Point Vault at a **download folder** (Settings → Library), then hit **📥 Imp
 **Organize** (Settings → Library → *Organize library…*) tidies files already in the library — junk to `_vault_trash/`, duplicates to `_Duplicates/` (largest kept), names normalized to `…/<CODE>/<CODE>.ext`. It previews first and never deletes or overwrites. Rarely needed now that Import handles new files.
 
 ![Organize preview](images/organize.png)
+
+**Organize by actress** (Settings → Library → *Organize by actress…*) folds each movie so the **disk layout matches the catalog**: identified titles move to `…/<Actress>/<CODE>/`, unidentified ones move back to the root. It reads the catalog (not the folder names), so it also relocates anything you [reassigned](#5-editing-a-movie) in the app. It previews every move first with a per‑row skip, only ever moves whole `<CODE>` folders (never deletes a movie), skips `_Duplicates` / `_vault_trash` / `_unsorted` and any move whose destination already exists, and removes actress folders left empty afterwards.
+
+> Vault groups everything by the **catalog**, not by folder, so a reassignment is correct in the app immediately — this step is only for keeping the files on disk tidy to match. A first run on a library that was never foldered this way can move a lot of folders; that's expected.
 
 ## 8. Scan metadata from the web
 
@@ -126,6 +143,8 @@ Open **Settings** from the top bar. Four tabs:
 
 - **Display:** switch measurements between **Metric (cm)** and **Imperial (in)**.
 - **Library source folder:** change where Vault scans (triggers a full re‑scan).
+- **Download / import folder:** where **📥 Import** (top bar) picks up new downloads.
+- **Library maintenance:** **🧹 Organize library…** normalizes names / quarantines junk / flags duplicates; **📁 Organize by actress…** folds movies into `…/<Actress>/<CODE>/` to match the catalog (see [§7](#7-import-from-your-download-folder)). Both preview first and never delete a movie.
 - **Cache:** see and clear the scan index, video probes, and thumbnails (all safe to clear — they regenerate). **Rebuild index now** re‑reads the catalog.
 
 ### Tags & translations
@@ -152,7 +171,7 @@ Open **Settings** from the top bar. Four tabs:
   3. Paste both into Settings, **Save session** (stored in the macOS Keychain), then **Test connection**.
   4. On success, **Scan all →** sweeps your library, writing JP titles, actress faces/aliases, dates, and tags as the top‑priority source.
 
-  The session is bound to your browser’s IP + user‑agent and expires after a while — re‑paste it when the test stops passing.
+  The session is bound to your browser’s IP + user‑agent and expires after a while — re‑paste it when the test stops passing. Vault automatically tries the request over both **IPv4 and IPv6** (Cloudflare ties the cookie to the exact address that cleared its check, and a dual‑stack machine doesn’t always use the same one), so a fresh cookie works even if your browser and the server prefer different families. If **Test connection** still fails right after pasting, the cookie has expired, or your browser is behind a different public IP than the server (e.g. a VPN).
 
 ---
 
