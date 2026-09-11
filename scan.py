@@ -213,17 +213,20 @@ def _fill_actress_from_title(con, code, jp, en):
     return out
 
 
-# ---- IPv4-only opener -----------------------------------------------------
+# ---- address-family-pinned openers ----------------------------------------
 # Cloudflare binds a cf_clearance cookie to the exact IP that solved its check.
-# On a dual-stack connection the browser typically solves it over IPv4, but
-# Python's urllib prefers IPv6 (often a rotating privacy address) — a different
-# source IP, so CF re-challenges (403 cf-mitigated=challenge) even with a fresh,
-# correct cookie + user-agent. Forcing IPv4 makes the server exit from the same
-# address family the browser used, so fc2ppv-db sessions validate.
-class _V4HTTPSConnection(http.client.HTTPSConnection):
+# On a dual-stack connection the browser and Python may exit over different
+# address families (and IPv6 privacy addresses rotate), so the cookie is bound
+# to one family but the request goes out the other -> CF re-challenges
+# (403 cf-mitigated=challenge / a "Just a moment" page) even with a fresh,
+# correct cookie + user-agent. We can't know which family the browser used and
+# it isn't stable, so for Cloudflare-gated fetches we try both and keep the one
+# the cookie validates against. See _get_cf.
+class _FamilyHTTPSConnection(http.client.HTTPSConnection):
+    _family = 0                       # AF_UNSPEC (default resolver)
     def connect(self):
         infos = socket.getaddrinfo(self.host, self.port or 443,
-                                   socket.AF_INET, socket.SOCK_STREAM)
+                                   self._family, socket.SOCK_STREAM)
         af, socktype, proto, _cn, sa = infos[0]
         sock = socket.socket(af, socktype, proto)
         if self.timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
@@ -234,27 +237,63 @@ class _V4HTTPSConnection(http.client.HTTPSConnection):
         self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
 
 
-class _V4HTTPSHandler(urllib.request.HTTPSHandler):
-    def https_open(self, req):
-        return self.do_open(_V4HTTPSConnection, req)
+class _V4HTTPSConnection(_FamilyHTTPSConnection): _family = socket.AF_INET
+class _V6HTTPSConnection(_FamilyHTTPSConnection): _family = socket.AF_INET6
 
 
-_V4_OPENER = urllib.request.build_opener(_V4HTTPSHandler)
+def _family_opener(conn_cls):
+    class _H(urllib.request.HTTPSHandler):
+        def https_open(self, req):
+            return self.do_open(conn_cls, req)
+    return urllib.request.build_opener(_H)
 
 
-def _get(url, timeout=20, headers=None, ipv4=False):
+_V4_OPENER = _family_opener(_V4HTTPSConnection)
+_V6_OPENER = _family_opener(_V6HTTPSConnection)
+
+
+def _get(url, timeout=20, headers=None):
     try:
         h = {"User-Agent": UA}
         if headers:
             h.update(headers)
         req = urllib.request.Request(url, headers=h)
-        opener = _V4_OPENER.open if ipv4 else urllib.request.urlopen
-        with opener(req, timeout=timeout) as r:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
             if r.status != 200:
                 return None
             return r.read().decode("utf-8", "ignore")
     except Exception:
         return None
+
+
+def _is_cf_challenge(html):
+    """True if the response is a Cloudflare interstitial rather than real content."""
+    if not html:
+        return True
+    low = html[:4000].lower()
+    return ("just a moment" in low or "challenge-platform" in low
+            or "cf-mitigated" in low or "attention required" in low
+            or "cf_chl_" in low)
+
+
+def _get_cf(url, timeout=25, headers=None):
+    """GET a Cloudflare-gated URL. cf_clearance is bound to the IP family the
+    browser solved the check on, which varies on dual-stack, so try IPv4 then
+    IPv6 and return whichever the cookie validates against (None if both fail)."""
+    h = {"User-Agent": UA}
+    if headers:
+        h.update(headers)
+    for opener in (_V4_OPENER, _V6_OPENER):
+        try:
+            req = urllib.request.Request(url, headers=h)
+            with opener.open(req, timeout=timeout) as r:
+                if r.status == 200:
+                    html = r.read().decode("utf-8", "ignore")
+                    if not _is_cf_challenge(html):
+                        return html
+        except Exception:
+            continue
+    return None
 
 
 def _digits(code):
@@ -564,20 +603,19 @@ def fetch_fc2ppvdb(code, cookie=None, ua=None):
         headers["User-Agent"] = ua
     if cookie:
         headers["Cookie"] = cookie
-    # fc2ppv-db is Cloudflare-gated; force IPv4 so the cf_clearance cookie (bound
-    # to the IPv4 the browser solved the check on) validates. See _V4HTTPSConnection.
-    html = _get(f"{FC2DB}/en/videos/{num}", headers=headers, timeout=25, ipv4=True)
+    # fc2ppv-db is Cloudflare-gated; _get_cf tries both IP families so the
+    # cf_clearance cookie validates regardless of which one the browser used.
+    html = _get_cf(f"{FC2DB}/en/videos/{num}", headers=headers, timeout=25)
     return parse_fc2ppvdb_video(html or "")
 
 
-def _download(url, cookie=None, ua=None, timeout=20, ipv4=False):
+def _download(url, cookie=None, ua=None, timeout=20):
     try:
         h = {"User-Agent": ua or UA}
         if cookie:
             h["Cookie"] = cookie
         req = urllib.request.Request(url, headers=h)
-        opener = _V4_OPENER.open if ipv4 else urllib.request.urlopen
-        with opener(req, timeout=timeout) as r:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.read() if r.status == 200 else None
     except Exception:
         return None
