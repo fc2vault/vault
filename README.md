@@ -49,8 +49,10 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 
 **Curate**
 - Rich edit panel: actress (EN + JP, with autocomplete), age, cup, height, measurements, censorship toggle, EN/JP titles
+- **Reassign** a single misgrouped movie to another actress straight from the player (**⇄**) — relinks just that title, never renames the actress it left
 - **Multi‑select** (shift / ⌘‑click) → bulk‑assign one actress to many movies
 - **Organize** the folder on disk: normalize `…/<CODE>/<CODE>.ext`, quarantine junk, flag/relocate duplicates — preview first, nothing deleted
+- **Organize by actress**: fold every movie into `…/<Actress>/<CODE>/` to match the catalog (so the disk follows reassignments) — preview first, only moves, never deletes
 - **Settings** hub: change the library folder, clear caches, manage tags (rename/merge + **JP→EN translation**), manage actresses (rename, merge, **find duplicates**), and connect sources
 
 **Enrich**
@@ -150,8 +152,9 @@ The detailed, screenshot‑driven guide lives in **[`docs/USER_GUIDE.md`](docs/U
 - Browsing, filtering, sorting, and the wishlist
 - Playback and keyboard shortcuts
 - Editing a movie’s actress & metadata
+- Reassigning a misgrouped movie to another actress
 - Multi‑select bulk actress assignment
-- Organizing the library folder
+- Organizing the library folder (by `<CODE>` and **by actress**)
 - Scanning & enriching from the web (and the verification model)
 - Settings: library, cache, **tags + translations**, **actresses + dedup**, sources
 - Connecting the premium **fc2ppv‑db** source
@@ -263,6 +266,7 @@ Watched state, favorites and ratings never enter this picture — they live in t
 | Phone tab reloads or dies on a huge library | Should not happen — the grid renders in batches. If it does, narrow the view with a filter and file it as a bug. |
 | Newly added folder not on top of “Newest added” | Vault sorts by **first‑seen**; a freshly‑dropped `<CODE> - Name` folder is treated as new. |
 | Wrong port after launch | `serve.py` remembers the last `--port` in `config.json`; edit it back or pass `--port 8730`. |
+| fc2ppv‑db **Test connection** fails with a fresh cookie | Vault tries the request over both IPv4 and IPv6 (a `cf_clearance` cookie is bound to the exact address that solved Cloudflare's check, and dual‑stack machines don't always use the same one). If it still fails, the cookie has expired — re‑copy it — or your browser is on a different public IP than the server (e.g. a VPN). |
 
 ---
 
