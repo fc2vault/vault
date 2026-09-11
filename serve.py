@@ -32,6 +32,7 @@ import json
 import mimetypes
 import os
 import re
+import shutil
 import signal
 import sqlite3
 import subprocess
@@ -539,6 +540,16 @@ def _largest_video(files, dirpath):
              for v in ordered]
     return {"primary": primary[1], "ext": primary[2], "size": total,
             "nparts": len(vids), "parts": parts}
+
+
+# dirs the by-actress folder pass must never move into/out of
+FOLD_RESERVED = {"_vault_trash", "_duplicates", "_unsorted", "_vault", "@eadir"}
+
+
+def _safe_actress_dir(name):
+    """A filesystem-safe single path segment for an actress folder."""
+    s = (name or "").strip().replace("/", "-").replace(":", "-").replace("\\", "-")
+    return s.strip(" .")
 
 
 def scan_library(library):
@@ -1190,6 +1201,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._scan_library(body)
         if p == "/api/wishlistcovers":
             return self._wishlist_covers()
+        if p == "/api/foldactress":
+            return self._fold_actress(bool(body.get("apply")), body.get("skip"))
         if p == "/api/organize":
             return self._organize(bool(body.get("apply")), body.get("skip"),
                                   body.get("enrich"))
@@ -1931,6 +1944,95 @@ class Handler(BaseHTTPRequestHandler):
         return self._json({"ok": True, "report": report})
 
     ORG_CAP = 4000                             # max actions shipped for per-row selection
+
+    def _fold_actress(self, apply, skip=None):
+        """Fold each owned movie's <CODE> folder to match the catalog actress:
+        LIBRARY/<Actress>/<CODE>/…  when identified, LIBRARY/<CODE>/…  when not.
+        DB-driven (uses works.actress_id via STATE), so it also relocates movies
+        reassigned in the UI. Preview by default; only moves whole <CODE> folders and
+        prunes emptied actress folders — never deletes a movie."""
+        lib = STATE.get("library")
+        if not lib or not os.path.isdir(lib):
+            return self._json({"error": "no library"}, 400)
+        lib_real = os.path.realpath(lib)
+        skip = set(skip or [])
+        plan, conflicts = [], []
+        for it in STATE["items"]:
+            if it.get("missing"):
+                continue
+            primary = it.get("primary")
+            if not primary:
+                continue
+            cur_dir = os.path.dirname(primary)
+            cur_real = os.path.realpath(cur_dir)
+            if cur_real == lib_real:
+                continue                                   # loose file at root — Organize folds it first
+            relparts = os.path.relpath(cur_dir, lib).split(os.sep)
+            if any(seg.lower() in FOLD_RESERVED for seg in relparts):
+                continue                                   # never touch trash/dupes/unsorted
+            base = os.path.basename(cur_dir)
+            identified = it.get("identified") and (it.get("actress") or "").strip()
+            if identified:
+                adir = _safe_actress_dir(it.get("actress"))
+                if not adir:
+                    continue
+                target_dir = os.path.join(lib, adir, base)
+            else:
+                target_dir = os.path.join(lib, base)       # unidentified -> flat at root
+            if os.path.realpath(target_dir) == cur_real:
+                continue                                    # already in the right place
+            entry = {"id": it.get("code") or base, "code": it.get("code"),
+                     "actress": (it.get("actress") if identified else None),
+                     "from": os.path.relpath(cur_dir, lib),
+                     "to": os.path.relpath(target_dir, lib),
+                     "cur_dir": cur_dir, "target_dir": target_dir}
+            (conflicts if os.path.exists(target_dir) else plan).append(entry)
+
+        if not apply:
+            cap = self.ORG_CAP
+            return self._json({"ok": True, "total": len(plan), "conflicts": len(conflicts),
+                               "actions": [{"id": e["id"], "code": e["code"],
+                                            "actress": e["actress"], "from": e["from"],
+                                            "to": e["to"]} for e in plan[:cap]],
+                               "conflict_list": [{"from": e["from"], "to": e["to"]}
+                                                 for e in conflicts[:50]],
+                               "truncated": len(plan) > cap})
+        # apply
+        moved, pruned, parents = 0, 0, set()
+        for e in plan:
+            if e["id"] in skip:
+                continue
+            src, dst = e["cur_dir"], e["target_dir"]
+            if not os.path.isdir(src) or os.path.exists(dst):
+                continue
+            try:
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                try:
+                    os.rename(src, dst)
+                except OSError:
+                    shutil.move(src, dst)                   # cross-device fallback
+                moved += 1
+                parents.add(os.path.dirname(src))
+            except OSError:
+                continue
+        # prune actress folders left empty by the moves (never removes a folder with content)
+        for parent in parents:
+            if os.path.realpath(parent) == lib_real:
+                continue
+            if os.path.basename(parent).lower() in FOLD_RESERVED:
+                continue
+            try:
+                left = [x for x in os.listdir(parent) if x != ".DS_Store"]
+                if not left:
+                    ds = os.path.join(parent, ".DS_Store")
+                    if os.path.exists(ds):
+                        os.remove(ds)
+                    os.rmdir(parent)
+                    pruned += 1
+            except OSError:
+                pass
+        rebuild_index()
+        return self._json({"ok": True, "moved": moved, "pruned": pruned})
 
     def _organize(self, apply, skip=None, enrich=None):
         if not orgmod:

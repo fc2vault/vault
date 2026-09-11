@@ -892,6 +892,38 @@ function organizeLibrary(){
      };
    }).catch(()=>{b.innerHTML='<div class="orghd">Could not analyze the library</div><div class="pactions"><button class="btn" id="orgCancel">Close</button></div>';const x=$("#orgCancel");if(x)x.onclick=close;});
 }
+function foldByActress(){
+  const m=$("#orgmodal"),b=$("#orgbox");m.classList.add("on");
+  const close=()=>m.classList.remove("on");
+  b.innerHTML='<div class="orghd">Planning by-actress foldering…</div><div class="orgsub">Matching every movie to its catalog actress.</div>';
+  fetch("/api/foldactress",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})
+   .then(r=>r.json()).then(j=>{
+     if(j.error){b.innerHTML=`<div class="orghd">Error</div><div class="orgsub">${esc(j.error)}</div><div class="pactions"><button class="btn" id="foCancel">Close</button></div>`;$("#foCancel").onclick=close;return;}
+     if(!j.total){b.innerHTML=`<div class="orghd">Folders already match 🎉</div><div class="orgsub">Every movie already sits under its catalog actress${j.conflicts?` · ${j.conflicts} skipped (a folder already exists at the destination)`:''}.</div><div class="pactions"><button class="btn" id="foCancel">Close</button></div>`;$("#foCancel").onclick=close;return;}
+     const rows=(j.actions||[]).map(a=>`<label class="orgrow"><input type="checkbox" class="fochk" data-id="${esc(a.id)}" checked><span class="ot ${a.actress?'file':'junk'}">${a.actress?'move':'unfile'}</span><span class="of">${esc(a.from)}</span><span class="oarrow">→</span><span class="oto">${esc(a.to)}</span></label>`).join("");
+     const confl=(j.conflict_list||[]).length?`<div class="orgsub" style="margin-top:10px;color:var(--warn)">⚠ ${j.conflicts} skipped — a folder already exists at the destination:</div><div class="orglist" style="max-height:120px">${j.conflict_list.map(cf=>`<div class="orgrow" style="opacity:.7"><span class="of">${esc(cf.from)}</span><span class="oarrow">→</span><span class="oto">${esc(cf.to)}</span></div>`).join("")}</div>`:"";
+     b.innerHTML=`
+       <div class="orghd">Organize by actress — preview</div>
+       <div class="orgsub"><b>${j.total}</b> movie folder${j.total>1?'s':''} will move to match the catalog. Identified → <code>&lt;Actress&gt;/&lt;CODE&gt;/</code>, unidentified → root. Folders are only moved (never deleted); emptied actress folders are removed afterwards. Uncheck any row to skip it.</div>
+       <div class="orglist">${rows}${j.truncated?'<div class="orgrow" style="color:var(--dim2)">…more moves not shown (they will still apply unless you uncheck them here)</div>':''}</div>
+       ${confl}
+       <div class="pactions">
+         <button class="btn pri" id="foApply">Apply${j.truncated?' all':' selected'}</button>
+         <button class="btn" id="foCancel">Cancel</button>
+       </div>`;
+     $("#foCancel").onclick=close;
+     $("#foApply").onclick=e=>{
+       const ab=e.currentTarget;ab.textContent="Moving…";ab.disabled=true;
+       const skip=[...b.querySelectorAll(".fochk:not(:checked)")].map(x=>x.dataset.id);
+       fetch("/api/foldactress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apply:true,skip})})
+        .then(r=>r.json()).then(res=>{
+          if(res.error){toast(res.error);ab.disabled=false;ab.textContent="Apply";return;}
+          toast(`Foldered · ${res.moved} moved${res.pruned?` · ${res.pruned} empty folder${res.pruned>1?'s':''} removed`:''}`);
+          close();reloadData();
+        }).catch(()=>{toast("Foldering failed");ab.disabled=false;ab.textContent="Apply";});
+     };
+   }).catch(()=>{b.innerHTML='<div class="orghd">Could not plan foldering</div><div class="pactions"><button class="btn" id="foCancel">Close</button></div>';const x=$("#foCancel");if(x)x.onclick=close;});
+}
 let scanPollTimer=null,SCANCANDS=[],SCANSCOPE="missing";
 function startLibraryScan(){
   const m=$("#scanmodal"),b=$("#scanbox");m.classList.add("on");
@@ -1016,8 +1048,11 @@ function renderSetLibrary(pane){
     <div class="setnote">Where new downloads land. The <b>📥 Import</b> button (top bar) renames &amp; cleans this folder, then moves releases into the library — adding new ones and replacing older copies with better versions. Nothing in the library is deleted without your confirmation.</div>
     <div style="display:flex;gap:8px"><input class="setin" id="dlPath" style="flex:1" value="${esc(SET.download||'')}" placeholder="/path/to/downloads"><button class="setbtn" id="dlSave">Save</button></div>
     <div class="setsec">Library maintenance</div>
-    <div class="setnote">Tidy the library folder itself: normalize names, quarantine junk, flag duplicates. Rarely needed now that Import handles new files.</div>
-    <button class="setbtn" id="orgOpen">🧹 Organize library…</button>
+    <div class="setnote"><b>Organize library</b> tidies the folder itself: normalize names to <code>&lt;CODE&gt;</code>, quarantine junk, flag duplicates. <b>Organize by actress</b> moves each movie under its catalog actress (<code>&lt;Actress&gt;/&lt;CODE&gt;/</code>) — run it after reassigning titles to make the folders on disk match. Both preview first and never delete a movie.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="setbtn" id="orgOpen">🧹 Organize library…</button>
+      <button class="setbtn" id="foldOpen">📁 Organize by actress…</button>
+    </div>
     <div class="setsec">Cache</div>
     <div class="setnote">Cached scan index, video probes and poster thumbnails. Clearing is safe — everything regenerates on the next scan.</div>
     <div class="setrow"><span class="grow">Scan index</span><span class="cnt">${fmtBytes(c.index)}</span><button class="setbtn danger" data-clear="index">Clear</button></div>
@@ -1033,6 +1068,7 @@ function renderSetLibrary(pane){
   $("#dlSave").onclick=()=>{const p=$("#dlPath").value.trim();if(!p)return;
     post2("/api/setdownload",{path:p},j=>{if(j.error){toast(j.error);return;}toast("Download folder set");SET.download=p;});};
   $("#orgOpen").onclick=()=>{$("#setmodal").classList.remove("on");organizeLibrary();};
+  $("#foldOpen").onclick=()=>{$("#setmodal").classList.remove("on");foldByActress();};
   pane.querySelectorAll("[data-clear]").forEach(x=>x.onclick=()=>post2("/api/clearcache",{targets:[x.dataset.clear]},j=>{toast("Cleared "+(j.cleared||[]).join(", ")+" — rebuilding");}));
   $("#clearAll").onclick=()=>post2("/api/clearcache",{targets:["index","probe","thumbs"]},j=>toast("Cache cleared — rebuilding"));
   $("#rebuild").onclick=()=>{toast("Rebuilding…");fetch("/api/rescan").then(r=>r.json()).then(j=>{toast("Rebuilt: "+j.count+" items");reloadData();});};
