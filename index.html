@@ -1352,7 +1352,7 @@ function renderByActress(items,grid){
   const ordered=[...groups.entries()].sort((a,b)=>{
     if(a[0].startsWith("~"))return 1;if(b[0].startsWith("~"))return -1;
     return b[1].length-a[1].length;});
-  const aById=new Map();DATA.actresses.forEach(a=>{if(a.name_en)aById.set(a.name_en,a);});
+  const aById=new Map();DATA.actresses.forEach(a=>{const k=a.disp||a.name_en;if(k)aById.set(k,a);});
   GROUPITEMS=new Map(ordered);
   const jobs=[];
   ordered.forEach(([name,arr])=>{
@@ -1410,7 +1410,7 @@ function toggleActressGroup(name,h){
 function openActressModal(name){
   const clean=name.replace(/^~ /,'');
   const arr=DATA.items.filter(it=>(it.actress||"~ Unknown / amateur")===name);
-  const a=DATA.actresses.find(x=>x.name_en===name)||ACTBYNAME[clean.toLowerCase()]||null;
+  const a=DATA.actresses.find(x=>x.disp===name||x.name_en===name)||ACTBYNAME[clean.toLowerCase()]||null;
   const it0=arr[0]||{};
   const byDate=(p,q)=>(q.release||"").localeCompare(p.release||"");
   const owned=arr.filter(x=>!x.missing).sort(byDate);
