@@ -60,7 +60,7 @@ Click any owned card to open the detail/player view.
 
 - **Left rail:** her **Filmography** — every title (owned + `◇` wishlist), with the current one highlighted.
 - **Center:** the video (range‑streamed for fast seeking; multi‑part titles auto‑advance).
-- **Right panel:** actress name in a fixed order — **English → Japanese → code** — then her stats as pills (age · cup · height · B·W·H), technical **metadata**, favorite / played / **censored toggle**, external‑player & Finder buttons, **Scan metadata**, your star rating, and editable **tags**.
+- **Right panel:** actress name in a fixed order — **English → Japanese → code** — then, for a multi‑actress title, a **co‑stars** row (each clickable to open that performer's overview), her stats as pills (age · cup · height · B·W·H), technical **metadata**, favorite / played / **censored toggle**, external‑player & Finder buttons, **Scan metadata**, your star rating, and editable **tags**. A movie's cast is a **many‑to‑many** relationship — one lead (**main**) plus any number of **co‑stars** — so a title shows up under every performer in it.
   - **Click her name** (the **›** caret) to fold out her full **overview** — portrait, bio, and everything owned + missing — without leaving the movie.
   - **⇄** (next to the ✎ edit button) **reassigns just this movie** to another actress — see [§5](#5-editing-a-movie).
 
