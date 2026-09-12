@@ -667,8 +667,12 @@ def enrich(items):
             aka_map.setdefault(r["actress_id"], []).append(r["alias"])
         # multi-actress cast per code (join table; may not exist on older DBs)
         try:
-            for r in con.execute("SELECT code,actress_id FROM work_actresses"):
-                wa.setdefault(r["code"], []).append(r["actress_id"])
+            try:
+                cur = con.execute("SELECT code,actress_id,role FROM work_actresses")
+            except sqlite3.OperationalError:
+                cur = con.execute("SELECT code,actress_id,'costar' AS role FROM work_actresses")
+            for r in cur:
+                wa.setdefault(r["code"], []).append((r["actress_id"], r["role"] or "costar"))
         except sqlite3.OperationalError:
             pass
         # works -> enrich
@@ -792,13 +796,14 @@ def enrich(items):
         it["identified"] = bool(name)
         it["display"] = it["code"]
         it["aka"] = " ".join(aka_map.get(aid, [])) if aid else ""
-        # full cast (multi-actress), primary first
+        # full cast (multi-actress) with role (main/costar), lead first
         cast = wa.get(it["code"])
         if cast:
-            ordered = ([aid] if aid in cast else []) + [x for x in cast if x != aid]
-            it["actresses"] = [{"id": x, "disp": disp_by_id.get(x) or ""} for x in ordered]
+            ordered = sorted(cast, key=lambda ar: (ar[1] != "main", ar[0] != aid))
+            it["actresses"] = [{"id": x, "disp": disp_by_id.get(x) or "", "role": role}
+                               for x, role in ordered]
         elif aid:
-            it["actresses"] = [{"id": aid, "disp": name}]
+            it["actresses"] = [{"id": aid, "disp": name, "role": "main"}]
         else:
             it["actresses"] = []
         if missing:

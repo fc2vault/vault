@@ -328,7 +328,8 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .p-side h2{margin:0;font-size:19px}
 .p-side h2.link{cursor:pointer}
 .p-side h2.link:hover{color:var(--accent)}
-.costars{font-size:12.5px;color:var(--dim);margin:3px 0 2px;line-height:1.5}
+.costars{font-size:12.5px;color:var(--dim);margin:5px 0 2px;line-height:1.7}
+.costars-lbl{text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:var(--dim2);margin-right:4px}
 .costar{display:inline-block;background:var(--panel2,rgba(255,255,255,.06));border:1px solid var(--line);border-radius:999px;padding:1px 9px;margin:2px 4px 0 0;cursor:pointer;color:var(--txt)}
 .costar:hover{color:var(--accent);border-color:var(--accent)}
 .ncaret{display:inline-block;margin-left:6px;color:var(--dim2);font-weight:400;transition:transform .15s,color .15s}
@@ -1790,7 +1791,7 @@ function openPlayer(it){
           <h2${it.identified?' class="link" title="Show her profile & all titles"':''}>${title}${it.identified?'<span class="ncaret">›</span>':''}</h2>
           ${it.identified&&it.actress_en&&it.actress_jp?`<div class="jp">${esc(it.actress_jp)}</div>`:''}
           <div class="code">${esc(it.code)}</div>
-          ${(()=>{const o=(it.actresses||[]).filter(a=>a.disp&&a.disp!==it.actress);return o.length?`<div class="costars">with ${o.map(a=>`<span class="costar" data-name="${esc(a.disp)}">${esc(a.disp)}</span>`).join("")}</div>`:'';})()}
+          ${(()=>{const o=(it.actresses||[]).filter(a=>a.disp&&(a.role?a.role!=='main':a.disp!==it.actress));return o.length?`<div class="costars"><span class="costars-lbl">co-stars</span> ${o.map(a=>`<span class="costar" data-name="${esc(a.disp)}" title="See ${esc(a.disp)}">${esc(a.disp)}</span>`).join("")}</div>`:'';})()}
           ${it.identified?actressStatsLine(it):''}
           ${it.title_en?`<div class="entitle">${esc(it.title_en)}</div>`:''}
           ${it.title?`<div class="jp mjp">${esc(it.title)}</div>`:''}
