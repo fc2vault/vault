@@ -728,6 +728,7 @@ def enrich(items):
             actresses[aid] = {
                 "id": aid, "name_en": r["name_en"], "name_jp": r["name_jp"],
                 "disp": disp_by_id.get(aid) or r["name_en"] or r["name_jp"],
+                "fc2ppvdb_uuid": r["fc2ppvdb_uuid"],
                 "age": r["age"], "height": r["height"], "bust": r["bust"],
                 "cup": r["cup"], "waist": r["waist"], "hip": r["hip"],
                 "birthdate": r["birthdate"], "description": r["description"] or "",
@@ -1257,6 +1258,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._tag_edit(body.get("key"), body.get("en"), body.get("jp"))
         if p == "/api/tagdelete":
             return self._tag_delete(body.get("tag"))
+        if p == "/api/actressedit":
+            return self._actress_edit(body)
         if p == "/api/actressrename":
             return self._actress_rename(body.get("id"), body.get("name_en"),
                                         body.get("name_jp"))
@@ -1681,6 +1684,49 @@ class Handler(BaseHTTPRequestHandler):
         con.close()
         rebuild_index(_load_fs_index(STATE["library"]))
         return self._json({"ok": True, "removed": n})
+
+    def _actress_edit(self, body):
+        """Edit an actress's full profile by id (name + age/cup/measurements + description)."""
+        aid = body.get("id")
+        if not aid or not os.path.exists(DB_PATH):
+            return self._json({"error": "no id / db"}, 400)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        try:
+            old = con.execute("SELECT name_en,name_jp FROM actresses WHERE id=?", (int(aid),)).fetchone()
+            if not old:
+                return self._json({"error": "no such actress"}, 404)
+            en = (body.get("name_en") or "").strip() or None
+            jp = (body.get("name_jp") or "").strip() or None
+            sets, vals = [], []
+            if "name_en" in body:
+                sets.append("name_en=?"); vals.append(en)
+            if "name_jp" in body:
+                sets.append("name_jp=?"); vals.append(jp)
+            for col, cast in (("age", int), ("cup", str), ("height", int),
+                              ("bust", int), ("waist", int), ("hip", int)):
+                if col in body:
+                    v = body.get(col)
+                    v = v.strip() if isinstance(v, str) else v
+                    v = None if v in (None, "") else v
+                    if v is not None and cast is int:
+                        try:
+                            v = int(v)
+                        except (ValueError, TypeError):
+                            continue
+                    sets.append(f"{col}=?"); vals.append(v)
+            if "description" in body:
+                sets.append("description=?"); vals.append((body.get("description") or "").strip() or None)
+            if sets:
+                con.execute(f"UPDATE actresses SET {','.join(sets)} WHERE id=?", vals + [int(aid)])
+            for nm in (old or ()):                 # keep old spellings as aliases
+                if nm and nm not in (en, jp):
+                    con.execute("INSERT OR IGNORE INTO aliases(actress_id,alias) VALUES(?,?)",
+                                (int(aid), nm))
+            con.commit()
+        finally:
+            con.close()
+        rebuild_index(_load_fs_index(STATE["library"]))
+        return self._json({"ok": True})
 
     def _actress_rename(self, aid, name_en, name_jp):
         if not aid or not os.path.exists(DB_PATH):
