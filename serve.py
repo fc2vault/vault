@@ -616,6 +616,7 @@ def enrich(items):
     actresses = {}
     portraits = set()
     aka_map = {}
+    disp_by_id = {}
 
     if os.path.exists(DB_PATH):
         con = sqlite3.connect(DB_PATH, timeout=30)
@@ -623,13 +624,34 @@ def enrich(items):
         # actresses + portrait availability
         arows = con.execute(
             "SELECT id,name_en,name_jp,name_kana,age,height,bust,cup,waist,hip,"
-            "birthdate,description,(image_blob IS NOT NULL) AS has_portrait FROM actresses"
+            "birthdate,description,fc2ppvdb_uuid,(image_blob IS NOT NULL) AS has_portrait "
+            "FROM actresses"
         ).fetchall()
         adict = {}
         for r in arows:
             adict[r["id"]] = r
             if r["has_portrait"]:
                 portraits.add(r["id"])
+        # ---- display disambiguation: same name, different fc2ppv-db person ----
+        # The DB stores clean name_en/name_jp plus a stable fc2ppvdb_uuid. When two
+        # actresses share a display name we append a short uuid (or #id) ONLY in the
+        # display string, so the by-actress view / modals keep them apart without ever
+        # polluting the stored name. See _disp_by_id below.
+        _name_ct = {}
+        for r in arows:
+            base = (r["name_en"] or r["name_jp"] or "").strip().lower()
+            if base:
+                _name_ct[base] = _name_ct.get(base, 0) + 1
+        disp_by_id = {}
+        for r in arows:
+            base = (r["name_en"] or r["name_jp"] or "").strip()
+            if not base:
+                continue
+            if _name_ct.get(base.lower(), 0) > 1:
+                tag = (r["fc2ppvdb_uuid"] or "")[:8] or f"#{r['id']}"
+                disp_by_id[r["id"]] = f"{base} ({tag})"
+            else:
+                disp_by_id[r["id"]] = base
         # tags per code — translated to English display labels where we have a mapping
         _ensure_tagtx(con)
         tagmap = {}
@@ -698,6 +720,7 @@ def enrich(items):
         for aid, r in adict.items():
             actresses[aid] = {
                 "id": aid, "name_en": r["name_en"], "name_jp": r["name_jp"],
+                "disp": disp_by_id.get(aid) or r["name_en"] or r["name_jp"],
                 "age": r["age"], "height": r["height"], "bust": r["bust"],
                 "cup": r["cup"], "waist": r["waist"], "hip": r["hip"],
                 "birthdate": r["birthdate"], "description": r["description"] or "",
@@ -754,12 +777,12 @@ def enrich(items):
     fmt_counts, cup_counts, tag_counts, res_counts, studio_counts = {}, {}, {}, {}, {}
     for it in items:
         missing = bool(it.get("missing"))
-        name = (it.get("actress_en") or it.get("actress_jp")
+        aid = it.get("actress_id")
+        name = (disp_by_id.get(aid) or it.get("actress_en") or it.get("actress_jp")
                 or it.get("actress_path") or "")
         it["actress"] = name
         it["identified"] = bool(name)
         it["display"] = it["code"]
-        aid = it.get("actress_id")
         it["aka"] = " ".join(aka_map.get(aid, [])) if aid else ""
         if aid in actresses:
             actresses[aid]["missing_count" if missing else "count"] += 1
