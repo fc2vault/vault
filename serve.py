@@ -617,6 +617,7 @@ def enrich(items):
     portraits = set()
     aka_map = {}
     disp_by_id = {}
+    wa = {}                       # code -> [actress_id, ...] full cast (multi-actress)
 
     if os.path.exists(DB_PATH):
         con = sqlite3.connect(DB_PATH, timeout=30)
@@ -664,6 +665,12 @@ def enrich(items):
         aka_map = {}
         for r in con.execute("SELECT actress_id,alias FROM aliases"):
             aka_map.setdefault(r["actress_id"], []).append(r["alias"])
+        # multi-actress cast per code (join table; may not exist on older DBs)
+        try:
+            for r in con.execute("SELECT code,actress_id FROM work_actresses"):
+                wa.setdefault(r["code"], []).append(r["actress_id"])
+        except sqlite3.OperationalError:
+            pass
         # works -> enrich
         # match by exact code, then by digits
         by_digits = {}
@@ -784,8 +791,22 @@ def enrich(items):
         it["identified"] = bool(name)
         it["display"] = it["code"]
         it["aka"] = " ".join(aka_map.get(aid, [])) if aid else ""
-        if aid in actresses:
-            actresses[aid]["missing_count" if missing else "count"] += 1
+        # full cast (multi-actress), primary first
+        cast = wa.get(it["code"])
+        if cast:
+            ordered = ([aid] if aid in cast else []) + [x for x in cast if x != aid]
+            it["actresses"] = [{"id": x, "disp": disp_by_id.get(x) or ""} for x in ordered]
+        elif aid:
+            it["actresses"] = [{"id": aid, "disp": name}]
+        else:
+            it["actresses"] = []
+        if missing:
+            if aid in actresses:
+                actresses[aid]["missing_count"] += 1
+        else:
+            for c in it["actresses"]:            # credit every actress in the cast
+                if c["id"] in actresses:
+                    actresses[c["id"]]["count"] += 1
         if missing:
             continue  # ghosts don't have a file / probe / library facets
         m = PROBE.get(it["code"]) or {}
@@ -1302,6 +1323,7 @@ class Handler(BaseHTTPRequestHandler):
                 "actress_id": it.get("actress_id"),
                 "actress_en": it.get("actress_en") or "",
                 "actress_jp": it.get("actress_jp") or "",
+                "actresses": it.get("actresses") or [],
                 "aka": it.get("aka") or "",
                 "identified": it["identified"],
                 "age": it.get("age"),
