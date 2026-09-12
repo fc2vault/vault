@@ -1523,7 +1523,7 @@ class Handler(BaseHTTPRequestHandler):
         clean = []
         seen = set()
         for t in tags:
-            t = str(t).strip()
+            t = _tag_display(str(t).strip())     # honor merges/aliases on manual entry too
             if t and t.lower() not in seen:
                 seen.add(t.lower())
                 clean.append(t)
@@ -1667,6 +1667,10 @@ class Handler(BaseHTTPRequestHandler):
         if key and canon and canon.lower() != key.lower():   # rename/merge the in-use tag
             con.execute("UPDATE OR IGNORE tags SET tag=? WHERE tag=?", (canon, key))
             con.execute("DELETE FROM tags WHERE tag=?", (key,))
+            # record the merge so future scraper runs map the old name to the new one
+            # (honored for this install and shipped in the catalog for other users)
+            con.execute("INSERT INTO tag_translations(raw,display) VALUES(?,?) "
+                        "ON CONFLICT(raw) DO UPDATE SET display=excluded.display", (key, canon))
         con.commit()
         con.close()
         global _tagtx
@@ -2186,6 +2190,7 @@ class Handler(BaseHTTPRequestHandler):
                     if aid is not None:
                         con.execute("UPDATE works SET actress_id=COALESCE(actress_id,?) "
                                     "WHERE code=?", (aid, code))
+                tags = [_tag_display(t) for t in tags]     # honor merges/aliases
                 for t in tags:
                     con.execute("INSERT OR IGNORE INTO tags(code,tag) VALUES(?,?)", (code, t))
                 if tags:                                   # reflect into every item w/ this code

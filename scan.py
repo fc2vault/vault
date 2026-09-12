@@ -736,11 +736,9 @@ def _apply_fc2db(con, code, data):
     if sets:
         con.execute(f"UPDATE works SET {','.join(sets)} WHERE code=?", vals + [code])
     for tg in data.get("tags", []):
-        # store the CANONICAL form: English label if we have a translation, else the JP tag
-        row = con.execute("SELECT display FROM tag_translations WHERE raw=? COLLATE NOCASE",
-                          (tg,)).fetchone()
-        con.execute("INSERT OR IGNORE INTO tags(code,tag) VALUES(?,?)",
-                    (code, row[0] if row and row[0] else tg))
+        c = _canon_tag(con, tg)         # JP->EN / merge-alias, drops untranslated JP junk
+        if c:
+            con.execute("INSERT OR IGNORE INTO tags(code,tag) VALUES(?,?)", (code, c))
     for idx, a in enumerate(data.get("actresses", [])):
         aid = _fc2_actress(con, a)
         if idx == 0:
@@ -784,6 +782,24 @@ def scan_fc2db(con, codes, cookie, ua, thumb_dir=None, progress=None):
 
 
 # ---- orchestrator ----------------------------------------------------------
+def _canon_tag(con, tag, drop_jp=True):
+    """Canonical stored form of a scraped tag, honored on every run and for every user:
+      * map via tag_translations (JP->EN and English merge-aliases we recorded), so merged
+        tags stay merged;
+      * drop untranslated Japanese tags (the junk one-offs) so they never pollute the set.
+    Returns the canonical string, or None to skip. Manual entry uses drop_jp=False."""
+    t = (tag or "").strip()
+    if not t:
+        return None
+    row = con.execute("SELECT display FROM tag_translations WHERE raw=? COLLATE NOCASE",
+                      (t,)).fetchone()
+    if row and row[0]:
+        return row[0].strip()
+    if drop_jp and re.search(r'[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]', t):
+        return None                     # untranslated Japanese one-off -> don't store
+    return t
+
+
 def scan_code(con, code, force=False):
     """Enrich one code. Returns dict of fields actually changed."""
     con.execute("INSERT OR IGNORE INTO works(code,in_library,availability,source) "
@@ -825,8 +841,9 @@ def scan_code(con, code, force=False):
     # harvest tags from the RAW titles (so bracketed/promo keywords are kept), then merge
     added = []
     for t in derive_tags(raw_jp or title_jp, raw_en or title_en):
-        if con.execute("INSERT OR IGNORE INTO tags(code,tag) VALUES(?,?)", (code, t)).rowcount:
-            added.append(t)
+        c = _canon_tag(con, t)
+        if c and con.execute("INSERT OR IGNORE INTO tags(code,tag) VALUES(?,?)", (code, c)).rowcount:
+            added.append(c)
     if added:
         changed["tags"] = added
     # fill actress cup/age from the title when missing
@@ -845,8 +862,10 @@ def retag_all(con):
     retitled = 0
     for code, jp, en in con.execute("SELECT code,title,title_en FROM works").fetchall():
         for t in derive_tags(jp, en):                 # harvest BEFORE tidying
-            tagrows += con.execute("INSERT OR IGNORE INTO tags(code,tag) VALUES(?,?)",
-                                    (code, t)).rowcount
+            c = _canon_tag(con, t)
+            if c:
+                tagrows += con.execute("INSERT OR IGNORE INTO tags(code,tag) VALUES(?,?)",
+                                        (code, c)).rowcount
         _fill_actress_from_title(con, code, jp, en)
         cj, ce = tidy_title(jp), tidy_title(en)
         if cj != (jp or "") or ce != (en or ""):
