@@ -168,6 +168,7 @@ Highlights:
 - **Shell scrapers** — 123av (English titles), ffjav (JP title, cover, date).
 - **Verified actress enrichment** — javdatabase + jav.guru, gated by FC2‑code overlap with your library.
 - **fc2ppv‑db** (optional, premium) — actress faces, aliases, JP titles, dates, tags, full filmographies. It sits behind a human‑check, so Vault rides *your* logged‑in browser session (you pass the check, the server reuses the session). Set it up in Settings → Sources.
+- **Canonical tags** — every scraped tag is routed through the JP→EN / merge table before it’s stored: Japanese tags become their English label, merged tags stay merged (a merge you make is remembered for future scans), and untranslated Japanese one‑offs are dropped instead of polluting the set. English tags without a mapping are kept as‑is.
 
 ## Project layout
 
