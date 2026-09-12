@@ -109,8 +109,12 @@ main{flex:1;overflow-y:auto;padding:16px 18px 60px;position:relative}
 .ahead .astat{color:var(--txt);font-size:13px;margin-top:8px}
 .ahead .aalias{color:var(--dim2);font-size:12px;margin-top:4px}
 .ahead .adesc{color:var(--dim);font-size:13px;font-style:italic;margin-top:8px;line-height:1.5;max-width:760px}
-.aclose{margin-left:auto;font-size:26px;color:var(--dim);line-height:1;cursor:pointer;flex:none}
+.aclose{margin-left:8px;font-size:26px;color:var(--dim);line-height:1;cursor:pointer;flex:none;align-self:flex-start}
 .aclose:hover{color:var(--txt)}
+.ahead{display:flex;gap:14px;align-items:flex-start}
+.ahead>div{flex:1 1 auto}
+.ahead .nedit{margin-left:auto;font-size:15px;color:var(--dim);line-height:1;cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:4px 7px;flex:none;align-self:flex-start}
+.ahead .nedit:hover{color:var(--accent2);border-color:var(--accent2)}
 .abody{overflow-y:auto;flex:1;min-height:0;margin-top:4px}
 .asec{margin:14px 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim2)}
 .asec:first-child{margin-top:6px}
@@ -1452,6 +1456,7 @@ function openActressModal(name){
         ${aka?`<div class="aalias">a.k.a. ${esc(aka)}</div>`:''}
         ${desc}
       </div>
+      ${(a&&a.id)?'<button class="nedit" id="aedit" title="Edit actress info">✎</button>':''}
       <span class="aclose" title="Close (Esc)">×</span>
     </div>
     <div class="abody">
@@ -1462,6 +1467,7 @@ function openActressModal(name){
     </div>`;
   $("#amodal").classList.add("on");
   b.querySelector(".aclose").onclick=()=>$("#amodal").classList.remove("on");
+  {const eb=b.querySelector("#aedit");if(eb&&a)eb.onclick=()=>editActressProfile(a);}
   b.querySelectorAll(".rel").forEach(r=>r.onclick=()=>{
     const code=r.dataset.code;
     if(r.dataset.ghost==="1"){
@@ -1471,6 +1477,47 @@ function openActressModal(name){
       if(o){$("#amodal").classList.remove("on");openPlayer(o);}
     }
   });
+}
+function editActressProfile(a){
+  const b=$("#abox"),v=x=>x==null?"":x;
+  const cup=["","A","B","C","D","E","F","G","H","I","J","K"].map(c=>`<option${c===(a.cup||"")?' selected':''}>${c}</option>`).join("");
+  const back=()=>openActressModal(a.disp||a.name_en||a.name_jp);
+  b.innerHTML=`
+    <div class="edhead">Edit actress <span>— updates her record for every movie she's in</span></div>
+    <label class="edfl">Name · English (romaji)<input class="nedit-in" id="aeEn" value="${esc(a.name_en||'')}"></label>
+    <label class="edfl">Name · Japanese 日本語<input class="nedit-in" id="aeJp" value="${esc(a.name_jp||'')}"></label>
+    <div class="edrow">
+      <label class="edfl2">Age<input class="nedit-in sm" id="aeAge" type="number" min="18" max="80" value="${v(a.age)}"></label>
+      <label class="edfl2">Cup<select class="nedit-in sm" id="aeCup">${cup}</select></label>
+    </div>
+    <div class="edrow">
+      <label class="edfl2">Height (cm)<input class="nedit-in sm" id="aeH" type="number" value="${v(a.height)}"></label>
+      <label class="edfl2">Bust (cm)<input class="nedit-in sm" id="aeB" type="number" value="${v(a.bust)}"></label>
+    </div>
+    <div class="edrow">
+      <label class="edfl2">Waist (cm)<input class="nedit-in sm" id="aeW" type="number" value="${v(a.waist)}"></label>
+      <label class="edfl2">Hip (cm)<input class="nedit-in sm" id="aeHip" type="number" value="${v(a.hip)}"></label>
+    </div>
+    <label class="edfl">Notes<input class="nedit-in" id="aeDesc" value="${esc(a.description||'')}"></label>
+    ${a.fc2ppvdb_uuid?`<div class="code" style="margin-top:8px">fc2ppv-db · ${esc(a.fc2ppvdb_uuid)}</div>`:''}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn pri" id="aeSave">Save</button>
+      <button class="btn" id="aeCancel">Cancel</button>
+    </div>`;
+  $("#aeCancel").onclick=back;
+  $("#aeSave").onclick=e=>{
+    const btn=e.currentTarget;btn.disabled=true;btn.textContent="Saving…";
+    const body={id:a.id,name_en:$("#aeEn").value.trim(),name_jp:$("#aeJp").value.trim(),
+      age:$("#aeAge").value.trim(),cup:$("#aeCup").value.trim(),height:$("#aeH").value.trim(),
+      bust:$("#aeB").value.trim(),waist:$("#aeW").value.trim(),hip:$("#aeHip").value.trim(),
+      description:$("#aeDesc").value.trim()};
+    post2("/api/actressedit",body,j=>{
+      if(j.error){toast(j.error);btn.disabled=false;btn.textContent="Save";return;}
+      toast("Saved");
+      reloadData(()=>{const na=DATA.actresses.find(x=>x.id===a.id);
+        openActressModal((na&&(na.disp||na.name_en||na.name_jp))||a.disp||a.name_en||a.name_jp);});
+    });
+  };
 }
 function ghostCard(it,el){
   el.classList.add("ghost");
