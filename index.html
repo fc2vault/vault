@@ -97,6 +97,10 @@ main{flex:1;overflow-y:auto;padding:16px 18px 60px;position:relative}
 .group-h .nm{font-weight:700;font-size:16px}
 .group-h .sub{color:var(--dim);font-size:12px}
 .group-h .pf,.group-h .nm{cursor:pointer}
+.group-h .ghfav{flex:none;font-size:20px;line-height:1;color:var(--dim2);cursor:pointer;padding:4px 8px;transition:color .12s,transform .1s}
+.group-h .ghfav:hover{color:var(--accent2);transform:scale(1.15)}
+.group-h .ghfav.on{color:var(--accent)}
+.ahead .afavbtn.on{color:var(--accent);border-color:var(--accent)}
 .group-h .pf:hover{box-shadow:0 0 0 2px var(--accent2)}
 .group-h .nm:hover{color:var(--accent2)}
 /* actress overview modal */
@@ -129,11 +133,11 @@ main{flex:1;overflow-y:auto;padding:16px 18px 60px;position:relative}
   display:flex;align-items:center;justify-content:center;overflow:hidden}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .thumb .ph{color:var(--dim2);font-size:12px}
-.badges{position:absolute;top:7px;left:7px;right:7px;display:flex;gap:5px;flex-wrap:wrap;
-  justify-content:flex-end;pointer-events:none}
+.badges{position:absolute;bottom:7px;left:7px;right:7px;display:flex;gap:5px;flex-wrap:wrap;
+  justify-content:flex-start;pointer-events:none}
 .bdg{background:rgba(0,0,0,.72);backdrop-filter:blur(3px);border-radius:6px;padding:2px 6px;
   font-size:11px;font-weight:600;color:#fff}
-.bdg.hd{color:#0c0d12;background:var(--warn)}
+.bdg.res.uhd{color:#0c0d12;background:var(--warn)}
 .bdg.parts{background:var(--accent2)}
 .bdg.cens{background:#e11d48;color:#fff;font-weight:700;letter-spacing:.3px}
 .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;
@@ -148,18 +152,19 @@ main{flex:1;overflow-y:auto;padding:16px 18px 60px;position:relative}
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .meta .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
 .meta .tags span{font-size:10px;color:var(--dim);background:var(--panel2);border-radius:4px;padding:1px 5px}
-.fav{position:absolute;top:6px;right:6px;z-index:5;width:30px;height:30px;border-radius:50%;
-  background:rgba(0,0,0,.55);backdrop-filter:blur(3px);color:#fff;font-size:16px;line-height:30px;
-  opacity:0;transition:opacity .12s,color .12s,transform .1s}
-.card:hover .fav{opacity:1}
-.fav:hover{transform:scale(1.15)}
+/* top-left cluster, left->right: select (multiselect) · viewed · favorite */
+.tl{position:absolute;top:6px;left:6px;z-index:6;display:flex;gap:5px;align-items:center}
+.tl button{width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);
+  color:#fff;font-size:16px;line-height:30px;text-align:center;padding:0;border:none;cursor:pointer;
+  opacity:0;transition:opacity .12s,color .12s,transform .1s,background .12s}
+.card:hover .tl button{opacity:1}
+.tl button:hover{transform:scale(1.15)}
 .fav.on{opacity:1;color:var(--accent)}
-.mark{position:absolute;top:6px;left:6px;z-index:5;width:30px;height:30px;border-radius:50%;
-  background:rgba(0,0,0,.55);backdrop-filter:blur(3px);color:#fff;font-size:15px;line-height:30px;
-  font-weight:700;opacity:0;transition:opacity .12s,color .12s,transform .1s}
-.card:hover .mark{opacity:1}
-.mark:hover{transform:scale(1.15)}
+.mark{font-weight:700;font-size:15px}
 .mark.on{opacity:1;color:var(--good);background:rgba(46,204,113,.22)}
+.selbox{border-radius:8px!important;font-size:14px;font-weight:700}
+.selbox.on,.card.selected .selbox{opacity:1;color:#fff;background:var(--accent)}
+body.selmode .selbox{opacity:1}
 .mini{position:absolute;bottom:9px;right:9px;display:flex;gap:5px}
 .pill{font-size:10px;color:var(--dim);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
 .pill.miss{color:var(--warn);border-color:var(--warn)}
@@ -313,9 +318,6 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 /* multi-select */
 .card,.lrow{user-select:none}
 .card.selected{outline:2px solid var(--accent);outline-offset:-2px}
-.card.selected::after{content:"✓";position:absolute;top:8px;left:8px;width:22px;height:22px;z-index:6;
-  background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-size:13px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .lrow.selected{background:rgba(255,59,107,.14)!important}
 .lrow.selected td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .bulkbar{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:200;display:flex;
@@ -399,13 +401,11 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 
 /* Coarse pointers can't hover, so the card controls would never appear. */
 @media (hover:none){
-  .card .fav,.card .mark{opacity:.92}
+  .card .tl button{opacity:.92}
   /* the play overlay is a full-thumb scrim — on touch it just dims every poster,
      and tapping the card already opens the player */
   .card .play{opacity:0}
   .card:hover{transform:none;box-shadow:none}
-  /* badges live top-right by default, exactly where the ♥ button now sits */
-  .badges{top:auto;bottom:7px;justify-content:flex-start}
 }
 
 /* Off-canvas filter drawer. */
@@ -587,20 +587,52 @@ const isHevc=it=>/hevc|hvc1|hev1/i.test(it&&it.vcodec||"");
 function actressOf(it){return (it.actress_id&&ACTBYID[it.actress_id])||ACTBYNAME[(it.actress||"").toLowerCase()]||null;}
 // lowercased search haystack, cached on the item; cleared when a searchable field is edited
 function buildHay(it){return ((it.actress||"")+" "+(it.actress_jp||"")+" "+(it.aka||"")+" "+(it.actresses||[]).map(a=>a.disp).join(" ")+" "+it.code+" "+(it.title||"")+" "+(it.title_en||"")+" "+(it.tags||[]).join(" ")).toLowerCase();}
-// per-browser persistence (favorites + watched)
+// User history (favorites / played / ratings / favorite actresses) is owned by the
+// SERVER (userdata.json, next to the DB) — the single source of truth. STORE is just an
+// in-memory mirror of it, loaded at boot before the first render. localStorage holds NO
+// history: it only carries a one-time flag so each browser's pre-server data migrates up
+// once. (Per-browser UI prefs — theme, units, columns, collapsed groups — still use it.)
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||"[]")}catch(e){return[]}}
 function lsGetObj(k){try{return JSON.parse(localStorage.getItem(k)||"{}")||{}}catch(e){return{}}}
-const STORE={fav:new Set(lsGet("vault_fav")),seen:new Set(lsGet("vault_seen")),rating:lsGetObj("vault_rating")};
-function saveStore(){try{localStorage.setItem("vault_fav",JSON.stringify([...STORE.fav]));
-  localStorage.setItem("vault_seen",JSON.stringify([...STORE.seen]));
-  localStorage.setItem("vault_rating",JSON.stringify(STORE.rating));}catch(e){}}
+const STORE={fav:new Set(),seen:new Set(),rating:{},afav:new Set()};
+function udPost(obj){try{fetch("/api/userdata",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(obj)});}catch(e){}}
+function setStoreFrom(sd){
+  STORE.fav=new Set((sd.fav||[]).map(String));STORE.seen=new Set((sd.seen||[]).map(String));
+  STORE.rating=sd.rating||{};STORE.afav=new Set((sd.afav||[]).map(String));
+}
+async function loadUserData(){
+  // one-time migration: if this browser still holds legacy localStorage history and has
+  // never migrated, push it up (server unions it in) so nothing is lost, then forget it.
+  if(!localStorage.getItem("vault_ud_migrated")){
+    const lf=lsGet("vault_fav"),ls=lsGet("vault_seen"),la=lsGet("vault_afav"),lr=lsGetObj("vault_rating");
+    if(lf.length||ls.length||la.length||Object.keys(lr).length){
+      try{await fetch("/api/userdata",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({replace:{fav:lf,seen:ls,afav:la,rating:lr}})});}catch(e){}
+    }
+    try{localStorage.setItem("vault_ud_migrated","1");
+      ["vault_fav","vault_seen","vault_afav","vault_rating"].forEach(k=>localStorage.removeItem(k));}catch(e){}
+  }
+  try{setStoreFrom(await (await fetch("/api/userdata")).json());}catch(e){}   // server is authoritative
+}
+function isActressFav(it){
+  if(!it)return false;
+  if(it.actress_id&&STORE.afav.has(String(it.actress_id)))return true;
+  return (it.actresses||[]).some(a=>a.id&&STORE.afav.has(String(a.id)));
+}
+function toggleAfav(id,on){
+  id=String(id);const now=(on===undefined)?!STORE.afav.has(id):!!on;
+  if(now)STORE.afav.add(id);else STORE.afav.delete(id);
+  udPost({op:"afav",id,on:now});
+  const ac=$("#afavc");if(ac)ac.textContent=STORE.afav.size;
+  return now;
+}
 function starsHTML(code){const r=STORE.rating[code]||0;
   return `<span class="stars" data-code="${esc(code)}">${[1,2,3,4,5].map(n=>`<span class="star${n<=r?' on':''}" data-n="${n}">★</span>`).join("")}${r?`<span class="star clr" data-n="0" title="clear">✕</span>`:""}</span>`;}
 function bindStars(root){(root||document).querySelectorAll(".stars .star").forEach(st=>st.onclick=e=>{
   e.stopPropagation();const w=st.closest(".stars"),code=w.dataset.code,n=+st.dataset.n,cur=STORE.rating[code]||0;
   const nn=(n===0||cur===n)?0:n;
   if(nn)STORE.rating[code]=nn;else delete STORE.rating[code];
-  saveStore();refreshStars(code);if(F.sort==="rating")render();});}
+  udPost({op:"rating",code,n:nn});refreshStars(code);if(F.sort==="rating")render();});}
 function refreshStars(code){document.querySelectorAll(`.stars[data-code="${cssEsc(code)}"]`).forEach(w=>{
   const r=STORE.rating[code]||0;w.innerHTML=starsHTMLInner(code);});
   // rebind after innerHTML swap
@@ -610,7 +642,7 @@ function starsHTMLInner(code){const r=STORE.rating[code]||0;
 function toggleFav(code,btn){
   const now=!STORE.fav.has(code);
   if(now)STORE.fav.add(code);else STORE.fav.delete(code);
-  saveStore();
+  udPost({op:"fav",code,on:now});
   $$(`.card[data-code="${cssEsc(code)}"] .fav`).forEach(b=>b.classList.toggle('on',now));
   if(btn)btn.classList.toggle('on',now);
   const fc=$("#favc");if(fc)fc.textContent=STORE.fav.size;
@@ -628,7 +660,7 @@ function fmtMeas(cm){if(!cm)return"";return UNITS==="imperial"?Math.round(cm/2.5
 function toggleSeen(code,btn){
   const now=!STORE.seen.has(code);
   if(now)STORE.seen.add(code);else STORE.seen.delete(code);
-  saveStore();
+  udPost({op:"seen",code,on:now});
   $$(`.card[data-code="${cssEsc(code)}"] .mark`).forEach(b=>b.classList.toggle('on',now));
   if(btn&&!btn.classList.contains('mark'))btn.classList.toggle('on',now);
   const pw=$("#pseen");if(pw){pw.classList.toggle('on',now);
@@ -637,7 +669,7 @@ function toggleSeen(code,btn){
 }
 const F={q:"",ident:"all",showMissing:false,fmt:"all",actress:"all",cups:new Set(),res:new Set(),
          tags:new Set(),ageMin:0,ageMax:99,durMin:0,durMax:999,sort:"mtime",view:"grid",hd:false,parts:false,
-         watch:"all",favonly:false,censOnly:false};
+         watch:"all",favonly:false,afavonly:false,uncensOnly:false};
 const TAG_MIN=3;   // sidebar shows tags used on >= this many movies by default (search reaches all)
 const resBucket=h=>!h?"":h>=1800?"4K":h>=1000?"1080p":h>=700?"720p":"SD";
 const COLS=[
@@ -664,6 +696,7 @@ F.cols=(()=>{try{const c=JSON.parse(localStorage.getItem("vault_cols"));return A
 async function boot(){
   loadbar(.3);
   const r=await fetch("/api/data");DATA=await r.json();
+  await loadUserData();
   BYCODE.clear();DATA.items.forEach(it=>{BYCODE.set(it.code,it);it._rnd=Math.random();if(it.dur||it.h)META[it.code]={duration:it.dur,width:it.w,height:it.h,vcodec:it.vcodec};});
   DATA.actresses.forEach(a=>{if(a.id)ACTBYID[a.id]=a;if(a.name_en)ACTBYNAME[a.name_en.toLowerCase()]=a;});
   loadbar(.8);
@@ -680,14 +713,15 @@ function buildSidebar(){
    ${frow('ident','all','All movies',f.total)}
    ${frow('ident','yes','Identified',f.identified)}
    ${frow('ident','no','Amateur / unknown',f.total-f.identified)}
-   <div class="frow" id="favrow" style="cursor:pointer">♥ Favorites<span class="c" id="favc">${STORE.fav.size}</span></div>
+   <div class="frow" id="favrow" style="cursor:pointer">♥ Favorite movies<span class="c" id="favc">${STORE.fav.size}</span></div>
+   <div class="frow" id="afavrow" style="cursor:pointer">♥ Favorite actresses<span class="c" id="afavc">${STORE.afav.size}</span></div>
 
    <label class="frow" style="cursor:pointer"><input type="checkbox" id="wishchk" ${F.showMissing?'checked':''}> Show wishlist<span class="c">${f.missing||0} missing</span></label>
    ${frow('watch','all','Any watched state')}
    ${frow('watch','un','Unwatched only')}
    ${frow('watch','seen','Watched only')}
    <label class="frow" style="cursor:pointer"><input type="checkbox" id="hdchk"> HD only (≥720p)</label>
-   <label class="frow" style="cursor:pointer"><input type="checkbox" id="censchk"> Censored only</label>
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="censchk"> Uncensored only</label>
 
    <h4>Actress</h4>
    <input class="side-input" id="actressInput" list="actressList" placeholder="type a name…" autocomplete="off">
@@ -733,8 +767,9 @@ function buildSidebar(){
   $("#hdchk").onchange=e=>{F.hd=e.target.checked;render();};
   $("#partschk").onchange=e=>{F.parts=e.target.checked;render();};
   $("#wishchk").onchange=e=>{F.showMissing=e.target.checked;render();};
-  $("#censchk").onchange=e=>{F.censOnly=e.target.checked;render();};
+  $("#censchk").onchange=e=>{F.uncensOnly=e.target.checked;render();};
   $("#favrow").onclick=()=>{F.favonly=!F.favonly;$("#favrow").classList.toggle('on',F.favonly);render();};
+  $("#afavrow").onclick=()=>{F.afavonly=!F.afavonly;$("#afavrow").classList.toggle('on',F.afavonly);render();};
   $$('#cupchips .chip').forEach(c=>c.onclick=()=>{tog(F.cups,c.dataset.cup);c.classList.toggle('on');render();});
   $$('#reschips .chip').forEach(c=>c.onclick=()=>{tog(F.res,c.dataset.res);c.classList.toggle('on');render();});
   $$('#tagchips .chip').forEach(c=>{if(F.tags.has(c.dataset.tag))c.classList.add('on');c.onclick=()=>{tog(F.tags,c.dataset.tag);c.classList.toggle('on');render();};});
@@ -753,7 +788,10 @@ function buildSidebar(){
   mi.oninput=upA;ma.oninput=upA;
 }
 function frow(k,v,label,count){return `<div class="frow${F[k]===v?' on':''}" data-k="${k}" data-v="${v}">${label}<span class="c">${count??''}</span></div>`;}
-function syncFrow(){$$('.frow[data-k]').forEach(x=>x.classList.toggle('on',F[x.dataset.k]===x.dataset.v));}
+function syncFrow(){$$('.frow[data-k]').forEach(x=>x.classList.toggle('on',F[x.dataset.k]===x.dataset.v));
+  const fr=$("#favrow");if(fr)fr.classList.toggle('on',F.favonly);
+  const af=$("#afavrow");if(af)af.classList.toggle('on',F.afavonly);
+  const cc=$("#censchk");if(cc)cc.checked=F.uncensOnly;}
 function tog(set,v){set.has(v)?set.delete(v):set.add(v);}
 // Token-aware autocomplete for the comma-separated Tags field in the Organize modal.
 // Native <datalist> matches the whole field value, so we rebuild #tagList options as
@@ -1194,7 +1232,7 @@ function reloadData(done){
 }
 function resetFilters(){
   F.q="";F.ident="all";F.showMissing=false;F.actress="";F.studio="";F.cups.clear();F.res.clear();F.tags.clear();
-  F.ageMin=0;F.ageMax=99;F.durMin=0;F.durMax=999;F.hd=false;F.parts=false;F.watch="all";F.favonly=false;F.censOnly=false;
+  F.ageMin=0;F.ageMax=99;F.durMin=0;F.durMax=999;F.hd=false;F.parts=false;F.watch="all";F.favonly=false;F.afavonly=false;F.uncensOnly=false;
   F.sort="mtime";
   $("#q").value="";$("#sort").value="mtime";
   buildSidebar();
@@ -1206,7 +1244,7 @@ function filtered(){
   const q=F.q.toLowerCase().trim();
   return DATA.items.filter(it=>{
     if(!F.showMissing&&it.missing)return false;   // global wishlist toggle
-    if(F.censOnly&&it.uncensored!==false)return false;   // censored-only
+    if(F.uncensOnly&&it.uncensored!==true)return false;   // uncensored-only
     if(F.ident==="yes"&&!it.identified)return false;
     if(F.ident==="no"&&it.identified)return false;
     if(F.actress&&F.actress!=="all"){const a=F.actress.toLowerCase();
@@ -1217,6 +1255,7 @@ function filtered(){
          && !cast.some(n=>n===a||n.includes(a)))return false;}
     if(F.studio&&it.producer!==F.studio)return false;
     if(F.favonly&&!STORE.fav.has(it.code))return false;
+    if(F.afavonly&&!isActressFav(it))return false;
     if(F.watch==="un"&&STORE.seen.has(it.code))return false;
     if(F.watch==="seen"&&!STORE.seen.has(it.code))return false;
     if(F.fmt!=="all"&&it.ext!==F.fmt)return false;
@@ -1394,12 +1433,14 @@ function actressHeader(name,arr,aById){
   const sub=[a&&a.age?a.age+"y":"",a&&a.cup?a.cup+" cup":"",a&&a.height?fmtHeight(a.height):""].filter(Boolean).join(" · ");
   const dsc=(a&&a.description)?`<div class="desc">${esc(a.description)}</div>`:"";
   const cnt=`${owned} owned${miss?` · <span style="color:var(--warn)">${miss} wishlist</span>`:''}`;
-  h.innerHTML=`<span class="gcar">▾</span>${pf}<div><div class="nm">${esc(name.replace(/^~ /,''))}${it0.actress_jp?` <span class="sub">${esc(it0.actress_jp)}</span>`:''}</div><div class="sub">${cnt}${sub?' · '+sub:''}</div>${dsc}</div>`;
+  h.innerHTML=`<span class="gcar">▾</span>${pf}<div style="flex:1;min-width:0"><div class="nm">${esc(name.replace(/^~ /,''))}${it0.actress_jp?` <span class="sub">${esc(it0.actress_jp)}</span>`:''}</div><div class="sub">${cnt}${sub?' · '+sub:''}</div>${dsc}</div>${(a&&a.id)?`<span class="ghfav${STORE.afav.has(String(a.id))?' on':''}" title="Favorite actress">♥</span>`:''}`;
   h.onclick=()=>toggleActressGroup(name,h);
   // clicking the icon or name opens the actress overview instead of collapsing
   const openA=e=>{e.stopPropagation();openActressModal(name);};
   const pfEl=h.querySelector(".pf"),nmEl=h.querySelector(".nm");
   if(pfEl)pfEl.onclick=openA;if(nmEl)nmEl.onclick=openA;
+  const fvEl=h.querySelector(".ghfav");
+  if(fvEl&&a)fvEl.onclick=e=>{e.stopPropagation();const on=toggleAfav(a.id);fvEl.classList.toggle('on',on);if(F.afavonly)render();};
   return h;
 }
 let ACOLLAPSED=(()=>{try{return new Set(JSON.parse(localStorage.getItem("vault_actress_collapsed")||"[]"))}catch(e){return new Set()}})();
@@ -1457,6 +1498,7 @@ function openActressModal(name){
         ${aka?`<div class="aalias">a.k.a. ${esc(aka)}</div>`:''}
         ${desc}
       </div>
+      ${(a&&a.id)?`<button class="nedit afavbtn${STORE.afav.has(String(a.id))?' on':''}" id="aefav" title="Favorite actress">♥</button>`:''}
       ${(a&&a.id)?'<button class="nedit" id="aedit" title="Edit actress info">✎</button>':''}
       <span class="aclose" title="Close (Esc)">×</span>
     </div>
@@ -1469,6 +1511,8 @@ function openActressModal(name){
   $("#amodal").classList.add("on");
   b.querySelector(".aclose").onclick=()=>$("#amodal").classList.remove("on");
   {const eb=b.querySelector("#aedit");if(eb&&a)eb.onclick=()=>editActressProfile(a);}
+  {const fb=b.querySelector("#aefav");if(fb&&a)fb.onclick=()=>{const on=toggleAfav(a.id);fb.classList.toggle('on',on);
+    if(F.view==="actress")render();};}
   b.querySelectorAll(".rel").forEach(r=>r.onclick=()=>{
     const code=r.dataset.code;
     if(r.dataset.ghost==="1"){
@@ -1525,7 +1569,7 @@ function ghostCard(it,el){
   const isfav=STORE.fav.has(it.code);
   const tags=cardTags(it);
   el.innerHTML=`
-   <button class="fav${isfav?' on':''}" title="Add to wishlist">♥</button>
+   <div class="tl"><button class="fav${isfav?' on':''}" title="Add to wishlist">♥</button></div>
    <div class="gthumb">${it.cover?`<img class="gcover" src="${esc(it.cover)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:''}<span class="gwant">◇ WISHLIST</span>${it.cover?'':`<div class="gcode">${esc(it.code)}</div>`}</div>
    <div class="meta">
      <div class="a">${esc(it.actress||it.code)}</div>
@@ -1554,11 +1598,14 @@ function card(it){
   const tags=cardTags(it);
   const isfav=STORE.fav.has(it.code),seen=STORE.seen.has(it.code);
   el.innerHTML=`
-   <button class="fav${isfav?' on':''}" title="Favorite">♥</button>
-   <button class="mark${seen?' on':''}" title="Played / mark unplayed">✓</button>
+   <div class="tl">
+     <button class="selbox${SEL.has(it.code)?' on':''}" title="Select">✓</button>
+     <button class="mark${seen?' on':''}" title="Played / mark unplayed">✓</button>
+     <button class="fav${isfav?' on':''}" title="Favorite">♥</button>
+   </div>
    <div class="thumb" data-code="${esc(it.code)}">
      <div class="ph">loading…</div>
-     <div class="badges">${cens}${parts}<span class="bdg hd" style="display:none"></span><span class="bdg dur" style="display:none"></span></div>
+     <div class="badges">${parts}<span class="bdg res" style="display:none"></span><span class="bdg dur" style="display:none"></span>${cens}</div>
      <div class="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
    </div>
    <div class="meta">
@@ -1571,6 +1618,7 @@ function card(it){
   el.onclick=(e)=>handleItemClick(it,e);
   el.querySelector(".fav").onclick=(e)=>{e.stopPropagation();toggleFav(it.code,e.target);};
   el.querySelector(".mark").onclick=(e)=>{e.stopPropagation();toggleSeen(it.code,e.target);};
+  el.querySelector(".selbox").onclick=(e)=>{e.stopPropagation();toggleSel(it.code);};
   return el;
 }
 
@@ -1593,7 +1641,12 @@ function selectRange(code){
 }
 function clearSel(){SEL.clear();SELANCHOR=null;paintSel();}
 function paintSel(){
-  document.querySelectorAll('.card,.lrow').forEach(el=>el.classList.toggle('selected',SEL.has(el.dataset.code)));
+  document.querySelectorAll('.card,.lrow').forEach(el=>{
+    const on=SEL.has(el.dataset.code);
+    el.classList.toggle('selected',on);
+    const sb=el.querySelector&&el.querySelector('.selbox');if(sb)sb.classList.toggle('on',on);
+  });
+  document.body.classList.toggle('selmode',SEL.size>0);
   renderBulkBar();
 }
 function renderBulkBar(){
@@ -1662,15 +1715,15 @@ function wireThumbs(){
 function badgeEl(code){const it=BYCODE.get(code);const d=document.createElement("div");d.className="badges";
   const parts=it&&it.nparts>1?`<span class="bdg parts">${it.nparts}×</span>`:"";
   const cens=it&&it.uncensored===false?'<span class="bdg cens">CENSORED</span>':"";
-  d.innerHTML=`${cens}${parts}<span class="bdg hd" style="display:none"></span><span class="bdg dur" style="display:none"></span>`;return d;}
+  d.innerHTML=`${parts}<span class="bdg res" style="display:none"></span><span class="bdg dur" style="display:none"></span>${cens}`;return d;}
 function playEl(){const d=document.createElement("div");d.className="play";d.innerHTML='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';return d;}
 function applyMeta(code){
   const m=META[code];if(!m)return;
   $$(`.thumb[data-code="${cssEsc(code)}"]`).forEach(t=>{
-    const dur=t.querySelector(".bdg.dur"),hd=t.querySelector(".bdg.hd");
+    const dur=t.querySelector(".bdg.dur"),res=t.querySelector(".bdg.res");
     if(dur&&m.duration){dur.textContent=fmtDur(m.duration);dur.style.display="";}
-    if(hd&&m.height){const b=resBucket(m.height);   // same buckets as the facet/filter
-      if(b&&b!=="SD"){hd.textContent=b;hd.style.display="";}}
+    if(res&&m.height){const b=resBucket(m.height);   // same buckets as the facet/filter
+      if(b){res.textContent=b;res.classList.toggle('uhd',b==="4K"||b==="1080p");res.style.display="";}}
   });
 }
 const cssEsc=s=>s.replace(/["\\]/g,"\\$&");
@@ -1765,7 +1818,7 @@ function openPlayer(it){
   const m=$("#modal"),p=$("#player");
   p.classList.remove("editing");
   const meta=META[it.code]||{};
-  if(!it.missing&&!STORE.seen.has(it.code)){STORE.seen.add(it.code);saveStore();
+  if(!it.missing&&!STORE.seen.has(it.code)){STORE.seen.add(it.code);udPost({op:"seen",code:it.code,on:true});
     $$(`.card[data-code="${cssEsc(it.code)}"] .mark`).forEach(b=>b.classList.add("on"));}
   const isfav=STORE.fav.has(it.code),seen=STORE.seen.has(it.code);
   const title=it.identified?esc(it.actress):esc(it.code);

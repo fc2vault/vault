@@ -31,7 +31,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 
 **Browse & find**
 - Grid, **By‑actress**, and **List** views over your whole library
-- Sidebar filters: identified / amateur, favorites, **wishlist**, watched state, HD, censored, actress, studio, resolution, duration, cup size, age
+- Sidebar filters: identified / amateur, **favorite movies**, **favorite actresses**, **wishlist**, watched state, HD, uncensored, actress, studio, resolution, duration, cup size, age
 - Full‑text search across actress (incl. **aliases** and Japanese names), code, title, and tags — matches surface to the top
 - Sort by **date added** (true first‑seen, not the copied file date), release, size, duration, rating, favorites, actress, code, or shuffle
 
@@ -138,6 +138,7 @@ Nothing here is authenticated — see [Privacy & safety](#privacy--safety).
 
 **Detail / player** shows the movie with the actress up top (English → Japanese → code), her stats as pills, full technical metadata, tags, rating, and a filmography rail of her other titles (owned + wishlist).
 
+![Detail view](docs/images/player.png)
 
 **Settings** is where you manage everything — library folder & cache, tags, actresses, and sources.
 
@@ -234,7 +235,7 @@ The build then **verifies itself and fails rather than shipping a leak**, re‑c
 RC verify: clean (no ownership flags, no personal paths, no runtime cruft).
 ```
 
-Watched state, favorites and ratings never enter this picture — they live in the browser's `localStorage`, so they are per‑device and never in the shipped catalog.
+Watched state, favorites (movies **and** actresses) and ratings never enter this picture — they live in a **`userdata.json` sidecar** next to the DB, the single source of truth, kept deliberately **separate from `catalog.db`** so they survive a catalog rebuild/reimport and a browser cache wipe. They are your personal state and are never part of the shipped catalog.
 
 **What a recipient gets:** their own scan populates the grid; the bundled catalog enriches whatever codes they happen to own. Since nothing is flagged `missing`, they get no wishlist ghosts until they enrich an actress themselves.
 
@@ -268,14 +269,3 @@ Watched state, favorites and ratings never enter this picture — they live in t
 | Newly added folder not on top of “Newest added” | Vault sorts by **first‑seen**; a freshly‑dropped `<CODE> - Name` folder is treated as new. |
 | Wrong port after launch | `serve.py` remembers the last `--port` in `config.json`; edit it back or pass `--port 8730`. |
 | fc2ppv‑db **Test connection** fails with a fresh cookie | Vault tries the request over both IPv4 and IPv6 (a `cf_clearance` cookie is bound to the exact address that solved Cloudflare's check, and dual‑stack machines don't always use the same one). If it still fails, the cookie has expired — re‑copy it — or your browser is on a different public IP than the server (e.g. a VPN). |
-
----
-
-## A note on this build
-
-This is the **public build**. Its screenshots are sanitized — poster art in the library views
-is pixelated, and the settings/scan/import dialogs are cropped to the dialog itself — and the
-bundled catalog carries no actress portraits, only text metadata (names, aliases, measurements,
-titles, tags, dates, cover URLs). Vault itself is unchanged: **Enrich from web** fetches
-portraits into your own local catalog, and posters are generated from your own files, so your
-install looks like the real thing.

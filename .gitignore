@@ -1,6 +1,7 @@
 # runtime-generated
 cache/
 config.json
+userdata.json
 *.bak
 *.db-journal
 *.db-wal
