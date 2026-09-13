@@ -28,8 +28,8 @@ A feature‑by‑feature walkthrough. For install & setup see the main **[README
 
 - **Top bar:** search, the **Grid / By actress / List** view switcher, a sort dropdown, a shuffle die, **Reset** filters, **Scan library**, **Organize**, and **Settings**. The right side shows how many titles match and the total library size.
 - **Left sidebar:** all your filters (see below).
-- **Main area:** poster cards. Each shows the actress (or code if unidentified), the FC2 code + Japanese name, tags, and pills for size · age · cup. Badges mark resolution, duration, and multi‑part (`2×`).
-- Hover a card for the ♥ favorite and ✓ played toggles.
+- **Main area:** poster cards. Each shows the actress (or code if unidentified), the FC2 code + Japanese name, tags, and pills for size · age · cup. Along the **bottom** of each thumbnail, badges mark multi‑part (`2×`), resolution, duration, and a red **CENSORED** flag (in that order).
+- Hover a card for its **top‑left** controls, left→right: a **select** box (for multi‑select), the **✓ played** toggle, and the **♥ favorite** toggle.
 
 Switch to **By actress** to group the wall under each performer (with her portrait and stats), or **List** for a dense, sortable table.
 
@@ -37,12 +37,14 @@ Switch to **By actress** to group the wall under each performer (with her portra
 
 Everything in the left sidebar narrows the view live:
 
-- **Library:** all / identified / amateur‑unknown / favorites
-- **Watched state, HD only, censored only**
+- **Library:** all / identified / amateur‑unknown / **favorite movies** / **favorite actresses**
+- **Watched state, HD only, uncensored only**
 - **Actress** and **Studio** type‑ahead boxes (actress matches aliases and Japanese names too)
 - **Resolution, Duration, Cup size, Age** ranges
 
 The **sort dropdown** offers Newest added, Release date, Size, Duration, Rating, Favorites, Actress, Code, and Shuffle. “Newest added” uses a **true first‑seen** timestamp, so a folder you just dropped in sits at the top even if its file dates are old.
+
+> Your **played state, favorites and ratings are saved on the server** (a `userdata.json` beside the database), so they persist across browsers and survive a cache wipe or a catalog rebuild. Existing per‑browser data is migrated up automatically the first time each browser connects.
 
 **Search** (top bar or press `/`) matches actress, aliases, Japanese name, code, title, and tags — and when you search a name, her titles are floated to the top ahead of incidental keyword hits.
 
@@ -51,6 +53,8 @@ The **sort dropdown** offers Newest added, Release date, Size, Duration, Rating,
 Tick **Show wishlist** in the sidebar to include titles you *don’t* own — “ghost” cards drawn from an actress’s known filmography. They’re only shown for performers you already own at least one title of, so the wishlist stays relevant. Ghosts show a cover (where known) and a `missing` badge; the rest of the app treats them as first‑class (they appear in her filmography rail, etc.).
 
 In **By‑actress** view, click an actress’s portrait or name to open her **overview** — bio and measurements, everything you own, and everything missing. Each missing title has a **Search on sukebei** action that opens a search for its code in a background tab.
+
+**Favorite an actress** with the **♥** — either on her group header in By‑actress view, or in her overview header (next to **✎**). The sidebar’s **♥ Favorite actresses** filter then narrows the wall to every title she leads *or* co‑stars in.
 
 
 ## 4. Playing a movie
@@ -92,7 +96,7 @@ For moving *many* movies to one actress at once, use [multi‑select](#6-multi-s
 
 ## 6. Multi‑select: bulk‑assign an actress
 
-In Grid or List view, **⌘‑click** (or Ctrl‑click) to toggle individual cards, or **shift‑click** to select a range. Selected cards get a pink outline and a ✓ badge, and a bar appears at the bottom:
+In Grid or List view, tick the **select box** at a card’s top‑left, **⌘‑click** (or Ctrl‑click) to toggle individual cards, or **shift‑click** to select a range. Once anything is selected the select boxes stay visible on every card; selected cards get a pink outline and a filled box, and a bar appears at the bottom:
 
 ![Multi‑select bulk bar](images/multiselect.png)
 

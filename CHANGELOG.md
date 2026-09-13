@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.1
+
+### Your history is saved on the server now
+
+Played state, favorites and ratings used to live only in the browser's `localStorage`, so a
+cache wipe or a different browser lost them. They now live in a **`userdata.json` sidecar next
+to the catalog** — the single source of truth — kept deliberately **separate from `catalog.db`**
+so they also survive a catalog rebuild or reimport. The browser keeps no history of its own; it
+just mirrors the server. Anything already saved in a browser is **migrated up automatically** the
+first time it connects, then those local keys are cleared. The sidecar is per‑user state and is
+never part of a release build.
+
+### Favorite actresses
+
+You can now favorite a **performer**, not just a movie — the **♥** sits on her group header in
+By‑actress view and in her overview. A new **♥ Favorite actresses** sidebar filter narrows the
+wall to every title she leads *or* co‑stars in. The old **Favorites** row is now **Favorite
+movies** for clarity.
+
+### Uncensored‑only filter
+
+The **Censored only** sidebar toggle is now **Uncensored only** — the more useful direction for
+an overwhelmingly uncensored library.
+
+### Cleaner poster overlays
+
+The controls and badges on each poster were reorganised so the two never fight for the same
+corner:
+
+- **Top‑left**, left→right: a **select** box (for multi‑select — visible on every card once a
+  selection is active, so you no longer need ⌘/shift to start one), the **✓ played** toggle, and
+  the **♥ favorite** toggle.
+- **Bottom**: the informational badges — multi‑part (`2×`), resolution, duration, and a red
+  **CENSORED** flag — in that order. Resolution now shows for every file (SD included), not only HD.
+
 ## 1.0
 
 First public release.

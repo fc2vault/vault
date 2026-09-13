@@ -69,6 +69,40 @@ except OSError:
     pass
 
 
+# ---- per-user state (favorites / watched / ratings / favorite actresses) ----
+# Kept in a sidecar JSON next to the writable data dir, deliberately SEPARATE from
+# catalog.db so it survives a catalog rebuild/reimport (played stats must be permanent).
+USERDATA_FILE = os.path.join(DATA_DIR, "userdata.json")
+_USERDATA = None
+
+
+def _load_userdata():
+    global _USERDATA
+    if _USERDATA is None:
+        try:
+            with open(USERDATA_FILE, "r", encoding="utf-8") as f:
+                d = json.load(f)
+        except Exception:
+            d = {}
+        _USERDATA = {
+            "fav": list(dict.fromkeys(str(x) for x in (d.get("fav") or []))),
+            "seen": list(dict.fromkeys(str(x) for x in (d.get("seen") or []))),
+            "rating": {str(k): int(v) for k, v in (d.get("rating") or {}).items() if v},
+            "afav": list(dict.fromkeys(str(x) for x in (d.get("afav") or []))),
+        }
+    return _USERDATA
+
+
+def _save_userdata():
+    try:
+        tmp = USERDATA_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_USERDATA, f, ensure_ascii=False)
+        os.replace(tmp, USERDATA_FILE)
+    except Exception:
+        pass
+
+
 def _find_db():
     # a DB already in the writable data dir wins
     wd = os.path.join(DATA_DIR, "catalog.db")
@@ -1180,6 +1214,50 @@ class Handler(BaseHTTPRequestHandler):
         self._send(code, "application/json; charset=utf-8",
                    json.dumps(obj).encode("utf-8"), h)
 
+    def _userdata_post(self, body):
+        ud = _load_userdata()
+        # full replace/merge — used once to migrate any pre-existing per-browser data
+        if isinstance(body.get("replace"), dict):
+            r = body["replace"]
+            for k in ("fav", "seen", "afav"):
+                s = set(ud[k])
+                s.update(str(x) for x in (r.get(k) or []))
+                ud[k] = list(s)
+            for code, n in (r.get("rating") or {}).items():
+                try:
+                    n = int(n)
+                except Exception:
+                    continue
+                if n:
+                    ud["rating"][str(code)] = n
+            _save_userdata()
+            return self._json({"ok": True})
+        op = body.get("op")
+        if op in ("fav", "seen"):
+            code = str(body.get("code") or "")
+            s = set(ud[op])
+            s.add(code) if body.get("on") else s.discard(code)
+            ud[op] = list(s)
+        elif op == "afav":
+            aid = str(body.get("id") or "")
+            s = set(ud["afav"])
+            s.add(aid) if body.get("on") else s.discard(aid)
+            ud["afav"] = list(s)
+        elif op == "rating":
+            code = str(body.get("code") or "")
+            try:
+                n = int(body.get("n") or 0)
+            except Exception:
+                n = 0
+            if n:
+                ud["rating"][code] = n
+            else:
+                ud["rating"].pop(code, None)
+        else:
+            return self._json({"error": "bad op"}, 400)
+        _save_userdata()
+        return self._json({"ok": True})
+
     def do_GET(self):
         u = urlparse(self.path)
         p = unquote(u.path)
@@ -1197,6 +1275,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"ok": True, "count": len(STATE["items"])})
             if p == "/api/settings":
                 return self._api_settings()
+            if p == "/api/userdata":
+                return self._json(_load_userdata())
             if p == "/api/scanprogress":
                 pr = dict(scanmod.PROGRESS) if scanmod else {"running": False}
                 return self._json(pr)
@@ -1229,6 +1309,8 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw or b"{}")
         except Exception:
             body = {}
+        if p == "/api/userdata":    # per-user prefs only; never touches the catalog cache
+            return self._userdata_post(body)
         STATE["data_json"] = None   # any POST may mutate state -> invalidate the /api/data cache
         if p == "/api/open":
             return self._open_external(body.get("code"), reveal=False)
