@@ -80,7 +80,7 @@ both. Paste the key in **Settings → License**. It is checked on your machine: 
 contacts a license server, and a key holds no name or email address, only its expiry date and a
 random id.
 
-**Getting a key:** support the project on [Patreon](https://www.patreon.com/c/ForfunAdventures),
+**Getting a key:** support the project on [Patreon](https://www.patreon.com/FC2vault),
 then open the [key page](https://vault-key.vaultkey.workers.dev/) and log in with Patreon: the key
 appears on the spot, nothing is stored and no e-mail is sent. The project
 [website](https://fc2vault.vaultkey.workers.dev/) has the details.

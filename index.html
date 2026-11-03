@@ -1326,7 +1326,7 @@ function pollScanProgress(){
 /* ---------------- settings ---------------- */
 let SET=null, SETTAB="library";
 // where a Vault Pro key is sold; [["Patreon","https://…"],["SubscribeStar","https://…"]]
-const PRO_LINKS=[["Patreon","https://www.patreon.com/c/ForfunAdventures"],["Get your key","https://vault-key.vaultkey.workers.dev/"]];
+const PRO_LINKS=[["Patreon","https://www.patreon.com/FC2vault"],["Get your key","https://vault-key.vaultkey.workers.dev/"]];
 function post2(url,body,cb){fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})}).then(r=>r.json()).then(cb).catch(()=>toast("Request failed"));}
 function fmtBytes(b){return b>1e9?(b/1e9).toFixed(1)+' GB':b>1e6?(b/1e6).toFixed(0)+' MB':b>1e3?(b/1e3).toFixed(0)+' KB':(b||0)+' B';}
 function openSettings(){
