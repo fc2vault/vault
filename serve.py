@@ -27,8 +27,12 @@ Usage:  python3 serve.py [--port 8730] [--library "/path/to/library"]
 """
 import argparse
 import atexit
+import errno
 import gzip
+import hashlib
 import json
+import socket
+import ipaddress
 import mimetypes
 import os
 import re
@@ -59,9 +63,13 @@ try:
     import dedupe as dedupemod
 except Exception:
     dedupemod = None
+import vault_license
+import vault_model
+import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
+VAULT_VERSION = "1.6.0"
 DATA_DIR = os.environ.get("VAULT_DATA") or HERE
 try:
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -131,8 +139,9 @@ INDEX_CACHE = os.path.join(CACHE, "index.json")
 SEEN_CACHE = os.path.join(CACHE, "seen.json")   # code -> epoch first seen by Vault ("date added")
 SOURCES_CFG = os.path.join(DATA_DIR, "sources.json")
 
-# the scraper registry shown in Settings. The 'builtin' ones are wired into scan.py; custom
-# entries the user adds are stored and displayed (and tried by the generic title fetch).
+# The scraper registry shown in Settings. The 'builtin' ones are wired into scan.py and the
+# enabled flag is honoured there (see enabled_sources). A custom entry is stored and shown
+# only — there is no generic title fetch, despite what this comment used to claim.
 DEFAULT_SOURCES = [
     {"name": "123av", "url": "https://123av.com/en/v/fc2-ppv-{num}", "provides": "English title",
      "builtin": True, "enabled": True},
@@ -142,7 +151,16 @@ DEFAULT_SOURCES = [
      "provides": "actress body info + JP name", "builtin": True, "enabled": True},
     {"name": "jav.guru", "url": "https://jav.guru/actress/{slug}/",
      "provides": "actress filmography (verification + wishlist)", "builtin": True, "enabled": True},
+    {"name": "fc2db.net", "url": "https://fc2db.net/work/{num}/",
+     "provides": "cover, JP title, date, seller, cast (fills gaps fc2ppv-db leaves)",
+     "builtin": True, "enabled": True},
 ]
+
+
+def enabled_sources():
+    """Names of the scrapers Settings has ticked. scan.py takes this set and skips the rest
+    — until now the boxes were saved to sources.json and never read by anything."""
+    return {s.get("name") for s in _load_sources() if s.get("enabled")}
 
 
 def _load_sources():
@@ -150,6 +168,12 @@ def _load_sources():
         with open(SOURCES_CFG) as f:
             data = json.load(f)
         if isinstance(data, list) and data:
+            # A saved list predates any built-in added since; without this merge a new
+            # source would be missing — and therefore OFF — for every existing install.
+            have = {d.get("name") for d in data if isinstance(d, dict)}
+            for d in DEFAULT_SOURCES:
+                if d["name"] not in have:
+                    data.append(dict(d))
             return data
     except Exception:
         pass
@@ -160,6 +184,51 @@ def _save_sources(sources):
     try:
         with open(SOURCES_CFG, "w") as f:
             json.dump(sources, f, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+# ---------------------------------------------- FlareSolverr helpers
+_SOLVER_PROBE = {"url": "", "at": 0.0, "ok": False}   # cached reachability probe
+# one thread builds /api/data; the others wait for it instead of walking the share too
+_DATA_BUILD_LOCK = threading.Lock()
+_INDEX_LOCK = threading.Lock()     # guards the one-step publish of STATE and the sequence
+_INDEX_SEQ = 0                     # increases per rebuild; an older result never overwrites
+_JOB_LOCK = threading.Lock()       # claims the single shared scan slot
+
+
+def claim_scan(label):
+    """Reserve the shared scan slot FROM THE REQUEST THREAD.
+
+    The handlers used to test PROGRESS["running"] and only set it inside the worker they
+    then started, so two quick clicks both passed the test and two scrapers wrote to SQLite
+    through the same progress dict."""
+    if not scanmod:
+        return False
+    with _JOB_LOCK:
+        if scanmod.PROGRESS.get("running"):
+            return False
+        scanmod.PROGRESS.update(running=True, done=0, total=0, hits=0, error="", code=label)
+        return True
+
+
+def release_scan():
+    if scanmod:
+        scanmod.PROGRESS["running"] = False
+
+
+def _is_private_url(url):
+    """True when the host resolves to loopback/private space. The resolver is a LAN
+    service; allowing a public URL would turn this no-auth server into a relay."""
+    try:
+        host = urlparse(url).hostname or ""
+        if not host:
+            return False
+        for fam, _t, _p, _c, sa in socket.getaddrinfo(host, None):
+            ip = ipaddress.ip_address(sa[0])
+            if not (ip.is_private or ip.is_loopback or ip.is_link_local):
+                return False
         return True
     except Exception:
         return False
@@ -492,11 +561,66 @@ STATE = {
     "library": DEFAULT_LIBRARY,
     "download": "",       # optional import/staging folder (downloads land here)
     "items": [],          # list of item dicts (the collection)
-    "by_code": {},        # code -> item
+    "by_code": {},        # code -> item   (metadata: one catalog row per code)
+    "by_uid": {},         # uid  -> item   (files: one folder per uid)
     "actresses": [],      # list of actress dicts (with portrait flag)
     "facets": {},
     "scanned_at": 0,
 }
+
+
+def license_status():
+    """Vault Pro, checked offline from the key in config.json (see vault_license.py)."""
+    return vault_license.status(load_config().get("license_key"))
+
+
+def _license_info():
+    """License state plus the free cap, for Settings and the poster wall's banner."""
+    return dict(license_status(), limit=vault_license.FREE_LIMIT,
+                on_disk=STATE.get("on_disk") or 0)
+
+
+PRO_ONLY = "is a Vault Pro feature — add a key in Settings → License"
+
+
+def _model_info(fetch_latest=False):
+    """The scene model, for Settings → License: what is installed, what the key server offers
+    (only asked for when the tab opens: fetch_latest), and the running download."""
+    d = vault_model.user_models_dir()
+    home = os.path.expanduser("~")
+    if home and d.startswith(home + os.sep):     # the tab shows "~/…", not the account name
+        d = "~" + d[len(home):]
+    out = {"installed": vault_model.installed(), "dir": d,
+           "progress": dict(vault_model.PROGRESS)}
+    if fetch_latest:
+        out["latest"] = vault_model.latest()
+    return out
+
+
+def _free_cap(items):
+    """The free version shows FREE_LIMIT movies: the ones Vault saw first, so the set stays
+    put as new downloads arrive. With Pro, or a small library, the list comes back as is."""
+    STATE["on_disk"] = len(items)
+    limit = vault_license.FREE_LIMIT
+    if len(items) <= limit or license_status()["pro"]:
+        return items
+    keep = {id(it) for it in sorted(items, key=lambda it: (it.get("added") or 0,
+                                                           it["code"]))[:limit]}
+    return [it for it in items if id(it) in keep]
+
+
+# Outcome of the most recent filesystem walk. An unmounted share or an unreadable folder
+# used to produce a short list that silently replaced a good index.
+LAST_WALK = {"ran": False, "errors": 0, "first_error": "", "missing_root": False}
+
+# POST paths that never change the /api/data projection, so they must not throw its cache away
+_POST_KEEPS_DATA = frozenset({
+    "/api/open", "/api/reveal", "/api/fc2db/test", "/api/scanprogress",
+    "/api/solver/check", "/api/fc2dbnet/test",
+    "/api/importprogress", "/api/dedupe", "/api/organize", "/api/foldactress",
+    "/api/stash", "/api/sourcesave",
+})
+
 # progress for the Import pipeline (rename+clean -> migrate/dedupe into library)
 IMPORT_PROGRESS = {"running": False, "phase": "", "line": "", "done": 0, "total": 0}
 PROBE = {}               # code -> {duration,width,height,vcodec}  (persisted)
@@ -515,6 +639,13 @@ def load_probe():
             PROBE = json.load(f)
     except Exception:
         PROBE = {}
+    # Entries with nothing in them are failed probes the old code stored permanently.
+    dead = [c for c, m in PROBE.items()
+            if not isinstance(m, dict) or (m.get("duration") is None and m.get("width") is None)]
+    for c in dead:
+        PROBE.pop(c, None)
+    if dead:
+        sys.stderr.write("[probe] dropped %d failed entries from the cache\n" % len(dead))
 
 
 def save_probe():
@@ -576,8 +707,12 @@ def _largest_video(files, dirpath):
             "nparts": len(vids), "parts": parts}
 
 
-# dirs the by-actress folder pass must never move into/out of
-FOLD_RESERVED = {"_vault_trash", "_duplicates", "_unsorted", "_vault", "@eadir"}
+# dirs the by-actress folder pass must never move into/out of — and that the library walk
+# never descends into. "_needs_review" is a human holding pen for loose, un-coded files: the
+# walk used to index it as a single movie whose code was literally "_needs_review", which then
+# became a catalog row and a wasted fc2ppv-db lookup on every scan.
+FOLD_RESERVED = {"_vault_trash", "_duplicates", "_unsorted", "_vault", "@eadir",
+                 "_needs_review"}
 
 
 def _safe_actress_dir(name):
@@ -587,20 +722,37 @@ def _safe_actress_dir(name):
 
 
 def scan_library(library):
-    """Walk the tree; every directory that directly holds video(s) is one item."""
+    """Walk the tree; every directory that directly holds video(s) is one item.
+
+    Reports what went wrong in LAST_WALK: os.walk swallows unreadable directories, so a
+    half-finished walk is indistinguishable from a smaller library unless we count them."""
     items = []
+    LAST_WALK.update(errors=0, first_error="", missing_root=False, ran=True)
     if not os.path.isdir(library):
+        LAST_WALK["missing_root"] = True
         return items
+
+    def _walk_err(e):
+        LAST_WALK["errors"] += 1
+        if not LAST_WALK["first_error"]:
+            LAST_WALK["first_error"] = "%s: %s" % (getattr(e, "filename", "?"), e)
+
     lib_real = os.path.realpath(library)
-    for dirpath, dirs, files in os.walk(library):
-        dirs.sort()
+    for dirpath, dirs, files in os.walk(library, onerror=_walk_err):
+        # never descend into reserved folders (trash, duplicates, …) so trashed movies
+        # don't get re-scanned back into the library
+        dirs[:] = sorted(d for d in dirs if d.lower() not in FOLD_RESERVED)
         vid = _largest_video(files, dirpath)
         if not vid:
             continue
         folder = os.path.basename(dirpath.rstrip("/"))
         fname = os.path.splitext(os.path.basename(vid["primary"]))[0]
         # canonical FC2 code from the folder OR the filename; else keep the folder name
+        # ...or the folder name itself, for the non-FC2 codes in the library (N0627,
+        # MIFD-711). A name too short to be any code is a stray directory, not a release.
         code = norm_code(folder) or norm_code(fname) or folder
+        if len(code) < 3:
+            continue
         rel = os.path.relpath(dirpath, library)
         parts = rel.split(os.sep)
         # actress from path: LIBRARY/<Actress>/<CODE>/...  -> parts[0] when nested
@@ -645,8 +797,10 @@ def _date_epoch(s):
 def enrich(items):
     """Overlay catalog.db metadata onto scanned items; build actress list+facets."""
     by_code = {}
+    by_all = {}                       # code -> every on-disk item with that code
     for it in items:
         by_code.setdefault(it["code"], it)
+        by_all.setdefault(it["code"], []).append(it)
     actresses = {}
     portraits = set()
     aka_map = {}
@@ -716,13 +870,20 @@ def enrich(items):
             if it["digits"]:
                 by_digits.setdefault(it["digits"], []).append(it)
         now_owned = []          # works whose file is on disk but the row still says missing
-        for w in con.execute(
-            "SELECT code,actress_id,release_date,title,title_en,duration,"
-            "producer,fav_count,availability,cover_url,censorship FROM works"
-        ):
+        try:
+            _rows = con.execute(
+                "SELECT code,actress_id,release_date,title,title_en,duration,"
+                "producer,fav_count,availability,cover_url,censorship,fc2db_at,fc2dbnet_at "
+                "FROM works")
+        except sqlite3.OperationalError:            # pre-migration catalog
+            _rows = con.execute(
+                "SELECT code,actress_id,release_date,title,title_en,duration,"
+                "producer,fav_count,availability,cover_url,censorship,NULL AS fc2db_at,"
+                "NULL AS fc2dbnet_at FROM works")
+        for w in _rows:
             targets = []
             if w["code"] in by_code:
-                targets = [by_code[w["code"]]]
+                targets = by_all[w["code"]]     # every copy, not just the first one walked
             else:
                 dg = norm_digits(w["code"])
                 if dg and dg in by_digits:
@@ -735,6 +896,11 @@ def enrich(items):
             a = adict.get(w["actress_id"])
             for it in targets:
                 it["db"] = True
+                # has fc2ppv-db been asked about this movie? Without it, "no performer" and
+                # "nobody has looked" are the same blank, and every unexplained blank reads
+                # like the resolver is broken.
+                it["fc2db_at"] = w["fc2db_at"] or ""
+                it["fc2dbnet_at"] = w["fc2dbnet_at"] or ""
                 it["release_date"] = w["release_date"] or ""
                 it["title"] = w["title"] or ""
                 it["title_en"] = w["title_en"] or ""
@@ -891,6 +1057,16 @@ def enrich(items):
     for it in items:
         if not it.get("missing") and code_ct.get(it["code"], 0) > 1:
             it["dup"] = True
+    # Stable per-FOLDER id. One code is normally one folder, and then uid IS the code, so
+    # /video/<uid>, /thumb/<uid>.jpg and the thumb cache are unchanged. Only when the same
+    # code sits in two folders do the copies get distinct ids, so play, open, delete and
+    # markers can address one folder instead of "whichever came first in the walk".
+    for it in items:
+        if it.get("dup"):
+            h = hashlib.sha1((it.get("rel") or it.get("primary") or "").encode("utf-8")).hexdigest()[:8]
+            it["uid"] = "%s~%s" % (it["code"], h)
+        else:
+            it["uid"] = it["code"]
     dup_codes = sum(1 for c, n in code_ct.items() if n > 1)
 
     _res_order = {"4K": 0, "1080p": 1, "720p": 2, "SD": 3}
@@ -907,7 +1083,8 @@ def enrich(items):
         "with_db": sum(1 for it in items if it.get("db") and not it.get("missing")),
         "dup_codes": dup_codes,
     }
-    return by_code, alist, facets
+    by_uid = {it["uid"]: it for it in items if it.get("uid")}
+    return by_code, by_uid, alist, facets
 
 
 def _rebuild_tag_facet():
@@ -952,24 +1129,451 @@ def rebuild_index(fs_items=None):
     otherwise it re-walks the library (slow over SMB) and re-caches the result."""
     lib = STATE["library"]
     t0 = time.time()
+    with _INDEX_LOCK:
+        global _INDEX_SEQ
+        _INDEX_SEQ += 1
+        my_seq = _INDEX_SEQ
     if fs_items is None:
         items = scan_library(lib)          # the slow, SMB-I/O-bound part
-        _save_fs_index(lib, items)         # cache raw scan BEFORE enrich mutates it
-        src = "scan"
+        # A walk is only allowed to replace what we have if we believe it. An unmounted share,
+        # a permission failure or a partial walk returns a SHORT list, and writing that to the
+        # cache made movies disappear until a later full walk happened to succeed.
+        # on_disk: the free version publishes only part of the walk, so compare with the full count
+        known = ((max(len(STATE["items"]), STATE.get("on_disk") or 0) if STATE["items"] else 0)
+                 or len(_load_fs_index(lib) or []))
+        why = ""
+        if LAST_WALK["missing_root"]:
+            why = "library folder is not there (share unmounted?)"
+        elif LAST_WALK["errors"]:
+            why = "%d unreadable folder(s): %s" % (LAST_WALK["errors"], LAST_WALK["first_error"])
+        elif known >= 20 and len(items) < known * 0.5:
+            why = "walk found %d of about %d items" % (len(items), known)
+        if why:
+            STATE["scan_warning"] = why
+            sys.stderr.write("[scan] REFUSED to replace the index - %s\n" % why)
+            sys.stderr.flush()
+            if STATE["items"]:
+                return                      # keep the good state we already serve
+            items = _load_fs_index(lib) or items   # cold start: fall back to the cache
+            src = "cache"
+        else:
+            STATE["scan_warning"] = ""
+            _save_fs_index(lib, items)     # cache raw scan BEFORE enrich mutates it
+            src = "scan"
     else:
         items = fs_items
         src = "cache"
     _stamp_added(items)                      # idempotent 'date added' (also upgrades old caches)
-    by_code, alist, facets = enrich(items)  # fast: DB overlay + ghosts (mutates items)
-    STATE["items"] = items
-    STATE["by_code"] = by_code
-    STATE["actresses"] = alist
-    STATE["facets"] = facets
-    STATE["scanned_at"] = int(time.time())
-    STATE["data_json"] = None                 # invalidate the /api/data serialization cache
+    items = _free_cap(items)                 # after the cache write: unlocking needs no re-walk
+    by_code, by_uid, alist, facets = enrich(items)  # fast: DB overlay + ghosts (mutates items)
+    # Publish in ONE step. These five used to be assigned separately, so a request arriving
+    # mid-swap could see the new grid with the previous path map. Several rebuilds can also
+    # be in flight at once (boot, /api/rescan, organize, import, delete), and the slowest one
+    # finishing last would win; a result older than what is already published is dropped.
+    with _INDEX_LOCK:
+        if my_seq < STATE.get("index_seq", 0):
+            sys.stderr.write(f"[{src}] discarded: a newer walk already published\n")
+            sys.stderr.flush()
+            return
+        STATE.update(items=items, by_code=by_code, by_uid=by_uid, actresses=alist,
+                     facets=facets, scanned_at=int(time.time()), index_seq=my_seq,
+                     data_json=None, data_gzip=None, data_gzip_of=None)
     sys.stderr.write(f"[{src}] {facets['total']} items in {time.time()-t0:.1f}s "
                      f"({facets['identified']} identified, "
                      f"{facets['total_bytes']/1e12:.2f} TB)\n")
+
+
+# ----------------------------------------------- deletion (movies / actresses)
+def _mount_point(path):
+    """The volume mount point containing path, so a trash move stays on one volume
+    (an instant rename, never a multi-GB cross-volume copy)."""
+    p = os.path.abspath(path)
+    while p and p != "/" and not os.path.ismount(p):
+        p = os.path.dirname(p)
+    return p or "/"
+
+
+def _count_files(path):
+    """Files under path (1 for a plain file), for verifying a trash move kept everything."""
+    if os.path.isfile(path):
+        return 1
+    n = 0
+    for _dp, _dn, fns in os.walk(path):
+        n += len(fns)
+    return n
+
+
+def _trash_log(line):
+    """Append one line to cache/trash.log — deletions are the one thing worth an audit trail."""
+    try:
+        with open(os.path.join(CACHE, "trash.log"), "a", encoding="utf-8") as fh:
+            fh.write("%s %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), line))
+    except OSError:
+        pass
+
+
+# One delete at a time. A trash move that falls back to a copy takes minutes on SMB, and a
+# second click used to start a SECOND move of the same folder: the first had created the
+# destination but not yet removed the source, so the retry wrote a timestamped duplicate and
+# the library ended up with two copies of the same movie in the trash.
+_TRASH_LOCK = threading.Lock()
+
+
+def _rename_or_explain(src, dst):
+    """Move src to dst on the same volume. NEVER falls back to copying.
+
+    shutil.move() swallows a failed os.rename() and copies instead. On the SMB library that is
+    the difference between 0.4 s and several minutes per movie, and it is reached for a
+    mundane reason: this share refuses to rename a folder while any file inside it is open
+    (EACCES), which is exactly the case when you delete the movie you are watching."""
+    try:
+        os.rename(src, dst)
+        return
+    except OSError as e:
+        if e.errno == errno.EXDEV:          # genuinely another volume: copying is the only way
+            shutil.move(src, dst)
+            return
+        if e.errno in (errno.EACCES, errno.EPERM, errno.EBUSY, errno.ETXTBSY):
+            raise OSError("%s is still open — close the player (or whatever is reading it) "
+                          "and try again." % os.path.basename(src.rstrip("/")))
+        raise
+
+
+def _to_trash(paths):
+    """Move paths to a RECOVERABLE trash by a same-volume rename (never a hard unlink, never
+    a cross-volume copy). Files on the system volume go to ~/.Trash (the real Trash); files
+    on another volume — e.g. the SMB library, where macOS can't use the real Trash — go to a
+    '_vault_trash/' folder at the library root (same share, instant, and already reserved by
+    the organize pass so it is never re-scanned). Returns (moved_paths, error_or_None)."""
+    real = [p for p in dict.fromkeys(paths) if p and os.path.exists(p)]
+    if not real:
+        return [], None
+    home_mp = _mount_point(os.path.expanduser("~"))
+    lib = STATE.get("library") or ""
+    moved = []
+    try:
+        for p in real:
+            if _mount_point(p) == home_mp:
+                dest = os.path.expanduser("~/.Trash")
+            else:
+                dest = os.path.join(lib or _mount_point(p), "_vault_trash")
+            os.makedirs(dest, exist_ok=True)
+            base = os.path.basename(p.rstrip("/")) or "item"
+            dst = os.path.join(dest, base)
+            if os.path.exists(dst):                       # collision -> timestamp it
+                dst = os.path.join(dest, time.strftime("%Y%m%d-%H%M%S-") + base)
+            before = _count_files(p)
+            _rename_or_explain(p, dst)                    # same volume => rename, instant
+            after = _count_files(dst)
+            _trash_log("moved %s -> %s (%d file(s) before, %d after)" % (p, dst, before, after))
+            if after < before:                            # never silently lose content
+                raise OSError("%s arrived in the trash with %d of %d files"
+                              % (dst, after, before))
+            moved.append(dst)
+    except Exception as e:
+        return moved, str(e)
+    return moved, None
+
+
+def _delete_targets(it, library):
+    """Paths to trash for one movie: the whole movie folder when it is a dedicated leaf
+    (so poster/subs/nfo go with it), else just the video files — NEVER the library root
+    and never a folder that also holds other movies."""
+    primary = it.get("primary")
+    if not primary:
+        return []
+    mdir = os.path.dirname(primary)
+    parts = [p["path"] for p in (it.get("parts") or []) if p.get("path")] or [primary]
+    try:
+        libreal = os.path.realpath(library or "")
+        if os.path.realpath(mdir) != libreal and not any(
+                os.path.isdir(os.path.join(mdir, e)) for e in os.listdir(mdir)):
+            return [mdir]
+    except OSError:
+        pass
+    return parts
+
+
+def _purge_work_rows(con, code):
+    con.execute("DELETE FROM tags WHERE code=?", (code,))
+    con.execute("DELETE FROM work_actresses WHERE code=?", (code,))
+    con.execute("DELETE FROM works WHERE code=?", (code,))
+
+
+def _purge_userdata(codes=(), actress_ids=()):
+    """Drop deleted movies/actresses from the personal userdata sidecar so counts stay honest."""
+    ud = _load_userdata()
+    changed = False
+    cs = set(map(str, codes))
+    if cs:
+        for k in ("fav", "seen"):
+            new = [c for c in ud[k] if c not in cs]
+            if len(new) != len(ud[k]):
+                ud[k] = new
+                changed = True
+        for c in [c for c in ud["rating"] if c in cs]:
+            ud["rating"].pop(c, None)
+            changed = True
+    ais = set(map(str, actress_ids))
+    if ais:
+        new = [a for a in ud["afav"] if a not in ais]
+        if len(new) != len(ud["afav"]):
+            ud["afav"] = new
+            changed = True
+    if changed:
+        _save_userdata()
+
+
+def _resync_after_delete(deleted_codes):
+    """Prune trashed codes from the cached filesystem scan and re-enrich — no SMB re-walk."""
+    lib = STATE["library"]
+    raw = _load_fs_index(lib)
+    if raw is not None:
+        raw = [it for it in raw if it.get("code") not in deleted_codes]
+        _save_fs_index(lib, raw)
+        rebuild_index(fs_items=raw)
+    else:
+        rebuild_index()
+
+
+# ----------------------------------------------- scene markers (sidecar *.scenes.json)
+# An external analyzer (separate repo, "vault-scene-tagger") writes one <video>.scenes.json
+# next to each video file: {schema:"vault-scenes/1", video, duration, markers:[{t,end?,label,
+# source,confidence?}]}. The sidecar is the source of truth; the `markers` table is just a
+# queryable cache. We also WRITE the sidecar for manual markers (source:"manual") — the merge
+# rule is the analyzer owns cut/heuristic/ml rows and never touches manual ones.
+SCENES_SCHEMA = "vault-scenes/1"
+# Vault's marker vocabulary: the act + position labels of SCENES_SPEC §4 (the state and structure
+# labels were dropped on 2026-09-15) — the only built-in labels the player's marker editor may set.
+SCENE_LABELS = frozenset((
+    "fingering", "blowjob", "titjob", "toy", "creampie",
+    "missionary", "doggy", "cowgirl", "standing", "scoop-up",
+))
+# User-defined extra labels (Settings -> training mode) must look like the built-in ones.
+_SCENE_LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def _normalize_scene_label(value):
+    """"Foot Job" -> "foot-job"; returns "" if nothing usable is left."""
+    return re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-")
+
+
+def _ensure_works_schema(con):
+    """Provenance for censorship, so a rescan cannot silently flip what you set by hand."""
+    try:
+        con.execute("ALTER TABLE works ADD COLUMN censorship_src TEXT")
+    except sqlite3.OperationalError:
+        pass            # already there
+    # fc2ppv-db is the primary source for the cast. Two columns make that true in practice:
+    #   fc2db_at    when the page was last read, so "still to look up" stops meaning "has no
+    #               actress yet" -- a movie whose performer came from a folder name was never
+    #               offered to fc2ppv-db at all, and so never got its co-stars or tags either.
+    #   actress_src who set works.actress_id, so fc2ppv-db may correct its own and the folder
+    #               pass's guesses while never touching one you set by hand.
+    fresh = False
+    try:
+        con.execute("ALTER TABLE works ADD COLUMN fc2db_at TEXT")
+        fresh = True
+    except sqlite3.OperationalError:
+        pass
+    try:
+        con.execute("ALTER TABLE works ADD COLUMN actress_src TEXT")
+    except sqlite3.OperationalError:
+        pass
+    # fc2db.net's own "page has been read" — separate from fc2db_at on purpose
+    try:
+        con.execute("ALTER TABLE works ADD COLUMN fc2dbnet_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+    if fresh:
+        # Backfill, or the first scan after this upgrade would re-read all ~3,500 pages.
+        # A cast row (or a row fc2ppv-db itself created) means the page was already read.
+        n = con.execute(
+            "UPDATE works SET fc2db_at='backfilled' WHERE fc2db_at IS NULL AND ("
+            " source='fc2ppv-db' OR EXISTS(SELECT 1 FROM work_actresses wa"
+            " WHERE wa.code=works.code))").rowcount
+        # Anything the user typed is protected from here on.
+        m = con.execute(
+            "UPDATE works SET actress_src='manual' WHERE actress_id IS NOT NULL AND ("
+            " source='manual' OR actress_id IN (SELECT id FROM actresses"
+            " WHERE source='manual'))").rowcount
+        sys.stderr.write("[db] fc2ppv-db provenance: %d row(s) marked already read, "
+                         "%d actress link(s) marked manual\n" % (n, m))
+        con.commit()
+    # 'owned' was a third availability value two inserts could write; nothing else knew it.
+    try:
+        n = con.execute("UPDATE works SET availability=CASE WHEN in_library=1 "
+                        "THEN 'available' ELSE 'missing' END "
+                        "WHERE availability='owned'").rowcount
+        if n:
+            sys.stderr.write("[db] normalized %d row(s) stuck at availability='owned'\n" % n)
+    except sqlite3.OperationalError:
+        pass
+
+
+def _ensure_markers_schema(con):
+    con.execute("CREATE TABLE IF NOT EXISTS markers("
+                "code TEXT NOT NULL, part INTEGER NOT NULL DEFAULT 0, t REAL NOT NULL, "
+                "tend REAL, label TEXT NOT NULL, source TEXT DEFAULT 'manual', confidence REAL)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_markers_code ON markers(code)")
+    con.execute("CREATE TABLE IF NOT EXISTS marker_src("
+                "code TEXT NOT NULL, part INTEGER NOT NULL, path TEXT, mtime INTEGER, "
+                "PRIMARY KEY(code, part))")
+
+
+def _scenes_path(video_path):
+    return os.path.splitext(video_path)[0] + ".scenes.json"
+
+
+def _read_scenes(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _write_scenes(path, video, duration, markers, existing=None):
+    # Keep the analyzer's extra top-level fields (e.g. its "tagger" phase record) and its
+    # generator: dropping them makes vault-scene-tagger think it never ran and re-decode the movie.
+    data = {k: v for k, v in (existing or {}).items() if k != "markers"}
+    data.update({"schema": SCENES_SCHEMA, "video": video, "duration": duration,
+                 "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+    if not isinstance(data.get("generator"), str) or not data["generator"]:
+        data["generator"] = "vault"
+    data["markers"] = sorted(markers, key=lambda m: float(m.get("t", 0) or 0))
+    d, base = os.path.split(path)
+    tmp = os.path.join(d, "." + base + ".tmp")   # hidden, same dir -> atomic rename
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _item_parts(it):
+    return it.get("parts") or ([{"path": it.get("primary"),
+                                 "name": os.path.basename(it.get("primary") or "")}]
+                               if it.get("primary") else [])
+
+
+def _import_scenes_for_item(con, it):
+    """Sync each part's sidecar into the markers cache; skip parts whose sidecar is unchanged."""
+    code = it.get("code")
+    if not code or it.get("missing"):
+        return
+    for idx, pp in enumerate(_item_parts(it)):
+        vp = pp.get("path")
+        if not vp:
+            continue
+        sp = _scenes_path(vp)
+        try:
+            mt = int(os.path.getmtime(sp))
+        except OSError:
+            # sidecar gone -> drop any stale cached rows for this part
+            if con.execute("SELECT 1 FROM marker_src WHERE code=? AND part=?",
+                           (code, idx)).fetchone():
+                con.execute("DELETE FROM markers WHERE code=? AND part=?", (code, idx))
+                con.execute("DELETE FROM marker_src WHERE code=? AND part=?", (code, idx))
+            continue
+        row = con.execute("SELECT mtime FROM marker_src WHERE code=? AND part=?",
+                          (code, idx)).fetchone()
+        if row and row[0] == mt:
+            continue                      # cache already current
+        data = _read_scenes(sp)
+        if data is None:
+            continue
+        con.execute("DELETE FROM markers WHERE code=? AND part=?", (code, idx))
+        for m in (data.get("markers") or []):
+            try:
+                t = float(m["t"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            end = m.get("end")
+            try:
+                end = float(end) if end is not None else None
+            except (TypeError, ValueError):
+                end = None
+            conf = m.get("confidence")
+            try:
+                conf = float(conf) if conf is not None else None
+            except (TypeError, ValueError):
+                conf = None
+            con.execute("INSERT INTO markers(code,part,t,tend,label,source,confidence) "
+                        "VALUES(?,?,?,?,?,?,?)",
+                        (code, idx, t, end, str(m.get("label") or "scene"),
+                         str(m.get("source") or "ml"), conf))
+        con.execute("INSERT INTO marker_src(code,part,path,mtime) VALUES(?,?,?,?) "
+                    "ON CONFLICT(code,part) DO UPDATE SET path=excluded.path, mtime=excluded.mtime",
+                    (code, idx, sp, mt))
+    con.commit()
+
+
+def _markers_for_code(con, code):
+    return [{"part": r[0], "t": r[1], "end": r[2], "label": r[3],
+             "source": r[4], "confidence": r[5]}
+            for r in con.execute(
+                "SELECT part,t,tend,label,source,confidence FROM markers "
+                "WHERE code=? ORDER BY part,t", (code,))]
+
+
+_FLAG_CACHE = {}
+
+
+def _sidecar_signature():
+    """Fingerprint of every part's sidecar (mtime, size, or absent). A stat per video: ~20 ms
+    for the whole library once the NAS has the directories cached."""
+    h = 0
+    for it in STATE.get("items") or ():
+        for pp in _item_parts(it):
+            vp = pp.get("path")
+            if not vp:
+                continue
+            try:
+                st = os.stat(_scenes_path(vp))
+                h = hash((h, vp, st.st_mtime_ns, st.st_size))
+            except OSError:
+                pass
+    return h
+
+
+def _marker_flags(it):
+    """(has_ai, has_manual, has_untouched_part) for a movie, read from its sidecars.
+
+    "AI pre-tagged" = at least one marker still has an analyzer source (ml/heuristic/cut);
+    "manually corrected" = at least one marker the user made (source manual).
+    The third flag is PER PART: a release whose part 1 is reviewed but whose part 2 was never
+    opened still has work left, and release-level flags hide that (a 6-parter with 4 untouched
+    parts looked "corrected"). "To review" uses this one.
+    """
+    ai = manual = todo = False
+    for pp in _item_parts(it):
+        vp = pp.get("path")
+        if not vp:
+            continue
+        sp = _scenes_path(vp)
+        try:
+            st = os.stat(sp)
+            key = (st.st_mtime_ns, st.st_size)
+        except OSError:
+            _FLAG_CACHE.pop(sp, None)
+            continue
+        hit = _FLAG_CACHE.get(sp)
+        if not hit or hit[0] != key:
+            data = _read_scenes(sp) or {}
+            markers = [m for m in (data.get("markers") or []) if isinstance(m, dict)]
+            hit = (key, any(m.get("source") == "manual" for m in markers),
+                   any(m.get("source") not in (None, "manual") for m in markers))
+            _FLAG_CACHE[sp] = hit
+        manual = manual or hit[1]
+        ai = ai or hit[2]
+        todo = todo or (hit[2] and not hit[1])      # this part has AI markers and none of yours
+    return ai, manual, todo
 
 
 # ----------------------------------------------- actress names carried in folders
@@ -1082,8 +1686,11 @@ def capture_folder_actresses(pairs, apply=False):
             aid = _find_actress(con, name)          # existing actress only; None if unknown
             if aid is not None and apply:
                 con.execute(
+                    # 'available' -- not 'owned'. Disk reconcile and the wishlist query only
+                    # know available/missing, so a row left at 'owned' was neither a library
+                    # item nor a wishlist ghost until some later enrich happened to repair it.
                     "INSERT INTO works(code,actress_id,source,in_library,availability) "
-                    "VALUES(?,?, 'folder', 1, 'owned') "
+                    "VALUES(?,?, 'folder', 1, 'available') "
                     "ON CONFLICT(code) DO UPDATE SET "
                     "actress_id=COALESCE(works.actress_id, excluded.actress_id)",
                     (code, aid))
@@ -1097,14 +1704,27 @@ def capture_folder_actresses(pairs, apply=False):
 
 
 # ------------------------------------------------------------------ ffprobe
+def _probe_sig(path):
+    """Identity of the file we probed: a replaced encode must not keep the old duration."""
+    try:
+        st = os.stat(path)
+        return [int(st.st_size), int(st.st_mtime)]
+    except OSError:
+        return None
+
+
 def probe_code(code):
-    with PROBE_LOCK:
-        if code in PROBE:
-            return PROBE[code]
-    it = STATE["by_code"].get(code)
+    it = STATE["by_uid"].get(code) or STATE["by_code"].get(code)
     if not it:
         return None
     path = it["primary"]
+    sig = _probe_sig(path)
+    with PROBE_LOCK:
+        hit = PROBE.get(code)
+        # A cached entry is only good while the file is the same one we measured. Entries
+        # written before signatures existed have none; keep honouring those.
+        if hit is not None and (hit.get("sig") is None or sig is None or hit["sig"] == sig):
+            return hit
     meta = {"duration": None, "width": None, "height": None, "vcodec": None}
     try:
         out = subprocess.run(
@@ -1124,6 +1744,11 @@ def probe_code(code):
             meta["duration"] = int(float(dur))
     except Exception:
         pass
+    if meta["duration"] is None and meta["width"] is None:
+        # a timeout, a missing ffprobe or an unreadable file -- caching that all-None dict
+        # meant the movie never showed a duration again until the cache was cleared by hand
+        return meta
+    meta["sig"] = sig
     with PROBE_LOCK:
         PROBE[code] = meta
         _probe_save_counter[0] += 1
@@ -1136,6 +1761,16 @@ def probe_code(code):
 _probe_save_counter = [0]
 
 
+def _probe_duration(path):
+    """Duration in seconds of one file (a part that is not the movie's primary), or None."""
+    try:
+        out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                              "-of", "csv=p=0", path], capture_output=True, text=True, timeout=60)
+        return round(float(out.stdout.strip()), 3)
+    except Exception:
+        return None
+
+
 def probe_and_persist(code):
     return probe_code(code)
 
@@ -1146,14 +1781,14 @@ def thumb_path(code):
 
 
 def generate_thumb(code):
-    it = STATE["by_code"].get(code)
+    it = STATE["by_uid"].get(code) or STATE["by_code"].get(code)
     if not it:
         return None
     out = thumb_path(code)
     if os.path.exists(out) and os.path.getsize(out) > 0:
         return out
     path = it["primary"]
-    meta = probe_code(code)
+    meta = probe_code(it["code"])
     dur = (meta or {}).get("duration") or 0
     seek = max(4, int(dur * 0.20)) if dur else 90
     for ss in (seek, 20, 3):
@@ -1266,6 +1901,12 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/" or p == "/index.html":
                 return self._serve_file(os.path.join(HERE, "index.html"),
                                         "text/html; charset=utf-8")
+            if p.startswith("/icons/"):
+                # marker pictograms; basename only, so no path can escape icons/
+                name = os.path.basename(p[len("/icons/"):])
+                if not re.match(r"^[a-z0-9-]+\.png$", name):
+                    return self._send(404, "text/plain", "no icon")
+                return self._serve_file(os.path.join(HERE, "icons", name), "image/png")
             if p == "/api/data":
                 return self._api_data()
             if p == "/api/meta":
@@ -1277,11 +1918,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._api_settings()
             if p == "/api/userdata":
                 return self._json(_load_userdata())
+            if p == "/api/markers":
+                return self._api_markers(q)
             if p == "/api/scanprogress":
                 pr = dict(scanmod.PROGRESS) if scanmod else {"running": False}
                 return self._json(pr)
             if p == "/api/importprogress":
                 return self._json(dict(IMPORT_PROGRESS))
+            if p == "/api/model":
+                return self._json(_model_info(fetch_latest=True))
+            if p == "/api/modelprogress":
+                return self._json(_model_info())
             if p.startswith("/thumb/"):
                 return self._thumb(p[len("/thumb/"):])
             if p.startswith("/portrait/"):
@@ -1301,6 +1948,26 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_POST(self):
+        # do_GET wraps its dispatch; this one did not, so a locked database or a bug dropped
+        # the socket instead of answering. Same contract for both verbs.
+        try:
+            origin = self.headers.get("Origin")
+            if origin and urlparse(self.path).path != "/api/stash":
+                # Browsers send Origin on same-origin POSTs too, so this compares cleanly.
+                # Without it, a page you merely visit could drive this server.
+                want = (self.headers.get("Host") or "").strip()
+                if urlparse(origin).netloc != want:
+                    return self._json({"error": "cross-origin request refused"}, 403)
+            return self._post_routes()
+        except BrokenPipeError:
+            return
+        except Exception as e:
+            try:
+                return self._json({"error": str(e)}, 500)
+            except Exception:
+                return
+
+    def _post_routes(self):
         u = urlparse(self.path)
         p = u.path
         length = int(self.headers.get("Content-Length", 0) or 0)
@@ -1311,7 +1978,12 @@ class Handler(BaseHTTPRequestHandler):
             body = {}
         if p == "/api/userdata":    # per-user prefs only; never touches the catalog cache
             return self._userdata_post(body)
-        STATE["data_json"] = None   # any POST may mutate state -> invalidate the /api/data cache
+        # Rebuilding the projection means a stat per sidecar across the whole share, so only
+        # invalidate when the POST can actually change what /api/data says. Opening a file,
+        # testing a connection or reading progress cannot.
+        if p not in _POST_KEEPS_DATA:
+            STATE["data_json"] = None
+            STATE["data_gzip"] = STATE["data_gzip_of"] = None
         if p == "/api/open":
             return self._open_external(body.get("code"), reveal=False)
         if p == "/api/reveal":
@@ -1327,6 +1999,14 @@ class Handler(BaseHTTPRequestHandler):
                                       body.get("name_jp"))
         if p == "/api/setcensor":
             return self._set_censor(body.get("code"), bool(body.get("uncensored")))
+        if p == "/api/deletemovie":
+            return self._delete_movies(body.get("codes") or [body.get("code")])
+        if p == "/api/marker":
+            return self._marker_edit(body)
+        if p == "/api/importmarkers":
+            return self._import_markers_all()
+        if p == "/api/deleteactress":
+            return self._delete_actress(body.get("id"))
         if p == "/api/scan":
             return self._scan_one(body.get("code"), bool(body.get("force")))
         if p == "/api/scanlib":
@@ -1334,10 +2014,12 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/wishlistcovers":
             return self._wishlist_covers()
         if p == "/api/foldactress":
-            return self._fold_actress(bool(body.get("apply")), body.get("skip"))
+            return self._fold_actress(bool(body.get("apply")), body.get("skip"),
+                                      body.get("allow"))
         if p == "/api/organize":
             return self._organize(bool(body.get("apply")), body.get("skip"),
-                                  body.get("enrich"))
+                                  body.get("enrich"), body.get("allow"),
+                                  body.get("plan_id"))
         if p == "/api/enrichactress":
             return self._enrich_actress(body.get("actress_id"), body.get("code"),
                                         bool(body.get("force")), bool(body.get("dry")))
@@ -1358,6 +2040,14 @@ class Handler(BaseHTTPRequestHandler):
             return self._set_library(body.get("path"))
         if p == "/api/setdownload":
             return self._set_download(body.get("path"))
+        if p == "/api/settraining":
+            return self._set_training(body.get("on"))
+        if p == "/api/license":
+            return self._set_license(body.get("key"))
+        if p == "/api/model":
+            return self._download_model()
+        if p == "/api/scenelabel":
+            return self._scene_label(body)
         if p == "/api/import":
             if body.get("preview"):
                 return self._import_preview()
@@ -1367,11 +2057,17 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/sourcesave":
             return self._sources_save(body.get("sources"))
         if p == "/api/fc2db/save":
-            return self._fc2db_save(body.get("cookie"), body.get("ua"))
+            return self._fc2db_save(body.get("cookie"), body.get("ua"),
+                                     body.get("mode"), body.get("solver"))
+        if p == "/api/solver/check":
+            return self._solver_check()
+        if p == "/api/fc2dbnet/test":
+            return self._fc2dbnet_test(body.get("code"))
         if p == "/api/fc2db/test":
             return self._fc2db_test(body.get("code"))
-        if p == "/api/fc2db/scan":
-            return self._fc2db_scan(body.get("scope") or "missing")
+        if p in ("/api/scanall", "/api/fc2db/scan", "/api/fc2dbnet/scan"):
+            # one pipeline: the old single-source routes now check every source too
+            return self._scan_everything(body.get("scope") or "missing")
         if p == "/api/stash":
             name = re.sub(r"[^A-Za-z0-9_.-]", "_", (self.headers.get("X-Stash") or "stash")) + ".json"
             with open(os.path.join(CACHE, name), "wb") as f:
@@ -1381,6 +2077,14 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"error": "unknown"}, 404)
 
     def do_OPTIONS(self):
+        # Only /api/stash is meant to be called by another origin (a local Stash plugin).
+        # Answering every path with Allow-Origin:* let any site the browser visits preflight
+        # and then call delete, organize, import or setlibrary on this no-auth server.
+        if urlparse(self.path).path != "/api/stash":
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -1399,14 +2103,48 @@ class Handler(BaseHTTPRequestHandler):
 
     def _api_data(self):
         # serve a cached serialization; it only changes when the index/state does
-        # (do_POST and rebuild_index clear STATE["data_json"])
+        # (do_POST and rebuild_index clear STATE["data_json"]) or when a sidecar changes on
+        # disk: vault-scene-tagger writes those behind our back, and the marker flags
+        # ("To review", "AI pre-tagged") are baked into the cached payload.
         body = STATE.get("data_json")
-        if body is not None:
-            return self._send(200, "application/json; charset=utf-8", body,
-                              {"Cache-Control": "no-store"})
+        if body is not None and STATE.get("data_sig") == _sidecar_signature():
+            return self._send_data_json(body)
+        with _DATA_BUILD_LOCK:
+            # another thread may have built it while we waited on the lock
+            body = STATE.get("data_json")
+            if body is not None and STATE.get("data_sig") == _sidecar_signature():
+                return self._send_data_json(body)
+            return self._build_data_json()
+
+    def _send_data_json(self, body):
+        """Send the cached projection, reusing the cached gzip of it.
+
+        The payload is byte-identical between requests, so re-compressing 6 MB on every
+        reload was pure waste (~70 ms of CPU each time, for the same 1 MB result)."""
+        if "gzip" in self.headers.get("Accept-Encoding", ""):
+            gz = STATE.get("data_gzip")
+            if gz is None or STATE.get("data_gzip_of") is not body:
+                gz = gzip.compress(body, 5)
+                STATE["data_gzip"], STATE["data_gzip_of"] = gz, body
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+            self.send_header("Content-Length", str(len(gz)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(gz)
+            return
+        return self._send(200, "application/json; charset=utf-8", body,
+                          {"Cache-Control": "no-store"})
+
+    def _build_data_json(self):
         # ship a compact projection (omit absolute paths)
+        sig = _sidecar_signature()      # taken first: a sidecar written mid-build rebuilds next time
         out_items = []
         for it in STATE["items"]:
+            ai_tags, manual_tags, to_review = _marker_flags(it)
             out_items.append({
                 "code": it["code"],
                 "actress": it.get("actress") or "",
@@ -1416,6 +2154,8 @@ class Handler(BaseHTTPRequestHandler):
                 "actresses": it.get("actresses") or [],
                 "aka": it.get("aka") or "",
                 "identified": it["identified"],
+                "fc2db_at": it.get("fc2db_at") or "",
+                "fc2dbnet_at": it.get("fc2dbnet_at") or "",
                 "age": it.get("age"),
                 "cup": it.get("cup") or "",
                 "height": it.get("height"),
@@ -1443,17 +2183,23 @@ class Handler(BaseHTTPRequestHandler):
                 "db": bool(it.get("db")),
                 "missing": bool(it.get("missing")),
                 "dup": bool(it.get("dup")),
+                "uid": it.get("uid") or it["code"],
+                "ai_tags": ai_tags,
+                "manual_tags": manual_tags,
+                "to_review": to_review,
             })
         body = json.dumps({
             "items": out_items,
             "actresses": STATE["actresses"],
             "facets": STATE["facets"],
+            "training": bool(STATE.get("training")),
             "scanned_at": STATE["scanned_at"],
             "library": STATE["library"],
+            "scan_warning": STATE.get("scan_warning") or "",
+            "license": _license_info(),
         }).encode("utf-8")
-        STATE["data_json"] = body
-        self._send(200, "application/json; charset=utf-8", body,
-                   {"Cache-Control": "no-store"})
+        STATE["data_json"], STATE["data_sig"] = body, sig
+        return self._send_data_json(body)
 
     def _api_meta(self, q):
         codes = (q.get("codes", [""])[0]).split(",")
@@ -1478,7 +2224,7 @@ class Handler(BaseHTTPRequestHandler):
     def _thumb(self, name):
         code = name[:-4] if name.lower().endswith(".jpg") else name
         code = code.strip("/")
-        if code not in STATE["by_code"]:
+        if not (STATE["by_uid"].get(code) or STATE["by_code"].get(code)):
             return self._send(404, "text/plain", "no code")
         out = thumb_path(code)
         if not (os.path.exists(out) and os.path.getsize(out) > 0):
@@ -1515,9 +2261,21 @@ class Handler(BaseHTTPRequestHandler):
                               {"Cache-Control": "public, max-age=86400"})
         return self._send(200, "image/svg+xml", PLACEHOLDER)
 
+    def _item_ref(self, ref):
+        """Resolve a uid (one folder) or a bare code (first/only folder) to one item.
+        Anything that opens, streams, deletes or reads files must go through this."""
+        ref = (ref or "").strip("/")
+        hit = STATE["by_uid"].get(ref) or STATE["by_code"].get(ref)
+        if hit is None and "~" in ref:
+            # a uid only carries its ~suffix while the code is duplicated; once the other copy
+            # goes away the survivor is addressed by the bare code again, and an open tab or a
+            # bookmark still holds the old id.
+            hit = STATE["by_code"].get(ref.split("~", 1)[0])
+        return hit
+
     def _video(self, name, part=None):
         code = name.strip("/")
-        it = STATE["by_code"].get(code)
+        it = self._item_ref(code)
         if not it:
             return self._send(404, "text/plain", "no code")
         path = it["primary"]
@@ -1551,6 +2309,12 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 end = min(end, fsize - 1)
                 status = 206
+        # open before any header goes out: once a 206 has started, an error can no longer be
+        # reported and the player just hangs (seen when macOS revoked NAS access, EPERM)
+        try:
+            open(path, "rb").close()
+        except OSError as e:
+            return self._send(503, "text/plain", "cannot read video: %s" % (e.strerror or e))
         length = end - start + 1
         self.send_response(status)
         self.send_header("Content-Type", ctype)
@@ -1652,14 +2416,65 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "scanner unavailable"}, 500)
         if not code or code not in STATE["by_code"]:
             return self._json({"error": "no code"}, 404)
+        # Take the scan slot like every other scan button, BEFORE writing anything. The old
+        # guard only skipped the fc2ppv-db half: the shell pass still ran on this request
+        # thread and wrote the catalog alongside a library scan, and when it changed a title
+        # the toast said "Updated: title" without ever mentioning the refused half.
+        if not claim_scan("scanning " + code):
+            return self._json({"error": "a library scan is running — try again when it "
+                                        "finishes"}, 409)
         con = sqlite3.connect(DB_PATH, timeout=30)
+        notes, hit = [], False
+        changed = {}
         try:
-            changed = scanmod.scan_code(con, code, force=force)
+            # Same priority as every other scan: fc2ppv-db, then fc2db.net, then 123av/ffjav.
+            # One deliberate click re-reads both cast sites whether or not they were read
+            # before. The shell pass comes LAST and only fills what is still empty: it used
+            # to run first with force=True, which let the lowest-priority source overwrite
+            # the title, cover and date before the others had a say.
+            ready, why = self._fc2db_ready(fresh=True)
+            mode, solver, _l = self._fc2db_choice()
+            if ready:
+                prog = {}          # a local progress dict: the slot is ours, the counters
+                scanmod.scan_fc2db(  # belong to whatever the toolbar last showed
+                    con, [code],
+                    None if mode == "flaresolverr" else secret_get("cookie"),
+                    None if mode == "flaresolverr" else secret_get("ua"),
+                    THUMB_DIR, progress=prog,
+                    solver_url=solver if mode == "flaresolverr" else None)
+                if prog.get("hits"):
+                    hit = True
+                elif prog.get("failed"):
+                    notes.append(prog.get("error") or "fc2ppv-db lookup failed")
+                else:
+                    notes.append("not in fc2ppv-db")
+            else:
+                notes.append("fc2ppv-db skipped — " + why)
+            if "fc2db.net" in enabled_sources():
+                prog = {}
+                scanmod.scan_fc2dbnet(con, [code], progress=prog,
+                                      solver_url=solver or None)
+                if prog.get("hits"):
+                    hit = True
+                elif prog.get("failed"):
+                    notes.append(prog.get("error") or "fc2db.net lookup failed")
+                else:
+                    notes.append("not on fc2db.net")
+            changed = scanmod.scan_code(con, code, force=False,
+                                        sources=enabled_sources())
         finally:
             con.close()
+            release_scan()
         self._apply_work_fields(code, changed)
+        if hit:
+            try:                      # re-enrich from the catalog; no SMB re-walk
+                rebuild_index(_load_fs_index(STATE["library"]))
+            except Exception:
+                pass
         it = STATE["by_code"].get(code, {})
-        return self._json({"ok": True, "changed": changed, "item": {
+        return self._json({"ok": True, "changed": changed, "fc2db_hit": hit,
+                           "note": " · ".join(notes),
+                           "item": {
             "code": code, "title": it.get("title") or "", "title_en": it.get("title_en") or "",
             "release": it.get("release_date") or "", "cover": it.get("cover_url") or "",
             "tags": it.get("tags") or []}})
@@ -1724,10 +2539,12 @@ class Handler(BaseHTTPRequestHandler):
             cache["thumbs"] = cache["thumbs_n"] = 0
         return self._json({"ok": True, "library": STATE["library"],
                            "download": STATE.get("download", ""),
+                           "training_mode": bool(STATE.get("training")),
+                           "custom_labels": list(STATE.get("custom_labels") or []),
                            "tags": tags, "actresses": actresses,
                            "sources": _load_sources(), "cache": cache,
-                           "fc2db": {"connected": bool(secret_get("cookie")),
-                                     "encrypted": _kc_available()},
+                           "fc2db": self._fc2db_status(),
+                           "license": _license_info(),
                            "counts": {"actresses": len(actresses), "tags": len(tags)}})
 
     def _tag_edit(self, key, en, jp):
@@ -1898,6 +2715,75 @@ class Handler(BaseHTTPRequestHandler):
         save_config(download=path)
         return self._json({"ok": True, "download": path})
 
+    def _set_training(self, on):
+        """Settings -> Library -> training mode: allow editing scene markers in the player."""
+        if not isinstance(on, bool):
+            return self._json({"error": "on must be true or false"}, 400)
+        STATE["training"] = on
+        STATE["data_json"] = None      # the sidebar's training filters appear/disappear with it
+        save_config(training_mode=on)
+        return self._json({"ok": True, "training_mode": on})
+
+    def _set_license(self, key):
+        """Settings -> License: store a Vault Pro key (checked offline), or remove it with ""."""
+        key = "".join((key or "").split())
+        st = vault_license.status(key)
+        if key and not st["pro"]:
+            return self._json({"error": st["error"] or "this key does not unlock Pro"}, 400)
+        if not save_config(license_key=key):
+            return self._json({"error": "could not write config.json"}, 500)
+        # the free cap is applied when the index is built; the cached walk makes that instant
+        fs = _load_fs_index(STATE["library"])
+        if fs is not None:
+            rebuild_index(fs_items=fs)
+        else:
+            threading.Thread(target=rebuild_index, daemon=True).start()
+        return self._json({"ok": True, "license": _license_info()})
+
+    def _download_model(self):
+        """Settings -> License: fetch the newest scene model with the saved Pro key."""
+        if not license_status()["pro"]:
+            return self._json({"error": "The scene model " + PRO_ONLY}, 403)
+        if vault_model.PROGRESS["running"]:
+            return self._json({"error": "a model download is already running"}, 409)
+        key = load_config().get("license_key") or ""
+
+        def run():
+            try:
+                vault_model.download(key)
+            except Exception as e:
+                print("Vault: model download failed: %s" % e, file=sys.stderr)
+        threading.Thread(target=run, daemon=True).start()
+        return self._json({"ok": True, "model": _model_info()})
+
+    def _scene_label(self, body):
+        """Add or remove a custom scene-marker label (training mode only).
+
+        Custom labels extend the built-in SCENES_SPEC vocabulary for the marker editor. Removing
+        one only takes it off the list; markers that already use it keep their label.
+        """
+        if not STATE.get("training"):
+            return self._json({"error": "Editing labels needs training mode (Settings → Library)"}, 403)
+        op = body.get("op")
+        label = _normalize_scene_label(body.get("label"))
+        if not label or len(label) > 32 or not _SCENE_LABEL_RE.match(label):
+            return self._json({"error": "A label is lowercase words joined by hyphens, max 32 characters"}, 400)
+        custom = list(STATE.get("custom_labels") or [])
+        existed = label in SCENE_LABELS or label in custom
+        if op == "add":
+            if not existed:
+                custom = sorted(custom + [label])
+        elif op == "remove":
+            if label not in custom:
+                return self._json({"error": "“%s” is not a custom label" % label}, 404)
+            custom.remove(label)
+        else:
+            return self._json({"error": "bad op"}, 400)
+        if custom != (STATE.get("custom_labels") or []):
+            STATE["custom_labels"] = custom
+            save_config(custom_labels=custom)
+        return self._json({"ok": True, "label": label, "existed": existed, "custom_labels": custom})
+
     # ------------------------------------------------------------- Import pipeline
     def _script(self, name):
         for base in (RENAMERS, HERE):
@@ -1963,14 +2849,20 @@ class Handler(BaseHTTPRequestHandler):
         return p.returncode
 
     def _import_run(self, confirm):
-        if IMPORT_PROGRESS.get("running"):
-            return self._json({"error": "an import is already running",
-                               "progress": dict(IMPORT_PROGRESS)}, 409)
+        # Claim the slot here, in the request thread. Setting it inside the worker let two
+        # quick clicks both pass this test and start two import pipelines over one folder.
+        with _JOB_LOCK:
+            if IMPORT_PROGRESS.get("running"):
+                return self._json({"error": "an import is already running",
+                                   "progress": dict(IMPORT_PROGRESS)}, 409)
+            IMPORT_PROGRESS.update(running=True, phase="Starting…", line="", done=0, total=0)
         dl = STATE.get("download")
         if not dl or not os.path.isdir(dl):
+            IMPORT_PROGRESS["running"] = False
             return self._json({"error": "no download folder set"}, 400)
         rn, mg = self._script("rename_fc2.py"), self._script("migrate_fc2.py")
         if not rn or not mg:
+            IMPORT_PROGRESS["running"] = False
             return self._json({"error": "pipeline scripts not found"}, 500)
         env = dict(os.environ, VAULT_IMPORT_SRC=dl, VAULT_LIBRARY=STATE["library"])
 
@@ -2039,62 +2931,258 @@ class Handler(BaseHTTPRequestHandler):
         _save_sources(clean)
         return self._json({"ok": True, "sources": clean})
 
-    # ------------------------------------------------- fc2ppv-db (session-gated)
-    def _fc2db_save(self, cookie, ua):
-        cookie = (cookie or "").strip()
-        ua = (ua or "").strip()
-        ok = secret_set("cookie", cookie) and secret_set("ua", ua)
-        return self._json({"ok": ok, "connected": bool(cookie),
-                           "encrypted": _kc_available()})
+    # ------------------------------------------------- fc2ppv-db (session or FlareSolverr)
+    def _solver_reachable(self, solver, max_age=30.0):
+        """Cached reachability. The raw probe waits up to 4 s, and Settings asks on every
+        open — a sleeping resolver made the dialog hang each time."""
+        if not (solver and scanmod and hasattr(scanmod, "solver_ready")):
+            return False
+        now = time.time()
+        if _SOLVER_PROBE["url"] == solver and now - _SOLVER_PROBE["at"] < max_age:
+            return _SOLVER_PROBE["ok"]
+        ok = bool(scanmod.solver_ready(solver))
+        _SOLVER_PROBE.update(url=solver, at=now, ok=ok)
+        return ok
+
+    def _fc2db_ready(self, fresh=False):
+        """(can we talk to fc2ppv-db, why not). The toolbar scan uses this to decide whether
+        to run its actress pass; it must never be a hard requirement, because 123av/ffjav
+        work without any fc2ppv-db session at all."""
+        if not license_status()["pro"]:
+            return False, "fc2ppv-db " + PRO_ONLY
+        mode, solver, _locked = self._fc2db_choice()
+        if mode == "flaresolverr":
+            if not solver:
+                return False, "no FlareSolverr URL set"
+            if not self._solver_reachable(solver, max_age=0 if fresh else 30.0):
+                return False, "FlareSolverr is not reachable at " + solver
+            return True, ""
+        if not secret_get("cookie"):
+            return False, "no fc2ppv-db session saved"
+        return True, ""
+
+    def _fc2db_choice(self):
+        """Active transport. Env VAULT_FLARESOLVERR wins over the saved URL."""
+        cfg = load_config()
+        mode = cfg.get("fc2db_mode") if cfg.get("fc2db_mode") in ("cookie", "flaresolverr") else "cookie"
+        solver = (os.environ.get("VAULT_FLARESOLVERR") or cfg.get("flaresolverr") or "").strip()
+        return mode, solver, bool(os.environ.get("VAULT_FLARESOLVERR"))
+
+    def _fc2db_status(self):
+        mode, solver, locked = self._fc2db_choice()
+        reachable = self._solver_reachable(solver)
+        return {"connected": bool(secret_get("cookie")),
+                "encrypted": _kc_available(),
+                "mode": mode,
+                "solver": solver,
+                "solver_locked": locked,
+                "reachable": reachable}
+
+    def _fc2db_save(self, cookie, ua, mode=None, solver=None):
+        mode = (mode or "").strip()
+        if mode and mode not in ("cookie", "flaresolverr"):
+            return self._json({"error": "mode must be cookie or flaresolverr"}, 400)
+        if solver is not None:
+            solver = str(solver).strip()[:300]
+            if solver and "://" not in solver:
+                solver = "http://" + solver
+            if solver and not solver.startswith(("http://", "https://")):
+                return self._json({"error": "resolver URL must start with http:// or https://"}, 400)
+            if solver and not _is_private_url(solver):
+                # Vault has no auth and listens on the LAN: without this, any visitor could
+                # point the resolver at an outside host and have the server POST to it.
+                return self._json({"error": "the resolver must be on your own network "
+                                            "(localhost or a private address)"}, 400)
+            if not save_config(flaresolverr=solver):
+                return self._json({"error": "could not save config"}, 500)
+        if mode and not save_config(fc2db_mode=mode):
+            return self._json({"error": "could not save config"}, 500)
+        ok = True
+        # A FlareSolverr save must not wipe a pasted session; that remains the fallback.
+        if mode != "flaresolverr" and cookie is not None:
+            cookie = (cookie or "").strip()
+            ua = (ua or "").strip()
+            # secret_set("") DELETES the keychain item; the settings form always posts `ua`,
+            # so saving a cookie with the UA box left blank wiped a working User-Agent.
+            ok = secret_set("cookie", cookie)
+            if ua:
+                ok = secret_set("ua", ua) and ok
+        return self._json({"ok": ok, "connected": bool(secret_get("cookie")),
+                           "encrypted": _kc_available(),
+                           "mode": mode or self._fc2db_choice()[0]})
+
+    def _solver_check(self):
+        """Is the saved resolver answering? Generic — no site, no challenge solved. Probes
+        fresh (and refreshes the 30 s cache the scan dialog reads) and reports the
+        FlareSolverr version, so "reachable" is a fact rather than a guess."""
+        _mode, solver, locked = self._fc2db_choice()
+        if not solver:
+            return self._json({"ok": False, "url": "", "locked": locked,
+                               "note": "no resolver URL saved"})
+        endpoint = scanmod._solver_endpoint(solver) if scanmod else ""
+        version, ok = "", False
+        try:
+            d = scanmod._solver_post(endpoint, {"cmd": "sessions.list"}, timeout=6)
+            ok = d.get("status") == "ok"
+            version = d.get("version") or ""
+        except Exception:
+            ok = False
+        _SOLVER_PROBE.update(url=solver, at=time.time(), ok=ok)
+        return self._json({"ok": ok, "url": solver, "locked": locked, "version": version,
+                           "note": ("FlareSolverr %s answers at %s" % (version, solver)).replace("  ", " ")
+                                   if ok else "nothing answers at " + solver})
+
+    def _fc2dbnet_test(self, code):
+        """One fc2db.net page, end to end: direct first, the resolver only if blocked."""
+        if not scanmod or not hasattr(scanmod, "fetch_fc2dbnet"):
+            return self._json({"error": "scanner unavailable"}, 500)
+        code = (code or "").strip() or "FC2-PPV-4988506"
+        _mode, solver, _l = self._fc2db_choice()
+        data = scanmod.fetch_fc2dbnet(code, solver_url=solver or None)
+        if data.get("_error"):
+            return self._json({"ok": False, "code": code, "note": data["_error"]})
+        if data.get("_missing"):
+            return self._json({"ok": False, "code": code,
+                               "note": "fc2db.net works — it just has no page for " + code})
+        ok = bool(data)
+        cast = [a.get("name") for a in data.get("actresses") or [] if a.get("name")]
+        return self._json({"ok": ok, "code": code,
+                           "note": "fc2db.net works — the server can read it" if ok
+                                   else "the page came back empty",
+                           "data": {"title_jp": data.get("title_jp"), "cast": cast,
+                                    "release_date": data.get("release_date")}})
 
     def _fc2db_test(self, code):
         if not scanmod or not hasattr(scanmod, "fetch_fc2ppvdb"):
             return self._json({"error": "scanner unavailable"}, 500)
-        cookie, ua = secret_get("cookie"), secret_get("ua")
-        if not cookie:
-            return self._json({"error": "no session saved — paste your cookie first"}, 400)
-        # a code known to exist on the site, or one of yours
+        if not license_status()["pro"]:
+            return self._json({"error": "fc2ppv-db " + PRO_ONLY, "pro_required": True}, 403)
+        mode, solver, _locked = self._fc2db_choice()
         code = (code or "").strip() or "FC2-PPV-4964424"
-        data = scanmod.fetch_fc2ppvdb(code, cookie=cookie, ua=ua)
-        ok = bool(data.get("title_jp") or data.get("actresses"))
-        return self._json({"ok": ok, "code": code, "data": data or None,
-                           "note": ("session works — the server can read fc2ppv-db"
-                                    if ok else
-                                    "no data — the session was rejected (Cloudflare). "
-                                    "The cookie has likely expired — re-copy a fresh one "
-                                    "from the same browser. If it still fails, your browser "
-                                    "may be on a different IP than the server (e.g. a VPN).")})
-
-    def _fc2db_scan(self, scope):
-        if not scanmod or not hasattr(scanmod, "scan_fc2db"):
-            return self._json({"error": "scanner unavailable"}, 500)
-        if scanmod.PROGRESS.get("running"):
-            return self._json({"error": "a scan is already running"}, 409)
-        cookie, ua = secret_get("cookie"), secret_get("ua")
-        if not cookie:
-            return self._json({"error": "connect fc2ppv-db first"}, 400)
-        items = [it for it in STATE["items"] if not it.get("missing")]
-        if scope == "missing":
-            # fc2ppv-db's job is the ACTRESS — so "missing" = no actress yet (even if a title
-            # was already filled by the shell scan). Re-run it with fresh sessions and it
-            # progressively completes the library, skipping ones already identified.
-            codes = [it["code"] for it in items if not it.get("actress_id")]
+        if mode == "flaresolverr":
+            if not solver:
+                return self._json({"error": "set the FlareSolverr URL first"}, 400)
+            if not scanmod.solver_ready(solver):
+                return self._json({"error": "FlareSolverr is not reachable at " + solver}, 503)
+            data = scanmod.fetch_fc2ppvdb(code, solver_url=solver)
+            if data.get("_error"):
+                return self._json({"ok": False, "code": code, "note": data["_error"]})
+            if data.get("_missing"):
+                # the resolver worked; fc2ppv-db just has no page for this code
+                return self._json({"ok": False, "code": code, "mode": mode, "absent": True,
+                                   "note": "FlareSolverr works — but fc2ppv-db has no page "
+                                           "for " + code + ". Try another code."})
+            note_ok = "FlareSolverr works — the server can read fc2ppv-db"
+            note_bad = ("no data — the resolver reached the site but the page had "
+                        "no title or actress. The check may still be in the way.")
         else:
-            codes = [it["code"] for it in items]
+            cookie, ua = secret_get("cookie"), secret_get("ua")
+            if not cookie:
+                return self._json({"error": "no session saved — paste your cookie first"}, 400)
+            data = scanmod.fetch_fc2ppvdb(code, cookie=cookie, ua=ua)
+            if data.get("_missing"):
+                return self._json({"ok": False, "code": code, "mode": mode, "absent": True,
+                                   "note": "the session works — but fc2ppv-db has no page "
+                                           "for " + code + ". Try another code."})
+            note_ok = "session works — the server can read fc2ppv-db"
+            note_bad = ("no data — the session was rejected (Cloudflare). "
+                        "The cookie has likely expired — re-copy a fresh one "
+                        "from the same browser. If it still fails, your browser "
+                        "may be on a different IP than the server (e.g. a VPN).")
+        ok = bool(data.get("title_jp") or data.get("actresses"))
+        # never ship the transport error key, or a huge page, to the browser
+        data.pop("_error", None)
+        data.pop("_missing", None)
+        return self._json({"ok": ok, "code": code, "mode": mode, "data": data or None,
+                           "note": note_ok if ok else note_bad})
+
+    def _start_pipeline(self, titles, pool, fc2db_ready, net_ready, reread=False, note=""):
+        """THE scan. Every scan button in Vault runs this (the player runs the same three
+        passes for one code), so no button quietly checks fewer sources than another.
+        The passes run in PRIORITY order:
+
+          1. fc2ppv-db — the primary source; it overwrites, over `pool`
+          2. fc2db.net — fills what is still empty, over `pool`
+          3. 123av / ffjav — fill what is STILL empty, over `titles`
+
+        Order is what makes the priority real. fc2db.net and the shell sources both only
+        fill empty fields, so whichever runs first wins — with the shell pass first (as it
+        was), ffjav's search-page cover and date always beat fc2db.net's official ones, and
+        the effective priority was fc2ppv-db > ffjav > fc2db.net.
+
+        Passes 1 and 2 each skip codes their own stamp says were already read, unless
+        `reread`. Unticked sources are skipped inside each pass. The CALLER claims the slot;
+        this worker owns `running` and the job's counters (reset once, here), and lowers
+        `running` only after the index has been rebuilt."""
+        mode, solver, _l = self._fc2db_choice()
 
         def run():
-            con = sqlite3.connect(DB_PATH, timeout=60)
-            con.execute("PRAGMA busy_timeout=60000")
+            P = scanmod.PROGRESS
+            _c = sqlite3.connect(DB_PATH, timeout=60)
+            _c.execute("PRAGMA busy_timeout=60000")
+            P["hold"] = True
+            P["note"] = note
+            P.update(hits=0, absent=0, failed=0, error="")   # one set of totals per job
             try:
-                scanmod.scan_fc2db(con, codes, cookie, ua, THUMB_DIR)
+                if fc2db_ready and pool:
+                    need = list(pool) if reread else self._codes_needing(_c, pool, "fc2db_at")
+                    if need:
+                        P["phase"] = "fc2ppv-db"
+                        scanmod.scan_fc2db(
+                            _c, need,
+                            None if mode == "flaresolverr" else secret_get("cookie"),
+                            None if mode == "flaresolverr" else secret_get("ua"),
+                            THUMB_DIR,
+                            solver_url=solver if mode == "flaresolverr" else None)
+                if net_ready and pool:
+                    need = list(pool) if reread else self._codes_needing(_c, pool, "fc2dbnet_at")
+                    if need:
+                        P["phase"] = "fc2db.net"
+                        scanmod.scan_fc2dbnet(_c, need, solver_url=solver or None)
+                if titles:
+                    P["phase"] = "titles"
+                    scanmod.scan_library(titles, con=_c, sources=enabled_sources())
             finally:
-                con.close()
+                P["phase"] = ""
+                _c.close()
+                try:
+                    rebuild_index(_load_fs_index(STATE["library"]))   # publish first ...
+                except Exception:
+                    pass
+                P["hold"] = False                                     # ... then "done"
+                P["running"] = False
+
+        def guarded():
             try:
-                rebuild_index(_load_fs_index(STATE["library"]))
-            except Exception:
-                pass
-        threading.Thread(target=run, daemon=True).start()
-        return self._json({"ok": True, "started": True, "count": len(codes)})
+                run()
+            finally:
+                release_scan()      # a worker that dies early must not wedge the slot
+        threading.Thread(target=guarded, daemon=True).start()
+
+    def _scan_everything(self, scope):
+        """Settings' library-wide scan: every enabled source, the whole library.
+
+        "missing" — titles for movies with a gap; each cast source only where its page was
+        never read. "all" — the same titles pass (shell sources only ever fill gaps in a
+        library scan) and both cast sources re-read every page. Every check that can refuse
+        happens BEFORE the slot is claimed, so there is no early return that can leak it."""
+        if not scanmod:
+            return self._json({"error": "scanner unavailable"}, 500)
+        items = [it for it in STATE["items"] if not it.get("missing")]
+        pool = [it["code"] for it in items]
+        titles = [it["code"] for it in items
+                  if not (it.get("title_en") and it.get("title") and it.get("cover_url")
+                          and it.get("release_date"))]
+        fc2db_ready, fc2db_why = self._fc2db_ready(fresh=True)
+        net_ready = "fc2db.net" in enabled_sources()
+        if not claim_scan("starting…"):
+            return self._json({"error": "a scan is already running"}, 409)
+        self._start_pipeline(titles=titles, pool=pool, fc2db_ready=fc2db_ready,
+                             net_ready=net_ready, reread=(scope == "all"),
+                             note="" if fc2db_ready else "fc2ppv-db pass skipped — " + fc2db_why)
+        return self._json({"ok": True, "started": True, "count": len(pool),
+                           "titles": len(titles), "fc2db": fc2db_ready, "fc2dbnet": net_ready,
+                           "fc2db_why": fc2db_why})
 
     def _enrich_actress(self, actress_id, code, force, dry=False):
         """Scrape javdatabase + jav.guru for an actress and apply the profile IF the
@@ -2102,6 +3190,9 @@ class Handler(BaseHTTPRequestHandler):
         (no writes). Resolves the actress from an explicit id, or a movie code's link."""
         if not scanmod or not hasattr(scanmod, "enrich_actress"):
             return self._json({"error": "enricher unavailable"}, 500)
+        if not license_status()["pro"]:
+            return self._json({"error": "Enrich from web " + PRO_ONLY, "pro_required": True},
+                              403)
         if not os.path.exists(DB_PATH):
             return self._json({"error": "no catalog db"}, 500)
         con = sqlite3.connect(DB_PATH, timeout=30)
@@ -2117,6 +3208,7 @@ class Handler(BaseHTTPRequestHandler):
             # her identity and for telling wishlist entries from owned ones.
             lib_codes = {c for c, it in STATE["by_code"].items() if not it.get("missing")}
             report = scanmod.enrich_actress(con, int(actress_id), force=force, dry=dry,
+                                           sources=enabled_sources(),
                                            library_codes=lib_codes)
         finally:
             con.close()
@@ -2127,7 +3219,7 @@ class Handler(BaseHTTPRequestHandler):
 
     ORG_CAP = 4000                             # max actions shipped for per-row selection
 
-    def _fold_actress(self, apply, skip=None):
+    def _fold_actress(self, apply, skip=None, allow=None):
         """Fold each owned movie's <CODE> folder to match the catalog actress:
         LIBRARY/<Actress>/<CODE>/…  when identified, LIBRARY/<CODE>/…  when not.
         DB-driven (uses works.actress_id via STATE), so it also relocates movies
@@ -2138,6 +3230,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "no library"}, 400)
         lib_real = os.path.realpath(lib)
         skip = set(skip or [])
+        # Organize was switched to an allow-list; this path was not. It applied every move
+        # whose id was absent from `skip`, and the client can only send the ids it rendered
+        # — so past ORG_CAP the rows nobody saw moved anyway. `allow`, when the client sends
+        # it, is the whole of what may run.
+        allow = None if allow is None else set(allow)
         plan, conflicts = [], []
         for it in STATE["items"]:
             if it.get("missing"):
@@ -2182,6 +3279,8 @@ class Handler(BaseHTTPRequestHandler):
         # apply
         moved, pruned, parents = 0, 0, set()
         for e in plan:
+            if allow is not None and e["id"] not in allow:
+                continue
             if e["id"] in skip:
                 continue
             src, dst = e["cur_dir"], e["target_dir"]
@@ -2216,7 +3315,7 @@ class Handler(BaseHTTPRequestHandler):
         rebuild_index()
         return self._json({"ok": True, "moved": moved, "pruned": pruned})
 
-    def _organize(self, apply, skip=None, enrich=None):
+    def _organize(self, apply, skip=None, enrich=None, allow=None, expect=None):
         if not orgmod:
             return self._json({"error": "organizer unavailable"}, 500)
         lib = STATE["library"]
@@ -2228,7 +3327,15 @@ class Handler(BaseHTTPRequestHandler):
             # 2) LINK when a folder name already matches a known actress (never invents one).
             capture_folder_actresses(pairs, apply=True)
             # 3) THEN normalize folders/files (minus any changes the user unchecked).
-            res = orgmod.apply_plan(lib, skip=set(skip or []))
+            # Only the rows the user actually saw and ticked run. `expect` is the preview's
+            # fingerprint: if the library changed since, nothing runs and they preview again.
+            res = orgmod.apply_plan(lib, skip=set(skip or []),
+                                    allow=(list(allow) if allow is not None else None),
+                                    expect=expect)
+            if res.get("stale"):
+                return self._json({"error": "The library changed since that preview — "
+                                            "run the preview again.",
+                                   "stale": True, "plan_id": res["plan_id"]}, 409)
             rebuild_index()                   # re-read the (now-tidy) filesystem
             return self._json({"ok": True, "applied": res})
         # dry run
@@ -2245,7 +3352,9 @@ class Handler(BaseHTTPRequestHandler):
                 "from": rel(a["from"]), "to": rel(a["to"])}
                for a in actions[:self.ORG_CAP]]
         return self._json({"ok": True, "total": len(actions), "counts": counts,
-                           "actions": out, "truncated": len(actions) > self.ORG_CAP})
+                           "actions": out, "truncated": len(actions) > self.ORG_CAP,
+                           "shown": len(out),
+                           "plan_id": orgmod.plan_fingerprint(actions, lib)})
 
     def _apply_org_enrich(self, enrich):
         """Apply the modal's per-code manual actress + tags. {code: {actress, tags[]}}."""
@@ -2265,7 +3374,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not name and not tags:
                     continue
                 con.execute("INSERT OR IGNORE INTO works(code,in_library,availability,source) "
-                            "VALUES(?,1,'owned','manual')", (code,))
+                            "VALUES(?,1,'available','manual')", (code,))
                 if name:
                     aid = _find_actress(con, name)
                     if aid is None:                    # explicit human input -> may create
@@ -2275,8 +3384,8 @@ class Handler(BaseHTTPRequestHandler):
                                           "COLLATE NOCASE", (name,)).fetchone()
                         aid = row[0] if row else None
                     if aid is not None:
-                        con.execute("UPDATE works SET actress_id=COALESCE(actress_id,?) "
-                                    "WHERE code=?", (aid, code))
+                        con.execute("UPDATE works SET actress_id=COALESCE(actress_id,?), "
+                                    "actress_src='manual' WHERE code=?", (aid, code))
                 tags = [_tag_display(t) for t in tags]     # honor merges/aliases
                 for t in tags:
                     con.execute("INSERT OR IGNORE INTO tags(code,tag) VALUES(?,?)", (code, t))
@@ -2303,16 +3412,61 @@ class Handler(BaseHTTPRequestHandler):
         out = [{"code": it["code"], "title_en": it.get("title_en") or "",
                 "title": it.get("title") or "",
                 "actress": it.get("actress_en") or it.get("actress") or "",
+                # what the fc2ppv-db pass actually keys on. The dialog used to count rows
+                # with an empty actress name, which is a different set entirely: a
+                # folder-named movie with no stamp IS fetched, a nameless one with a stamp
+                # is NOT, and the checkbox promised the opposite of both.
+                "fc2db_read": bool(it.get("fc2db_at")),
+                "fc2dbnet_read": bool(it.get("fc2dbnet_at")),
                 "cover": bool(it.get("cover_url"))}
                for it in cands[:self.ORG_CAP]]
         return out, len(cands), len(items)
+
+    @staticmethod
+    def _codes_needing(con, codes, column):
+        """Of `codes`, the ones whose `column` stamp is still NULL. Each source keeps its own
+        stamp: fc2ppv-db's "nobody listed" must never stop fc2db.net from being asked."""
+        assert column in ("fc2db_at", "fc2dbnet_at")
+        done = set()
+        for i in range(0, len(codes), 400):
+            chunk = codes[i:i + 400]
+            qs = ",".join("?" * len(chunk))
+            try:
+                done |= {r[0] for r in con.execute(
+                    "SELECT code FROM works WHERE %s IS NOT NULL AND code IN (%s)"
+                    % (column, qs), chunk)}
+            except sqlite3.OperationalError:          # pre-migration catalog: nothing read
+                pass
+        return [c for c in codes if c not in done]
+
+    @staticmethod
+    def _codes_needing_fc2db(con, codes):
+        """Of `codes`, the ones whose fc2ppv-db page has never been read.
+
+        This used to be "has no performer", which quietly made fc2ppv-db the LAST resort: a
+        movie whose actress came from its folder name was never offered to it, so it never
+        got that page's co-stars, tags, cover or date either. Asking the DB rather than STATE
+        keeps it right even when the index was built before the titles pass."""
+        done = set()
+        for i in range(0, len(codes), 400):          # SQLite caps variables per statement
+            chunk = codes[i:i + 400]
+            qs = ",".join("?" * len(chunk))
+            try:
+                done |= {r[0] for r in con.execute(
+                    "SELECT code FROM works WHERE fc2db_at IS NOT NULL AND code IN (%s)" % qs,
+                    chunk)}
+            except sqlite3.OperationalError:          # pre-migration catalog
+                done |= {r[0] for r in con.execute(
+                    "SELECT code FROM works WHERE actress_id IS NOT NULL AND code IN (%s)" % qs,
+                    chunk)}
+        return [c for c in codes if c not in done]
 
     def _wishlist_covers(self):
         """Backfill titles/covers for all wishlist (missing) works from javfc2.xyz.
         Reuses scanmod.PROGRESS so the scan-progress UI reflects it; no login needed."""
         if not scanmod or not hasattr(scanmod, "backfill_wishlist"):
             return self._json({"error": "backfill unavailable"}, 500)
-        if scanmod.PROGRESS.get("running"):
+        if not claim_scan("starting…"):
             return self._json({"error": "a scan is already running",
                                "progress": dict(scanmod.PROGRESS)}, 409)
 
@@ -2335,7 +3489,12 @@ class Handler(BaseHTTPRequestHandler):
                     rebuild_index()                 # reflect fetched covers/titles
                 except Exception:
                     pass
-        threading.Thread(target=run, daemon=True).start()
+        def guarded():
+            try:
+                run()
+            finally:
+                release_scan()      # a worker that dies early must not wedge the slot
+        threading.Thread(target=guarded, daemon=True).start()
         return self._json({"ok": True, "started": True})
 
     def _scan_library(self, body):
@@ -2353,35 +3512,43 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             cands, ncands, ntotal = self._scan_candidates(scope)
             _, nmissing, _ = self._scan_candidates("missing")
+            ready, why = self._fc2db_ready()
             return self._json({"ok": True, "scope": scope, "candidates": cands,
-                               "truncated": ncands > self.ORG_CAP,
-                               "missing": nmissing, "total": ntotal})
+                               "truncated": ncands > self.ORG_CAP, "ncands": ncands,
+                               "missing": nmissing, "total": ntotal,
+                               "fc2db_ready": ready, "fc2db_why": why,
+                               "fc2dbnet_ready": "fc2db.net" in enabled_sources()})
 
-        if scanmod.PROGRESS.get("running"):
+        if not claim_scan("(indexing files…)"):
             return self._json({"error": "a scan is already running",
                                "progress": dict(scanmod.PROGRESS)}, 409)
         codes = body.get("codes") if isinstance(body, dict) else None
-
-        def run():
-            if codes is None:                                   # scope-based (legacy path)
-                scanmod.PROGRESS.update(running=True, done=0, total=0, hits=0,
-                                        code="(indexing files…)")
-                try:
-                    rebuild_index()
-                except Exception:
-                    pass
-                cl, _, _ = self._scan_candidates(scope)
-                cl = [c["code"] for c in cl]
-            else:                                               # explicit selection from modal
-                cl = list(codes)
-            scanmod.scan_library(cl)                            # manages PROGRESS itself
-            try:
-                rebuild_index()                                 # reflect fetched metadata
-            except Exception:
-                pass
-        threading.Thread(target=run, daemon=True).start()
+        if isinstance(codes, str):      # a string here used to be walked character by
+            release_scan()              # character, one catalog row per letter
+            return self._json({"error": "codes must be a list"}, 400)
+        if codes is not None:
+            codes = [str(c).strip() for c in codes if str(c).strip()]
+        # The toolbar scan fetches titles/covers/dates (123av + ffjav). fc2ppv-db is what
+        # supplies the ACTRESS, so it belongs in the same button -- opt out with fc2db:false.
+        want_fc2db = True if not isinstance(body, dict) else bool(body.get("fc2db", True))
+        # probe fresh, not from the 30 s cache: the modal may have been sitting open while
+        # the resolver came up (or went down), and a stale "no" skipped the pass in silence
+        fc2db_ready, fc2db_why = (self._fc2db_ready(fresh=True) if want_fc2db
+                                  else (False, "not requested"))
+        # third pass: fc2db.net, a gap-filler with its own stamp. Plain urllib, so it only
+        # needs its Settings box ticked — the resolver is a fallback, not a requirement.
+        want_net = True if not isinstance(body, dict) else bool(body.get("fc2dbnet", True))
+        net_ready = want_net and "fc2db.net" in enabled_sources()
+        if codes is None:                                       # scope-based (legacy path)
+            cl = [c["code"] for c in self._scan_candidates(scope)[0]]
+        else:                                                   # explicit selection from modal
+            cl = list(codes)
+        self._start_pipeline(titles=cl, pool=cl, fc2db_ready=fc2db_ready, net_ready=net_ready,
+                             note="" if fc2db_ready else "fc2ppv-db pass skipped — " + fc2db_why)
         return self._json({"ok": True, "started": True, "scope": scope,
-                           "count": len(codes) if codes is not None else None})
+                           "count": len(codes) if codes is not None else len(cl),
+                           "fc2db": fc2db_ready, "fc2db_why": fc2db_why,
+                           "fc2dbnet": net_ready})
 
     def _set_censor(self, code, uncensored):
         it = STATE["by_code"].get(code or "")
@@ -2391,7 +3558,9 @@ class Handler(BaseHTTPRequestHandler):
         con = sqlite3.connect(DB_PATH, timeout=30)
         con.execute("INSERT OR IGNORE INTO works(code,in_library,availability,source) "
                     "VALUES(?,1,'available','manual')", (code,))
-        con.execute("UPDATE works SET censorship=? WHERE code=?", (val, code))
+        _ensure_works_schema(con)
+        con.execute("UPDATE works SET censorship=?, censorship_src='manual' WHERE code=?",
+                    (val, code))
         con.commit()
         con.close()
         for x in STATE["items"]:
@@ -2426,7 +3595,8 @@ class Handler(BaseHTTPRequestHandler):
             for code in codes:
                 con.execute("INSERT OR IGNORE INTO works(code,in_library,availability,source) "
                             "VALUES(?,1,'available','manual')", (code,))
-                con.execute("UPDATE works SET actress_id=? WHERE code=?", (aid, code))
+                con.execute("UPDATE works SET actress_id=?, actress_src='manual' "
+                            "WHERE code=?", (aid, code))
             con.commit()
             r = con.execute("SELECT name_en,name_jp,age,height,bust,cup,waist,hip "
                             "FROM actresses WHERE id=?", (aid,)).fetchone()
@@ -2492,7 +3662,8 @@ class Handler(BaseHTTPRequestHandler):
                         created = True
                     con.execute("INSERT OR IGNORE INTO works(code,in_library,availability,source) "
                                 "VALUES(?,1,'available','manual')", (code,))
-                    con.execute("UPDATE works SET actress_id=? WHERE code=?", (aid, code))
+                    con.execute("UPDATE works SET actress_id=?, actress_src='manual' "
+                                "WHERE code=?", (aid, code))
                     # linked to an existing record with a different spelling -> keep both
                     for nm in (en, jp):
                         if nm:
@@ -2571,7 +3742,8 @@ class Handler(BaseHTTPRequestHandler):
                     aid = cur.lastrowid
                 con.execute("INSERT OR IGNORE INTO works(code,in_library,availability,source) "
                             "VALUES(?,1,'available','manual')", (code,))
-                con.execute("UPDATE works SET actress_id=? WHERE code=?", (aid, code))
+                con.execute("UPDATE works SET actress_id=?, actress_src='manual' "
+                            "WHERE code=?", (aid, code))
             con.commit()
         except sqlite3.IntegrityError:
             con.close()
@@ -2595,8 +3767,317 @@ class Handler(BaseHTTPRequestHandler):
         return self._json({"ok": True, "actress_id": aid, "name_en": en2, "name_jp": jp2,
                            "actress": disp, "affected": affected})
 
+    def _delete_movies(self, codes):
+        """Trash each movie's files (recoverable) and remove its catalog rows, in one
+        transaction + one re-sync. A wishlist ghost (no files) just loses its rows."""
+        refs = [c for c in dict.fromkeys(codes or []) if c]
+        if not refs or not os.path.exists(DB_PATH):
+            return self._json({"error": "no code / db"}, 400)
+        # A ref is a uid (exactly one folder) or a bare code (every folder with that code,
+        # which is the old behaviour and still right for the common one-folder case).
+        fs, cset = [], set()
+        for ref in refs:
+            hit = STATE["by_uid"].get(ref)
+            if hit is not None and not hit.get("missing"):
+                fs.append(hit); cset.add(hit["code"]); continue
+            code = STATE["by_code"].get(ref, {}).get("code") or ref
+            cset.add(code)
+            fs += [it for it in STATE["items"]
+                   if it.get("code") == code and not it.get("missing")]
+        seen = set()
+        fs = [it for it in fs if id(it) not in seen and not seen.add(id(it))]
+        # keep a catalog row whose other copy is still on disk
+        doomed = {id(it) for it in fs}
+        survivors = {it["code"] for it in STATE["items"]
+                     if not it.get("missing") and id(it) not in doomed}
+        codes = [c for c in cset if c not in survivors]
+        trashed, tbytes = [], 0
+        if fs:
+            targets = []
+            for it in fs:
+                targets += _delete_targets(it, STATE["library"])
+                tbytes += it.get("size") or 0
+            if not _TRASH_LOCK.acquire(blocking=False):
+                return self._json({"error": "another delete is still running"}, 409)
+            try:
+                # re-check inside the lock: the delete that held it may have been this
+                # same movie, in which case there is nothing left to move
+                targets = [t for t in targets if os.path.exists(t)]
+                ok, err = _to_trash(targets)
+            finally:
+                _TRASH_LOCK.release()
+            if err:
+                return self._json({"error": "Could not move files to Trash: " + err}, 500)
+            trashed = ok
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        try:
+            for c in codes:
+                _purge_work_rows(con, c)
+            con.commit()
+        finally:
+            con.close()
+        _purge_userdata(codes=codes)
+        _resync_after_delete(cset)
+        return self._json({"ok": True, "codes": codes, "deleted": len(codes),
+                           "had_files": bool(fs), "trashed": len(trashed), "bytes": tbytes})
+
+    def _delete_actress(self, aid):
+        """Delete an actress. Movies where she is the SOLE performer are trashed; movies she
+        shares with others keep the file and just lose her from the cast (a promoted co-star
+        becomes the new lead). Then her record, aliases and portrait go."""
+        try:
+            aid = int(aid)
+        except (TypeError, ValueError):
+            aid = 0
+        if not aid or not os.path.exists(DB_PATH):
+            return self._json({"error": "no id / db"}, 400)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        try:
+            row = con.execute("SELECT name_en,name_jp FROM actresses WHERE id=?", (aid,)).fetchone()
+            if not row:
+                return self._json({"error": "no such actress"}, 404)
+            # every code she is attached to, as lead or co-star
+            codes = set()
+            for (c,) in con.execute("SELECT code FROM work_actresses WHERE actress_id=?", (aid,)):
+                codes.add(c)
+            for (c,) in con.execute("SELECT code FROM works WHERE actress_id=?", (aid,)):
+                codes.add(c)
+            sole, shared = [], []       # sole -> delete the movie; shared -> just unlink her
+            for c in codes:
+                cast = set()
+                pr = con.execute("SELECT actress_id FROM works WHERE code=?", (c,)).fetchone()
+                if pr and pr[0] is not None:
+                    cast.add(pr[0])
+                for (oa,) in con.execute("SELECT actress_id FROM work_actresses WHERE code=?", (c,)):
+                    cast.add(oa)
+                (shared if (cast - {aid}) else sole).append(c)
+            # trash the files of the sole-hers movies first (fail before any DB change)
+            trashed, tbytes = [], 0
+            if sole:
+                soleset = set(sole)
+                targets = []
+                for it in STATE["items"]:
+                    if it.get("code") in soleset and not it.get("missing"):
+                        targets += _delete_targets(it, STATE["library"])
+                        tbytes += it.get("size") or 0
+                ok, err = _to_trash(targets)
+                if err:
+                    return self._json({"error": "Could not move files to Trash: " + err}, 500)
+                trashed = ok
+            # DB: drop sole movies; unlink her from shared ones (promote a remaining lead)
+            for c in sole:
+                _purge_work_rows(con, c)
+            for c in shared:
+                con.execute("DELETE FROM work_actresses WHERE code=? AND actress_id=?", (c, aid))
+                pr = con.execute("SELECT actress_id FROM works WHERE code=?", (c,)).fetchone()
+                if pr and pr[0] == aid:
+                    nxt = con.execute(
+                        "SELECT actress_id FROM work_actresses WHERE code=? "
+                        "ORDER BY (role='main') DESC, actress_id LIMIT 1", (c,)).fetchone()
+                    con.execute("UPDATE works SET actress_id=? WHERE code=?",
+                                (nxt[0] if nxt else None, c))
+            con.execute("DELETE FROM aliases WHERE actress_id=?", (aid,))
+            # links were left behind, and a dead fc2ppvdb link is not inert: the scanner
+            # matches a uuid through this table and would hand back a deleted actress id.
+            con.execute("DELETE FROM links WHERE actress_id=?", (aid,))
+            con.execute("DELETE FROM crawl WHERE actress_id=?", (aid,))
+            con.execute("DELETE FROM actresses WHERE id=?", (aid,))
+            con.commit()
+        finally:
+            con.close()
+        _purge_userdata(codes=sole, actress_ids=[aid])
+        _resync_after_delete(set(sole))
+        return self._json({"ok": True, "id": aid,
+                           "deleted_movies": len(sole), "unlinked": len(shared),
+                           "trashed": len(trashed), "bytes": tbytes})
+
+    def _api_markers(self, q):
+        code = (q.get("code") or [""])[0]
+        it = self._item_ref(code)
+        if not it:
+            return self._json({"error": "no code"}, 404)
+        parts = [pp.get("name") for pp in _item_parts(it)] or [code]
+        if not os.path.exists(DB_PATH):
+            return self._json({"markers": [], "parts": parts, "training": bool(STATE.get("training")),
+                           "custom_labels": list(STATE.get("custom_labels") or [])})
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        try:
+            _ensure_markers_schema(con)
+            if not it.get("missing"):
+                _import_scenes_for_item(con, it)      # lazy sync from sidecar
+            rows = _markers_for_code(con, code)
+        finally:
+            con.close()
+        return self._json({"markers": rows, "parts": parts, "training": bool(STATE.get("training")),
+                           "custom_labels": list(STATE.get("custom_labels") or [])})
+
+    def _marker_edit(self, body):
+        """Add, update (move / relabel), confirm or delete one marker of a movie part.
+
+        ``op: "confirm_all"`` confirms every AI marker of the part at once (no ``t`` needed).
+
+        Written to the sidecar (source of truth), then the markers cache is re-synced.
+        Existing markers are addressed by their current start ``t`` (nearest within 0.75 s,
+        preferring one whose ``label`` matches). Markers are start points: a marker the user
+        adds or changes is ``source: "manual"`` with no ``end``/``confidence``, so the analyzer
+        never overwrites it. For training, a changed AI marker keeps its original values under
+        ``was``, and a deleted AI marker is appended to the sidecar's top-level ``rejected``
+        list (extras that readers ignore; the analyzer uses them to not re-suggest it).
+        Only allowed in training mode (Settings -> Library); otherwise markers are view-only.
+        """
+        if not STATE.get("training"):
+            return self._json({"error": "Marker editing needs training mode (Settings → Library)"}, 403)
+        code = body.get("code")
+        op = body.get("op")
+        if not code or not os.path.exists(DB_PATH):
+            return self._json({"error": "no code / db"}, 400)
+        it = self._item_ref(code)
+        if not it or it.get("missing"):
+            return self._json({"error": "no such movie"}, 404)
+        parts = _item_parts(it)
+        try:
+            part = int(body.get("part") or 0)
+        except (TypeError, ValueError):
+            part = 0
+        if part < 0 or part >= len(parts):
+            part = 0
+        vp = parts[part].get("path")
+        if not vp:
+            return self._json({"error": "no file"}, 500)
+        sp = _scenes_path(vp)
+        data = _read_scenes(sp) or {}
+        markers = [m for m in (data.get("markers") or []) if isinstance(m, dict)]
+
+        def _num(key):
+            try:
+                v = float(body.get(key))
+            except (TypeError, ValueError):
+                return None
+            return v if v == v and v not in (float("inf"), float("-inf")) else None
+
+        def _label(key):
+            v = str(body.get(key) or "").strip().lower()
+            return v if (v in SCENE_LABELS or v in (STATE.get("custom_labels") or ())) else None
+
+        def _to_manual(m):
+            # A human has now vouched for this marker; keep the AI original for training.
+            if m.get("source") != "manual" and "was" not in m:
+                m["was"] = {k: m[k] for k in ("t", "end", "label", "source", "confidence") if k in m}
+            m["source"] = "manual"
+            m.pop("end", None)
+            m.pop("confidence", None)
+
+        if op == "confirm_all":
+            ai = [m for m in markers if m.get("source") in ("ml", "heuristic")]
+            if not ai:
+                return self._json({"error": "No AI markers to confirm"}, 400)
+            for m in ai:
+                _to_manual(m)
+            t = None
+        else:
+            t = _num("t")
+            if t is None:
+                return self._json({"error": "bad t"}, 400)
+        dur = data.get("duration")
+        if not dur:
+            # probe_code measures the movie's primary file; any other part needs its own length,
+            # or every marker of that part gets clamped to the primary's duration.
+            dur = ((probe_code(code) or {}).get("duration") if vp == it.get("primary")
+                   else _probe_duration(vp))
+
+        def _clamp(v):
+            v = max(0.0, v)
+            return round(min(v, float(dur)) if dur else v, 2)
+
+        def _find(at, label):
+            cands = []
+            for m in markers:
+                try:
+                    d = abs(float(m.get("t")) - at)
+                except (TypeError, ValueError):
+                    continue
+                if d <= 0.75:
+                    cands.append((m.get("label") != label, d, m))
+            return min(cands, key=lambda c: (c[0], c[1]))[2] if cands else None
+
+        if op == "confirm_all":
+            pass
+        elif op == "add":
+            label = _label("label")
+            if not label:
+                return self._json({"error": "Pick a label from the list"}, 400)
+            markers.append({"t": _clamp(t), "label": label, "source": "manual"})
+        elif op in ("update", "delete", "confirm"):
+            m = _find(t, body.get("label"))
+            if m is None:
+                return self._json({"error": "Marker not found (reload the movie)"}, 404)
+            if op == "delete":
+                markers = [x for x in markers if x is not m]
+                if m.get("source") != "manual":
+                    rejected = data.get("rejected") if isinstance(data.get("rejected"), list) else []
+                    rejected.append(dict(m, rejected_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())))
+                    data["rejected"] = rejected
+            elif op == "confirm":
+                _to_manual(m)
+            else:
+                new_t = _num("new_t")
+                new_label = None
+                if body.get("new_label") not in (None, ""):
+                    new_label = _label("new_label")
+                    if not new_label:
+                        return self._json({"error": "Pick a label from the list"}, 400)
+                if new_t is None and new_label is None:
+                    return self._json({"error": "nothing to change"}, 400)
+                _to_manual(m)
+                if new_t is not None:
+                    m["t"] = _clamp(new_t)
+                if new_label:
+                    m["label"] = new_label
+        else:
+            return self._json({"error": "bad op"}, 400)
+        try:
+            _write_scenes(sp, os.path.basename(vp), dur, markers, existing=data)
+        except Exception as e:
+            return self._json({"error": "Could not write sidecar: " + str(e)}, 500)
+        STATE["data_json"] = None      # marker flags shown in the sidebar changed
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        try:
+            _ensure_markers_schema(con)
+            con.execute("DELETE FROM marker_src WHERE code=? AND part=?", (code, part))  # force resync
+            _import_scenes_for_item(con, it)
+            rows = _markers_for_code(con, code)
+        finally:
+            con.close()
+        return self._json({"ok": True, "markers": rows})
+
+    def _import_markers_all(self):
+        if not os.path.exists(DB_PATH):
+            return self._json({"error": "no db"}, 500)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        try:
+            _ensure_markers_schema(con)
+            for it in STATE["items"]:
+                if not it.get("missing"):
+                    _import_scenes_for_item(con, it)
+            n = con.execute("SELECT COUNT(*) FROM markers").fetchone()[0]
+            withm = con.execute("SELECT COUNT(DISTINCT code) FROM markers").fetchone()[0]
+        finally:
+            con.close()
+        return self._json({"ok": True, "markers": n, "movies": withm})
+
     def _open_external(self, code, reveal):
-        it = STATE["by_code"].get(code or "")
+        # This launches an application on the Mac. The endpoint list said localhost; the
+        # handler never checked. Loopback and the LAN are allowed (the phone uses this);
+        # anything routed in from outside is not.
+        peer = (self.client_address or ("",))[0]
+        try:
+            ip = ipaddress.ip_address(peer)
+            local = ip.is_loopback or ip.is_private or ip.is_link_local
+        except ValueError:
+            local = False
+        if not local:
+            return self._json({"error": "open/reveal is only available on this network"}, 403)
+        it = self._item_ref(code)
         if not it:
             return self._json({"error": "no code"}, 404)
         path = it["primary"]
@@ -2621,19 +4102,31 @@ def load_config():
         return {}
 
 
-def save_config(library=None, port=None, download=None):
+def save_config(library=None, port=None, download=None, training_mode=None, custom_labels=None,
+                flaresolverr=None, fc2db_mode=None, license_key=None):
     cfg = load_config()
+    if license_key is not None:
+        cfg["license_key"] = license_key
+    if custom_labels is not None:
+        cfg["custom_labels"] = list(custom_labels)
+    if training_mode is not None:
+        cfg["training_mode"] = bool(training_mode)
     if library is not None:
         cfg["library"] = library
     if port is not None:
         cfg["port"] = port
     if download is not None:
         cfg["download"] = download
+    if flaresolverr is not None:
+        cfg["flaresolverr"] = flaresolverr
+    if fc2db_mode is not None:
+        cfg["fc2db_mode"] = fc2db_mode
     try:
         with open(CONFIG_PATH, "w") as f:
             json.dump(cfg, f, indent=2)
+        return True
     except Exception:
-        pass
+        return False
 
 
 def main():
@@ -2641,12 +4134,35 @@ def main():
     ap = argparse.ArgumentParser(description="Vault — a local visual browser for a movie library")
     ap.add_argument("--port", type=int, default=None)
     ap.add_argument("--library", default=None, help="path to the folder that holds your movies")
+    ap.add_argument("--install-service", action="store_true",
+                    help="start Vault at login and keep it running (launchd / systemd --user / Task Scheduler)")
+    ap.add_argument("--uninstall-service", action="store_true", help="stop the login service and remove it")
+    ap.add_argument("--service-status", action="store_true")
     args = ap.parse_args()
+    if args.uninstall_service or args.service_status:
+        try:
+            print(vault_service.uninstall() if args.uninstall_service else vault_service.status())
+        except RuntimeError as e:
+            sys.exit("Vault: %s" % e)
+        return
     # library/port precedence: CLI > env > config.json > built-in
     library = (args.library or os.environ.get("VAULT_LIBRARY")
                or cfg.get("library") or DEFAULT_LIBRARY)
     port = (args.port or (int(os.environ["VAULT_PORT"]) if os.environ.get("VAULT_PORT") else None)
             or cfg.get("port") or 8730)
+    if args.install_service:
+        if not library or not os.path.isdir(library):
+            sys.exit("Vault: tell the service where the movies are first:\n"
+                     "  python3 serve.py --install-service --library \"/path/to/your/movies\"")
+        save_config(library=library, port=port)
+        env = {k: os.environ[k] for k in ("VAULT_DATA",) if os.environ.get(k)}
+        try:
+            print(vault_service.install(os.path.abspath(__file__), port, library,
+                                        os.path.join(DATA_DIR, "server.log"), env))
+        except RuntimeError as e:
+            sys.exit("Vault: %s" % e)
+        print("Open http://127.0.0.1:%d/ once it answers." % port)
+        return
     if not library or not os.path.isdir(library):
         sys.stderr.write(
             "\nVault: no valid library folder configured.\n"
@@ -2658,8 +4174,19 @@ def main():
     # remember the choice for next launch (merge — don't clobber 'download' etc.)
     save_config(library=library, port=port)
     STATE["library"] = library
+    STATE["training"] = bool(cfg.get("training_mode", False))   # scene-marker editing; off by default
+    STATE["custom_labels"] = sorted({l for l in (cfg.get("custom_labels") or [])
+                                     if isinstance(l, str) and _SCENE_LABEL_RE.match(l) and l not in SCENE_LABELS})
     STATE["download"] = cfg.get("download", "")
     load_probe()
+    if os.path.exists(DB_PATH):                 # one-time, idempotent schema top-up
+        try:
+            _c = sqlite3.connect(DB_PATH, timeout=30)
+            _ensure_works_schema(_c)
+            _c.commit()
+            _c.close()
+        except Exception:
+            pass
     atexit.register(save_probe)
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: (save_probe(), sys.exit(0)))
@@ -2683,7 +4210,7 @@ def main():
         sys.stderr.write(f"[boot] first scan of {library} …\n")
         rebuild_index()
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    sys.stderr.write(f"[boot] http://127.0.0.1:{port}/  "
+    sys.stderr.write(f"[boot] Vault {VAULT_VERSION} — http://127.0.0.1:{port}/  "
                      f"({len(STATE['items'])} movies)\n")
     sys.stderr.write(f"[boot] listening on 0.0.0.0 — reachable from LAN/VPN, "
                      f"no auth\n")

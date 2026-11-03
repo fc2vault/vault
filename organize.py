@@ -9,6 +9,7 @@ moves duplicate folders (same code) into  _Duplicates/  (keeping the largest cop
 Hard guarantees: **never deletes, never overwrites** (name collisions get a " (2)"
 suffix). build_plan() is a pure dry-run; apply_plan() executes it.
 """
+import hashlib
 import os
 import re
 import shutil
@@ -22,7 +23,9 @@ KEEP_EXT = {".srt", ".ass", ".ssa", ".vtt", ".sub", ".nfo",
 JUNK_EXT = {".txt", ".html", ".htm", ".url", ".lnk", ".ini", ".db", ".log",
             ".js", ".exe", ".bat", ".rtf", ".doc", ".docx", ".php", ".website"}
 JUNK_NAMES = {".ds_store", "thumbs.db", "desktop.ini"}
-SPECIAL_DIRS = {"_vault_trash", "_duplicates"}
+# deliberately NOT serve.py's FOLD_RESERVED: that one also lists staging folders the
+# organizer is meant to tidy. These are the ones it must leave completely alone.
+SPECIAL_DIRS = {"_vault_trash", "_duplicates", "_needs_review"}
 
 
 def norm_code(name):
@@ -143,11 +146,32 @@ def _do(a):
         shutil.move(a["from"], dst)         # cross-device fallback
 
 
-def apply_plan(library, skip=None):
+def plan_fingerprint(actions, library):
+    """Stable fingerprint of a whole plan, so apply can tell it is executing the same plan
+    the user looked at. The preview is capped for display; this covers every action."""
+    ids = sorted(action_id(a, library) for a in actions)
+    return hashlib.sha1("\n".join(ids).encode("utf-8")).hexdigest()[:16]
+
+
+def apply_plan(library, skip=None, allow=None, expect=None):
     """Execute build_plan(). Safe order: dup-moves, junk, file renames, folder renames.
-    `skip` is a set of action_id()s to leave untouched (per-change deselection in the UI)."""
-    skip = skip or set()
-    actions = [a for a in build_plan(library) if action_id(a, library) not in skip]
+
+    `allow` is the set of action_id()s the user actually saw and accepted — the only ones
+    that run. The preview ships at most ORG_CAP rows, so a skip-list silently executed
+    everything beyond the cap that nobody had seen.
+    `expect` is a plan_fingerprint() from that preview: when the library has changed since,
+    nothing runs and the caller is told to preview again.
+    `skip` stays for the old call style (exclude these, run the rest)."""
+    plan = build_plan(library)
+    fp = plan_fingerprint(plan, library)
+    if expect and expect != fp:
+        return {"stale": True, "plan_id": fp, "done": {}, "total": 0, "errors": []}
+    if allow is not None:
+        allow = set(allow)
+        actions = [a for a in plan if action_id(a, library) in allow]
+    else:
+        skip = skip or set()
+        actions = [a for a in plan if action_id(a, library) not in skip]
     order = {"duplicate": 0, "junk": 1, "file": 2, "folder": 3}
     actions.sort(key=lambda a: order.get(a["type"], 9))
     done = {"duplicate": 0, "junk": 0, "file": 0, "folder": 0}
@@ -158,7 +182,8 @@ def apply_plan(library, skip=None):
             done[a["type"]] += 1
         except Exception as ex:
             errors.append(f'{a["type"]}: {os.path.basename(a["from"])}: {ex}')
-    return {"done": done, "total": sum(done.values()), "errors": errors[:20]}
+    return {"done": done, "total": sum(done.values()), "errors": errors[:20],
+            "plan_id": fp, "requested": len(actions)}
 
 
 if __name__ == "__main__":

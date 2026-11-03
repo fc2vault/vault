@@ -56,6 +56,8 @@ In **By‑actress** view, click an actress’s portrait or name to open her **ov
 
 **Favorite an actress** with the **♥** — either on her group header in By‑actress view, or in her overview header (next to **✎**). The sidebar’s **♥ Favorite actresses** filter then narrows the wall to every title she leads *or* co‑stars in.
 
+**Delete an actress** with the **🗑** in her overview header. After a confirmation that spells out exactly what will happen, it removes her profile and moves to the recoverable trash every movie where she is the **only** performer; titles she merely **co‑stars** in are **kept** — she is just removed from their cast and a co‑star is promoted to lead.
+
 
 ## 4. Playing a movie
 
@@ -64,11 +66,17 @@ Click any owned card to open the detail/player view.
 
 - **Left rail:** her **Filmography** — every title (owned + `◇` wishlist), with the current one highlighted.
 - **Center:** the video (range‑streamed for fast seeking; multi‑part titles auto‑advance).
-- **Right panel:** actress name in a fixed order — **English → Japanese → code** — then, for a multi‑actress title, a **co‑stars** row (each clickable to open that performer's overview), her stats as pills (age · cup · height · B·W·H), technical **metadata**, favorite / played / **censored toggle**, external‑player & Finder buttons, **Scan metadata**, your star rating, and editable **tags**. A movie's cast is a **many‑to‑many** relationship — one lead (**main**) plus any number of **co‑stars** — so a title shows up under every performer in it.
+- **Right panel:** actress name in a fixed order — **English → Japanese → code** — then, for a multi‑actress title, a **co‑stars** row (each clickable to open that performer's overview), her stats as pills (age · cup · height · B·W·H), technical **metadata**, favorite / played / **censored toggle**, external‑player & Finder buttons, **Scan metadata**, your star rating, editable **tags**, and a **🗑 Delete movie** button. A movie's cast is a **many‑to‑many** relationship — one lead (**main**) plus any number of **co‑stars** — so a title shows up under every performer in it.
   - **Click her name** (the **›** caret) to fold out her full **overview** — portrait, bio, and everything owned + missing — without leaving the movie.
   - **⇄** (next to the ✎ edit button) **reassigns just this movie** to another actress — see [§5](#5-editing-a-movie).
+  - **Scenes on the seek bar:** the player uses a custom control bar with the scenes drawn on the scrubber — **clickable pictogram chips** above the bar (click to jump), **⏮ / ⏭** to step to the previous/next scene, colored **ticks** on the bar at each scene's start, a hover **label + time** tooltip, and a **"▶ now"** badge for the current scene. Markers are view‑only by default; with **training mode** on (Settings → Library) **＋** adds a marker **at the playhead**, **drag** a chip to move it, and **right‑click** a marker to change its label or delete it. Markers come from a `<video>.scenes.json` sidecar produced by the optional scene‑tagger; your manual ones are saved alongside the movie and survive re‑tagging.
+  - **Confirmed vs. suggested:** a marker the AI proposed and nobody has checked wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. (Amber, not red — an unreviewed guess is not a wrong one.) Right‑click it and pick **✓ Confirm** if it's right; the ring disappears. The chip's bottom edge keeps its label colour either way, so you can still read *what* it is at a glance.
 
-**Keyboard:** `space`/`k` play‑pause · `←`/`→` (or `j`/`l`) seek ±10s (hold `shift` for ±60s) · `↑`/`↓` volume · `m` mute · `f` fullscreen · `0–9` jump to % · `<`/`>` speed.
+**Keyboard:** `space` or `s` play‑pause · `a` / `d` seek ∓10s (hold `shift` for ±60s; `←`/`→` work too) · `↑`/`↓` volume · `m` mute · `f` fullscreen · `t` theater · `0–9` jump to % · `<`/`>` speed.
+
+> `a` `s` `d` sit under the left hand so the right one can stay on the mouse.
+
+**Esc closes one thing at a time**, topmost first: the marker editor, then fullscreen, then an actress sheet you opened from the movie, then the player itself. Opening a performer's overview from a movie and pressing `Esc` returns you **to the movie**, not to the grid.
 
 **On a phone** the three columns can't sit side by side, so the player restacks: the video pins to the top with a **×** over it, and the two side panels become tabs underneath —
 
@@ -83,6 +91,16 @@ Click the **✎** in the detail panel to edit. You can set the movie’s English
 
 The **censorship** state is a one‑click toggle (🔓 Uncensored / 🔒 Censored) right in the detail panel — no edit mode needed.
 
+### Why a movie has no performer
+
+When a title is unidentified the panel says which of the two reasons applies, so a blank name
+is never a mystery:
+
+- **`fc2ppv-db · no performer listed`** — the page *was* read (hover for the date) and the site
+  genuinely has nobody for that code. Scanning again will not help; name her yourself if you
+  can.
+- **`fc2ppv-db · not checked yet`** (amber) — nobody has asked yet. **Scan metadata** will.
+
 ### Reassign vs. edit — moving one misgrouped movie
 
 There are two different actions on the actress, and it matters which you use:
@@ -94,13 +112,28 @@ The reassign box autocompletes against your catalog and tells you live whether t
 
 For moving *many* movies to one actress at once, use [multi‑select](#6-multi-select-bulk-assign-an-actress).
 
+### Delete a movie
+
+The **🗑 Delete movie** button at the bottom of the player removes the open title, after a
+confirmation dialog. Its video file(s) are **moved to a recoverable trash** — the macOS **Trash**
+for a library on your internal disk, or a **`_vault_trash/`** folder at the library root for a
+library on a network/external volume (where macOS can't use the Trash). Either way it is instant
+(a same‑volume move, no copying) and nothing is permanently erased; the library scan ignores that
+folder so a deleted movie won't re‑appear. A wishlist entry (no file) is simply removed from the
+catalog.
+
+Vault releases the video before it moves anything — a network share will refuse to rename a
+folder while a file inside it is open. If something *else* still holds the file you get
+**"… is still open — close the player and try again"** rather than a long wait: a trash move is
+either instant or an error, never a silent multi‑gigabyte copy.
+
 ## 6. Multi‑select: bulk‑assign an actress
 
 In Grid or List view, tick the **select box** at a card’s top‑left, **⌘‑click** (or Ctrl‑click) to toggle individual cards, or **shift‑click** to select a range. Once anything is selected the select boxes stay visible on every card; selected cards get a pink outline and a filled box, and a bar appears at the bottom:
 
 ![Multi‑select bulk bar](images/multiselect.png)
 
-Type an actress name (autocompletes) and hit **Assign actress** to attach her to every selected movie at once. Bulk edit touches **only the actress** — never per‑movie fields — and uses the same smart matcher, so it won’t spawn duplicates.
+Type an actress name (autocompletes) and hit **Assign actress** to attach her to every selected movie at once. Bulk edit touches **only the actress** — never per‑movie fields — and uses the same smart matcher, so it won’t spawn duplicates. **🗑 Delete** in the same bar moves every selected movie to the recoverable trash (after a confirmation showing how many and how large).
 
 ## 7. Import from your download folder
 
@@ -121,15 +154,63 @@ Point Vault at a **download folder** (Settings → Library), then hit **📥 Imp
 
 ## 8. Scan metadata from the web
 
-**Scan library** fetches missing English/Japanese titles, covers, dates, and tags from the shell sources (123av, ffjav).
+**Scan library** checks your sources in **priority order**, and each one only fills what the ones
+before it left empty:
+
+1. **fc2ppv‑db** — the primary source: cast, Japanese title, date, cover, tags.
+2. **fc2db.net** — fills what fc2ppv‑db left, and often names a performer it lists as nobody.
+3. **123av / ffjav** — the English title (only 123av has it), then anything still empty.
+
+The first two each have a checkbox and a "not read yet" count that follows the rows you tick.
 
 ![Scan preview](images/scan.png)
 
 - It re‑indexes the filesystem first (so newly added movies are found), then shows a checklist.
 - Toggle **Missing titles** vs **All movies**; untick any code to skip it.
-- **Scan N selected** runs in the background — progress shows on the toolbar button. You can “Run in background” and keep browsing.
+- **Also look up fc2ppv‑db for the actress** is on by default and tells you how many of the
+  selected movies it would visit. That pass is the slow part — roughly 3 s each — so the count
+  is the honest cost estimate. Untick it for a quick titles‑only pass. If fc2ppv‑db is not
+  connected the box is disabled and says why; the titles pass runs either way.
+- **Scan N selected** runs in the background — progress shows on the toolbar button, labelled
+  by pass (`Titles · 12/40`, then `fc2ppv-db · 3/9`). You can “Run in background” and keep
+  browsing.
 
-Scanning is **fill‑if‑empty**: it never overwrites titles/tags you set yourself.
+**Scan metadata** in the player does the same two passes for one movie — with two
+differences: it *overwrites* the title, cover and date rather than filling blanks, and it
+re‑reads fc2ppv‑db even if that page was read before. It is refused while a library scan is
+running, so the two can't fight over the resolver.
+
+### What the counts mean
+
+A finished scan reports three numbers, and the distinction matters:
+
+| | |
+|---|---|
+| **updated** | the page was read and something was written |
+| **not in fc2ppv‑db** | the page was read and the site has nothing for that code |
+| **could not be read** | a real failure — resolver down, session rejected |
+
+Only the last one means something is broken. A code the site simply doesn't have is remembered
+as *asked and answered*, so later scans skip it instead of re‑reading it forever.
+
+The toolbar's **All movies** widens the *titles* pass to every movie; its fc2ppv‑db pass still
+skips pages already read. To genuinely re‑read every fc2ppv‑db page, use **Settings → Sources →
+Scan all**, which is the fc2ppv‑db pass only and ignores the stamp.
+
+### Who wins when sources disagree
+
+The order above *is* the priority. **fc2ppv‑db** overwrites; **fc2db.net** and **123av/ffjav**
+only fill empty fields, so running fc2db.net before ffjav is what lets its official cover and
+sale date beat ffjav's search‑page guesses. Tags from all of them are added together. The two
+exceptions are yours:
+
+- **Censorship** you set with the 🔓/🔒 toggle is never overwritten by a scan.
+- **An actress you assigned by hand** (edit, reassign or bulk‑assign) is never overwritten. One
+  that came from a folder name or from an earlier scan *is* — that is the point of a primary
+  source.
+
+A field that an earlier scan already filled stays as it is — Vault doesn't record which source
+wrote each field, so it cannot tell an ffjav cover it may replace from one you'd want kept.
 
 ## 9. Enrich an actress (verified)
 
@@ -139,7 +220,25 @@ The key idea is **verification**: it checks whether any code in her online filmo
 
 ## 10. Settings
 
-Open **Settings** from the top bar. Four tabs:
+Open **Settings** from the top bar. Five tabs:
+
+### License (Free and Pro)
+
+![Settings — License](images/settings_license.png)
+
+- **Status:** the free version shows up to **250 movies**, the ones Vault saw first; the count at
+  the top of the main window reads *Free: 250 of N* for a bigger library and opens this tab.
+- **Vault Pro:** paste your key and press **Activate**. The whole library appears at once, and
+  fc2ppv‑db lookups and *Enrich from web* switch on. The key is checked on your machine with a
+  signature; Vault never contacts a license server. **Remove key** goes back to the free view.
+  Keys come from the [key page](https://vault-key.vaultkey.workers.dev/) after a Patreon login.
+- **Scene model** (Pro): shows the installed model and the newest build on the key server, with
+  one button to **Download** or **Update**. The model lands in a per‑user folder
+  (`~/Library/Application Support/Vault/models` on macOS, `%LOCALAPPDATA%\Vault\models` on
+  Windows, `~/.local/share/vault/models` on Linux) where
+  [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) finds it by itself. The
+  tagger is a separate command‑line tool; the README's *Generating markers* section has the three
+  commands.
 
 ### Library & cache
 
@@ -170,14 +269,30 @@ Open **Settings** from the top bar. Four tabs:
 
 ![Settings — Sources](images/settings_sources.png)
 
-- Toggle the built‑in scrapers on/off.
-- **fc2ppv‑db.com** — the richest source (actress faces, aliases, JP titles, dates, tags, full filmographies). It’s behind a human‑check (Cloudflare Turnstile), so the server can’t log in on its own. Instead:
-  1. Log in to fc2ppv‑db.com **in a browser on the same machine as Vault** and clear the human‑check.
-  2. DevTools → **Network** → click any fc2ppv‑db request → **Request Headers** → copy the whole **`cookie:`** value (it contains `cf_clearance` + your session) and the **`user‑agent:`** value.
-  3. Paste both into Settings, **Save session** (stored in the macOS Keychain), then **Test connection**.
-  4. On success, **Scan all →** sweeps your library, writing JP titles, actress faces/aliases, dates, and tags as the top‑priority source.
+The pane is in the order you set things up.
 
-  The session is bound to your browser’s IP + user‑agent and expires after a while — re‑paste it when the test stops passing. Vault automatically tries the request over both **IPv4 and IPv6** (Cloudflare ties the cookie to the exact address that cleared its check, and a dual‑stack machine doesn’t always use the same one), so a fresh cookie works even if your browser and the server prefer different families. If **Test connection** still fails right after pasting, the cookie has expired, or your browser is behind a different public IP than the server (e.g. a VPN).
+**1. FlareSolverr** — the resolver itself, with no site attached. Paste its URL, **Save
+resolver**, then **Check resolver**, which asks it directly and reports its version. It is a
+separate program you install and run yourself (see the README's *Optional: FlareSolverr*); it
+must leave through the same public IP as Vault and sit on your own network.
+
+**2. Sites behind Cloudflare** — one card each, saying how Vault gets through:
+
+- **fc2ppv‑db.com** — the primary source for the cast. Choose **Through FlareSolverr** or
+  **Browser session** (paste the `cookie:` and `user-agent:` headers from a browser on this
+  machine; stored in the Keychain). **Save access**, then **Test**.
+- **fc2db.net** — fills what is still empty, often including a performer fc2ppv‑db lists as
+  nobody. It is fetched directly and only uses the resolver if Cloudflare or its 18+ page gets in
+  the way. Tick or untick it here; **Test** fetches one real page.
+
+**3. Other sources** — 123av, ffjav, javdatabase and jav.guru: plain pages, no resolver. Every
+checkbox is a real switch and saves the moment you click it.
+
+**4. Scan the library** — runs **every enabled source** over the whole library, in order:
+titles → fc2ppv‑db → fc2db.net. **Scan missing** skips pages each site has already answered;
+**Re‑read everything** asks both cast sites again. This is the same pipeline as the toolbar's
+**Scan library** and the player's **Scan metadata** — no scan button checks fewer sources than
+another.
 
 ---
 

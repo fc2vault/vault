@@ -153,6 +153,19 @@ def pick_target(con, ids):
                                       -completeness(a), a))[0]
 
 
+# Every column worth carrying from a folded-in record. image_blob and fc2ppvdb_uuid used to be
+# missing, so a merge silently dropped the portrait and the id the sidebar disambiguates by.
+_MERGE_COLS = ("archive_id", "name_en", "name_jp", "name_kana", "age", "birthdate", "height",
+               "bust", "cup", "waist", "hip", "measurements_raw", "description",
+               "image_url", "image_blob", "censorship", "source", "fc2ppvdb_uuid")
+
+
+def _empty(v):
+    """True when a column holds nothing. A blob is not text, so NULLIF(col,'') is the wrong
+    test for image_blob — compare in Python instead."""
+    return v is None or (isinstance(v, str) and not v.strip())
+
+
 def merge_group(con, ids, target=None):
     """Fold every id in `ids` except the target INTO the target. Returns a summary."""
     ids = list(dict.fromkeys(ids))
@@ -160,15 +173,29 @@ def merge_group(con, ids, target=None):
         return {"skipped": True}
     target = target or pick_target(con, ids)
     sources = [i for i in ids if i != target]
-    moved = 0
+    cols = ",".join(_MERGE_COLS)
+    moved = cast_moved = cast_dropped = 0
     for s in sources:
+        row = con.execute(f"SELECT {cols} FROM actresses WHERE id=?", (s,)).fetchone()
+        src = dict(zip(_MERGE_COLS, row)) if row else {}
         # repoint works (code is PK -> no collisions possible)
         moved += con.execute("UPDATE works SET actress_id=? WHERE actress_id=?",
                             (target, s)).rowcount
+        # the cast table was never repointed: its rows kept pointing at the deleted id, so a
+        # co-star credit simply vanished from the UI (no FKs are enforced to catch it).
+        main_codes = [r[0] for r in con.execute(
+            "SELECT code FROM work_actresses WHERE actress_id=? AND role='main'", (s,))]
+        cast_moved += con.execute(
+            "UPDATE OR IGNORE work_actresses SET actress_id=? WHERE actress_id=?",
+            (target, s)).rowcount
+        # rows OR IGNORE skipped are ones the target already had for the same code
+        cast_dropped += con.execute("DELETE FROM work_actresses WHERE actress_id=?",
+                                    (s,)).rowcount
+        for code in main_codes:        # a lead credit must not decay into a co-star one
+            con.execute("UPDATE work_actresses SET role='main' WHERE code=? AND actress_id=?",
+                        (code, target))
         # keep every spelling of the source as an alias of the target
-        srow = con.execute("SELECT name_en,name_jp,name_kana FROM actresses WHERE id=?",
-                          (s,)).fetchone()
-        for nm in srow:
+        for nm in (src.get("name_en"), src.get("name_jp"), src.get("name_kana")):
             if nm:
                 con.execute("INSERT OR IGNORE INTO aliases(actress_id,alias) "
                             "VALUES(?,?)", (target, nm))
@@ -176,20 +203,24 @@ def merge_group(con, ids, target=None):
                     "SELECT ?, alias FROM aliases WHERE actress_id=?", (target, s))
         con.execute("INSERT OR IGNORE INTO links(actress_id,kind,url) "
                     "SELECT ?, kind, url FROM links WHERE actress_id=?", (target, s))
-        # fill empty body-info on the target from the source (never overwrite)
-        for col in ("name_jp", "name_kana", "age", "birthdate", "height", "cup",
-                    "bust", "waist", "hip", "measurements_raw", "description",
-                    "image_url"):
-            con.execute(
-                f"UPDATE actresses SET {col}=COALESCE(NULLIF({col},''), "
-                f"(SELECT {col} FROM actresses WHERE id=?)) WHERE id=? "
-                f"AND ({col} IS NULL OR {col}='')", (s, target))
         # tidy up the emptied source, then remove it
         con.execute("DELETE FROM aliases WHERE actress_id=?", (s,))
         con.execute("DELETE FROM links WHERE actress_id=?", (s,))
         con.execute("DELETE FROM actresses WHERE id=?", (s,))
+        # Fill the target's empty columns from the source AFTER the delete: archive_id is
+        # UNIQUE, so copying it while the source still existed would raise.
+        trow = con.execute(f"SELECT {cols} FROM actresses WHERE id=?", (target,)).fetchone()
+        tgt = dict(zip(_MERGE_COLS, trow)) if trow else {}
+        sets, vals = [], []
+        for c in _MERGE_COLS:
+            if _empty(tgt.get(c)) and not _empty(src.get(c)):
+                sets.append(f"{c}=?")
+                vals.append(src[c])
+        if sets:
+            con.execute(f"UPDATE actresses SET {', '.join(sets)} WHERE id=?", vals + [target])
     con.commit()
-    return {"target": target, "sources": sources, "works_moved": moved}
+    return {"target": target, "sources": sources, "works_moved": moved,
+            "cast_moved": cast_moved, "cast_duplicates_dropped": cast_dropped}
 
 
 if __name__ == "__main__":

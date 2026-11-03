@@ -1,5 +1,8 @@
 {
   "library": "/path/to/your/movies",
   "download": "/path/to/your/downloads",
-  "port": 8730
+  "port": 8730,
+  "training_mode": false,
+  "fc2db_mode": "cookie",
+  "flaresolverr": "http://127.0.0.1:8191"
 }
