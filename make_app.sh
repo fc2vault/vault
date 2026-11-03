@@ -1,8 +1,8 @@
 #!/bin/bash
 # Wrap a built Vault release into a double-clickable macOS Vault.app.
 # Usage:  ./make_app.sh [release-dir] [output.app]
-#   release-dir : a folder produced by make_release.sh (default: ../../vault, the full build)
-#   output.app  : where to write the bundle (default: ../../Vault.app)
+#   release-dir : a folder produced by make_release.sh (default: ../../builds/vault-full, your own build)
+#   output.app  : where to write the bundle (default: ../../builds/Vault.app)
 #
 # The app uses the system python3 and stores writable data (config, cache, DB) in
 # ~/Library/Application Support/Vault, so the bundle itself stays read-only (works in /Applications).
@@ -13,7 +13,7 @@ if [ -f "$HERE/scan.py" ]; then
   SRC="${1:-$HERE}"; APP="${2:-$HERE/../Vault.app}"   # shipped: package this release
 else
   ROOT="$(dirname "$HERE")"
-  SRC="${1:-$ROOT/../vault}"; APP="${2:-$ROOT/../Vault.app}"   # dev: package the built release
+  SRC="${1:-$ROOT/../builds/vault-full}"; APP="${2:-$ROOT/../builds/Vault.app}"   # dev: package the built release
 fi
 
 [ -f "$SRC/serve.py" ] || { echo "no release at $SRC — run make_release.sh first"; exit 1; }

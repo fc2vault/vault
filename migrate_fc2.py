@@ -71,16 +71,26 @@ def under(path, root):
 
 
 def folder_size(path):
+    """Bytes under `path`, or None when any file could not be measured.
+
+    Returning a short total was dangerous: one unreadable file made the library copy look
+    smaller than the source, which selects REPLACE TARGET and deletes the good copy."""
     total = 0
-    for root, _dirs, files in os.walk(path):
+    ok = True
+
+    def _err(_e):
+        nonlocal ok
+        ok = False
+
+    for root, _dirs, files in os.walk(path, onerror=_err):
         for f in files:
             fp = os.path.join(root, f)
             try:
                 if not os.path.islink(fp):
                     total += os.path.getsize(fp)
             except OSError:
-                pass
-    return total
+                ok = False
+    return total if ok else None
 
 
 def within_tol(a, b, tol_pct):
@@ -98,6 +108,9 @@ def is_orphan(path):
     return all(e.startswith(".smbdelete") or e == ".DS_Store" for e in entries)
 
 
+AMBIGUOUS = set()          # codes found in more than one library folder
+
+
 def build_index(root):
     """Map canonical code -> actual folder path. Handles both a flat library
     (<CODE>) and one foldered by actress (<Actress>/<CODE>) — a non-code dir is
@@ -109,6 +122,8 @@ def build_index(root):
             print(color(f"  !! duplicate code in {os.path.basename(root)}: {code}  "
                         f"({os.path.basename(index[code])} vs {os.path.basename(path)})",
                         RED))
+            AMBIGUOUS.add(code)      # two folders: a size check cannot say which is "the" copy
+            return                   # keep the first; the last used to win silently
         index[code] = path
 
     for entry in sorted(os.listdir(root)):
@@ -212,9 +227,18 @@ def migrate(apply, tol, limit, confirm_lib):
         match = lib.get(code)
         if match is None:
             action, tsize = "MOVE", None
-            b_move += ssize
+            b_move += ssize or 0
         else:
             tsize = folder_size(match)
+            if ssize is None or tsize is None or code in AMBIGUOUS:
+                # Never pick a destructive action on a guess. An unreadable file (size None)
+                # or a code living in two library folders means we cannot say which copy is
+                # better, so leave both and let a human look.
+                why = ("size unreadable" if (ssize is None or tsize is None)
+                       else "code in two library folders")
+                print(color(f"  !! SKIP {entry}: {why} — not comparing", YELLOW))
+                skipped.append(f"{entry} ({why})")
+                continue
             if within_tol(ssize, tsize, tol) or ssize <= tsize:
                 action = "DELETE SOURCE"
                 b_del_src += ssize
@@ -277,10 +301,28 @@ def migrate(apply, tol, limit, confirm_lib):
                                 f"--confirm-lib-deletes", YELLOW))
                     deferred.append(entry)
                     continue
+                # Copy in FIRST, verify, then delete the old copy and swap the name.
+                # The old order (delete then move) could leave nothing at all: _move
+                # returns silently when the destination exists, and a copy can fail
+                # halfway, after the library copy was already gone.
+                final = os.path.join(os.path.dirname(match), entry)
+                staged = final + ".incoming-%d" % os.getpid()
+                if os.path.exists(staged):
+                    _remove_dir(staged)
+                print(f"      STAGE {entry}/ -> {os.path.basename(staged)}")
+                shutil.copytree(src, staged)
+                got = folder_size(staged)
+                if got is None or got != ssize:
+                    _remove_dir(staged)
+                    raise RuntimeError("staged copy is %s, expected %s — library copy kept"
+                                       % (got, ssize))
                 _lib_delete(match)                 # gated hard-delete in library
-                # keep the replacement where the old copy lived (e.g. inside its
-                # actress folder if the library is foldered), else the flat root.
-                _move(src, os.path.join(os.path.dirname(match), entry))
+                if os.path.exists(match):
+                    _remove_dir(staged)
+                    raise RuntimeError("could not remove the old library copy — "
+                                       "new copy discarded, nothing changed")
+                os.rename(staged, final)
+                _remove_dir(src)                   # source only after the swap succeeded
                 in_library.append(code)
         except Exception as e:
             print(color(f"      !! FAILED {entry}: {e}", RED))
@@ -341,8 +383,9 @@ def mark_available(codes):
 def _move(src, dst):
     print(f"      MOVE  {os.path.basename(src)}  ->  1_FC2 PPV/{os.path.basename(dst)}")
     if os.path.exists(dst):
-        print(color(f"      !! dest exists, skipping: {dst}", RED))
-        return
+        # returning quietly here marked the row a success and the catalog then claimed the
+        # movie was in the library
+        raise RuntimeError("destination already exists: %s" % dst)
     try:
         os.rename(src, dst)                # fast path (same share)
         return

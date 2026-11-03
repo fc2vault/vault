@@ -35,6 +35,11 @@ import sys
 DEFAULT_ROOT = "/path/to/downloads"
 
 # File extensions treated as "movie files".
+# Kept next to the video instead of deleted. Mirrors organize.py's KEEP_EXT and adds the
+# scene sidecars: a .scenes.json holds hand-placed training markers and is irreplaceable.
+KEEP_EXT = {".srt", ".ass", ".ssa", ".vtt", ".sub", ".nfo",
+            ".jpg", ".jpeg", ".png", ".webp", ".gif", ".json"}
+
 VIDEO_EXTS = {
     ".mp4", ".mkv", ".avi", ".wmv", ".mov", ".m4v", ".mpg", ".mpeg",
     ".ts", ".flv", ".webm", ".m2ts", ".vob", ".rmvb", ".rm", ".asf",
@@ -238,6 +243,18 @@ class Runner:
 # Core logic
 # ---------------------------------------------------------------------------
 
+def _dir_is_disposable(path):
+    """True only when nothing under `path` is a video or a companion file worth keeping."""
+    for dirpath, _dirs, files in os.walk(path):
+        for f in files:
+            if f.lower() in (".ds_store", "thumbs.db", "desktop.ini"):
+                continue
+            ext = os.path.splitext(f)[1].lower()
+            if ext in VIDEO_EXTS or ext in KEEP_EXT:
+                return False
+    return True
+
+
 def process_folder(folder_path, target_base, runner, min_bytes):
     """Clean up and rename the contents of one folder, then the folder itself."""
     original_name = os.path.basename(folder_path)
@@ -267,13 +284,20 @@ def process_folder(folder_path, target_base, runner, min_bytes):
         entry_path = os.path.join(folder_path, entry)
 
         if os.path.isdir(entry_path):
-            # Junk sub-directory (e.g. spam "論壇文宣"). Remove it entirely.
-            runner.delete_tree(entry_path)
+            # Junk sub-directory (e.g. spam "論壇文宣") -- but only when a walk proves it
+            # holds no video and nothing worth keeping. It used to go unconditionally.
+            if _dir_is_disposable(entry_path):
+                runner.delete_tree(entry_path)
+            else:
+                print(f"      (keeping sub-folder {entry}/ — it holds media)")
             continue
 
         ext = os.path.splitext(entry)[1].lower()
+        if ext in KEEP_EXT:
+            # subtitles, posters, nfo and .scenes.json sidecars belong to the release
+            continue
         if ext not in VIDEO_EXTS:
-            # Not a movie file -> remove.
+            # Not a movie file and not a companion -> remove.
             runner.delete_file(entry_path)
             continue
 

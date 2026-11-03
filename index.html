@@ -327,6 +327,21 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .bulk-in{background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--txt);
   padding:8px 11px;font-size:13px;min-width:220px}
 .bulk-in:focus{outline:none;border-color:var(--accent2)}
+/* danger confirm dialog (deletes) */
+.cfm-ov{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px}
+.cfm{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden}
+.cfm-t{font-size:17px;font-weight:800;padding:16px 18px 6px;display:flex;align-items:center;gap:9px}
+.cfm-b{padding:2px 18px 14px;font-size:13.5px;color:var(--dim);line-height:1.55}
+.cfm-b b{color:var(--txt)}
+.cfm-b .warn{color:#f43f5e;font-weight:600}
+.cfm-b ul{margin:8px 0 0;padding-left:18px}.cfm-b li{margin:3px 0}
+.cfm-actions{display:flex;justify-content:flex-end;gap:9px;padding:12px 16px;background:var(--bg2);border-top:1px solid var(--line)}
+.btn.danger{background:#e11d48;border-color:#e11d48;color:#fff}
+.btn.danger:hover{background:#be123c;border-color:#be123c}
+.btn.danger:disabled{opacity:.6;cursor:default}
+.pbtn-danger{color:#f43f5e!important;border-color:rgba(244,63,94,.4)!important}
+.pbtn-danger:hover{background:rgba(244,63,94,.14)!important;border-color:#f43f5e!important}
 .p-side h2{margin:0;font-size:19px}
 .p-side h2.link{cursor:pointer}
 .p-side h2.link:hover{color:var(--accent)}
@@ -336,6 +351,115 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .costar:hover{color:var(--accent);border-color:var(--accent)}
 .ncaret{display:inline-block;margin-left:6px;color:var(--dim2);font-weight:400;transition:transform .15s,color .15s}
 .p-side h2.link:hover .ncaret{color:var(--accent);transform:translateX(3px)}
+/* custom video player with scene markers drawn on the seek bar (spankbang-style) */
+.pv-wrap{position:relative;width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center}
+.pv-wrap video{width:100%;height:100%;max-height:94vh;object-fit:contain;display:block;background:#000}
+.pv-now{position:absolute;left:16px;top:14px;color:#fff;font-size:13px;font-weight:600;
+  background:rgba(0,0,0,.55);padding:4px 10px;border-radius:7px;z-index:6;pointer-events:none;
+  opacity:0;transition:opacity .2s}
+.pv-wrap.show .pv-now{opacity:1}
+.pv-ctrl{position:absolute;left:0;right:0;bottom:0;padding:26px 16px 12px;display:flex;align-items:center;
+  gap:12px;z-index:7;opacity:0;transition:opacity .2s;pointer-events:none;
+  background:linear-gradient(to top,rgba(0,0,0,.8),rgba(0,0,0,.35) 55%,rgba(0,0,0,0))}
+.pv-wrap.show .pv-ctrl{opacity:1;pointer-events:auto}
+.pv-btn{background:none;border:none;color:#fff;font-size:17px;cursor:pointer;line-height:1;padding:2px 4px;flex:none;opacity:.92}
+.pv-btn:hover{opacity:1;transform:scale(1.08)}
+.pv-btn svg{width:22px;height:22px;display:block;fill:currentColor}
+/* double-click / double-tap seek (YouTube-style): left half -10 s, right half +30 s */
+.pv-wrap{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.pv-skip{position:absolute;top:50%;transform:translateY(-50%);z-index:5;pointer-events:none;display:flex;
+  align-items:center;gap:6px;color:#fff;font-size:15px;font-weight:700;background:rgba(0,0,0,.5);
+  padding:12px 18px;border-radius:40px;opacity:0;transition:opacity .25s}
+.pv-skip.on{opacity:1}
+.pv-skip.l{left:10%}
+.pv-skip.r{right:10%}
+.pv-skip svg{width:24px;height:24px;fill:currentColor}
+.pv-time{color:#fff;font-size:12px;font-variant-numeric:tabular-nums;flex:none;opacity:.92;min-width:42px;text-align:center}
+.pv-seek{position:relative;flex:1;height:18px;display:flex;align-items:center;cursor:pointer;touch-action:none}
+/* clickable scene chips ABOVE the bar (spankbang-style, always visible with the controls) */
+.pv-chips{position:absolute;left:0;right:0;bottom:26px;height:0;pointer-events:none;z-index:9}
+.pv-chip{position:absolute;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;
+  width:38px;height:32px;background:rgba(0,0,0,.82);border:1px solid var(--dim);border-bottom-width:2px;
+  border-radius:6px;color:#fff;line-height:1;cursor:pointer;pointer-events:auto;transition:transform .1s}
+.pv-chip .pv-chip-ic{pointer-events:none;display:flex}
+.pv-chip.sm{width:28px;height:24px}                      /* crowded movies: see layoutChips */
+.pv-chip.sm .pv-chip-ic svg,.pv-chip.sm .pv-chip-ic img{width:16px;height:16px}
+.pv-chip:hover{transform:translateX(-50%) scale(1.2);z-index:20;background:#000}
+.pv-chip::after{content:"";position:absolute;left:50%;bottom:calc(-1*var(--stem,18px));width:1px;height:var(--stem,18px);background:var(--dim);transform:translateX(-50%)}
+.pv-track,.pv-buf,.pv-fill{position:absolute;left:0;height:5px;border-radius:3px;transition:height .1s}
+.pv-track{right:0;background:rgba(255,255,255,.24)}
+.pv-buf{background:rgba(255,255,255,.32)}
+.pv-fill{background:var(--accent)}
+.pv-mklayer{position:absolute;left:0;right:0;height:5px;pointer-events:none}
+.pv-mk{position:absolute;top:0;height:5px;border-radius:2px}
+.pv-mk.tick{width:3px;margin-left:-1.5px;top:-2px;height:9px;border-radius:1px}
+.pv-seek:hover .pv-track,.pv-seek:hover .pv-buf,.pv-seek:hover .pv-fill,.pv-seek:hover .pv-mk{height:7px}
+.pv-handle{position:absolute;width:13px;height:13px;border-radius:50%;background:#fff;margin-left:-6.5px;
+  box-shadow:0 1px 5px rgba(0,0,0,.7);pointer-events:none;z-index:4}
+.pv-tip{position:absolute;bottom:24px;transform:translateX(-50%);background:rgba(0,0,0,.9);color:#fff;
+  font-size:11px;padding:4px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:8;
+  opacity:0;transition:opacity .1s;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.pv-tip.on{opacity:1}
+.pv-tip .tl{font-weight:700}
+.pv-tip .tt{color:#bfc4d6;margin-left:5px;font-variant-numeric:tabular-nums}
+/* marker editor (right-click a chip, or ＋): single-choice label, move, delete */
+.pv-ed{position:absolute;left:50%;bottom:92px;transform:translateX(-50%);z-index:12;min-width:236px;
+  background:rgba(12,13,18,.96);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 12px;
+  display:flex;flex-direction:column;gap:8px;color:#fff;font-size:12.5px;box-shadow:0 8px 28px rgba(0,0,0,.6)}
+.pv-ed[hidden]{display:none}
+.pv-ed .ed-h{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600}
+.pv-ed .ed-src{font-weight:400;color:#bfc4d6;font-size:11px}
+.pv-ed select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:7px;padding:5px 8px;font-size:13px}
+.pv-ed select:focus{outline:none;border-color:var(--accent)}
+.pv-ed .ed-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pv-ed button{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:7px;
+  padding:4px 9px;font-size:12px;cursor:pointer}
+.pv-ed button:hover{background:rgba(255,255,255,.2)}
+.pv-ed button.pri{background:var(--accent);border-color:var(--accent)}
+.pv-ed button.danger{color:#fca5a5;border-color:rgba(248,113,113,.5)}
+.pv-ed .ed-t{min-width:52px;text-align:center;font-variant-numeric:tabular-nums}
+/* An AI suggestion nobody has confirmed yet. Amber = "needs a look"; red is reserved for
+   destructive things here, and a red ring on every pre-tag teaches you to ignore red. The
+   bottom edge keeps its inline label colour, so the chip still says WHAT it thinks it is. */
+.pv-chip.ai{border:2px dashed var(--warn);border-bottom-width:3px;border-bottom-style:solid;
+  background:rgba(26,18,0,.9);box-shadow:0 0 0 2px rgba(245,166,35,.2)}
+.pv-chip.ai:hover{background:#1a1200}
+.pv-chip.ai .pv-chip-ic{opacity:.85}        /* confirmed markers read a touch brighter */
+.pv-mk.tick.ai{box-shadow:0 0 0 1px var(--warn)}
+.pv-ed .ed-src.ai{color:var(--warn)}
+.setcard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--panel)}
+.sethd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fc2st{font-size:11.5px;color:var(--dim2);margin-top:3px}
+.fc2st.todo{color:var(--warn)}
+.pv-now .nowai{margin-left:7px;font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--warn);
+  border:1px dashed var(--warn);border-radius:5px;padding:0 4px;position:relative;top:-1px}
+.pv-chip.dragging{z-index:30;cursor:grabbing;background:#000}
+/* narrow player (small window, no theater mode): the scrubber was squeezed to 0 px between the
+   buttons — give it its own full-width row, same as the phone layout */
+.pv-wrap.narrow .pv-ctrl{flex-wrap:wrap;gap:4px 10px;padding-top:18px}
+.pv-wrap.narrow .pv-seek{order:-1;flex:1 0 100%;height:26px}
+.pv-wrap.narrow .pv-chips{bottom:30px}
+.pv-ed .ed-row[hidden]{display:none}
+.pv-ed input.ed-new{flex:1;min-width:120px;background:#000;color:#fff;border:1px solid rgba(255,255,255,.35);
+  border-radius:7px;padding:5px 8px;font-size:12.5px}
+.pv-ed input.ed-new:focus{outline:none;border-color:var(--accent)}
+/* right-click menu on chips / seek bar / video (training mode) */
+.pv-menu{position:absolute;z-index:14;min-width:200px;background:rgba(12,13,18,.97);border:1px solid rgba(255,255,255,.18);
+  border-radius:9px;padding:4px;display:flex;flex-direction:column;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.pv-menu[hidden]{display:none}
+.pv-menu button{background:none;border:none;color:#fff;text-align:left;padding:7px 10px;border-radius:6px;
+  font-size:12.5px;cursor:pointer;white-space:nowrap}
+.pv-menu button:hover{background:rgba(255,255,255,.12)}
+/* hover thumbnail preview above the seek bar (uses analyzer sprites if present) */
+.pv-thumb{position:absolute;bottom:26px;transform:translateX(-50%);border:2px solid rgba(255,255,255,.8);
+  border-radius:5px;background:#000 no-repeat;z-index:8;opacity:0;transition:opacity .1s;pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.6)}
+.pv-thumb.on{opacity:1}
+.pv-wrap:fullscreen{width:100vw;height:100vh}
+.pv-wrap:fullscreen video{max-height:100vh}
+/* theater mode: hide the side rails so the video (and the scene bar) go full-width */
+.player.theater .p-related,.player.theater .p-side{display:none}
+.player.theater .p-stage{flex:1}
+#pvtheater.on{color:var(--accent);opacity:1}
 .p-side .jp{color:var(--dim);font-size:13px;margin-top:2px}
 .p-side .entitle{color:var(--txt);font-size:13px;line-height:1.45;margin-top:6px}
 .p-side .code{color:var(--dim2);font-size:12px;font-family:ui-monospace,monospace;margin-top:6px}
@@ -463,6 +587,14 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
   .ptabs{order:1}
   .p-related,.p-side{order:2}
   .p-stage video{width:100%;height:100%;max-height:none}
+  /* custom control bar: the scrubber gets its own full-width row (it was squeezed to 0px
+     between 10 buttons), theater mode is pointless on a phone and ✕ is the overlay button */
+  .pv-ctrl{flex-wrap:wrap;gap:4px 10px;padding:18px 10px 8px}
+  .pv-seek{order:-1;flex:1 0 100%;height:26px}
+  .pv-ctrl #pvtheater,.pv-ctrl #pvclose{display:none}
+  .pv-ctrl .pv-btn{font-size:20px;padding:4px 6px}
+  .pv-ctrl .pv-btn svg{width:26px;height:26px}
+  .pv-chips{bottom:30px}
   .p-missing{aspect-ratio:16/9;max-height:40vh}
   .pm-box{padding:14px 18px}
   .pm-ico{font-size:32px}
@@ -478,6 +610,9 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
     border-right:none;padding:12px 14px 34px}
   .player[data-tab="info"] .p-related{display:none}
   .player[data-tab="list"] .p-side{display:none}
+  /* theater mode (a remembered desktop choice) must not hide the phone's Info / Related tabs */
+  .player.theater .p-related,.player.theater .p-side{display:block}
+  .player.theater[data-tab="info"] .p-related,.player.theater[data-tab="list"] .p-side{display:none}
   .p-side .row1 .close{display:none}      /* replaced by the overlay button on the video */
   .p-side h2{font-size:17px}
 
@@ -497,6 +632,16 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
   .card .ctitle{display:none}      /* long JP/EN titles dominate a 132px card */
   .stat{display:none}
 }
+
+/* PNG marker pictograms (icons/): drawn as a mask so they take the label colour
+   and work in both themes, unlike a flat black <img>. */
+.mk-png{display:inline-block;width:24px;height:24px;vertical-align:middle;background:currentColor;
+  -webkit-mask:var(--mk) no-repeat center/contain;mask:var(--mk) no-repeat center/contain;}
+
+/* co-star match badge on a card (actress filter matched someone other than the lead) */
+.card .meta .costar{margin:2px 0 0;padding:1px 7px;border-radius:9px;display:inline-block;
+  font-size:11px;font-weight:500;background:var(--chip,#2a2d3a);color:var(--dim,#9aa0b5);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -574,12 +719,43 @@ function sukebei(code){const num=(String(code).match(/(\d{5,})/)||[])[1]||code;
     ctrlKey:!mac,metaKey:mac}));
   a.remove();}
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),1800);}
+// styled danger confirmation for destructive actions (deletes). onConfirm may be async;
+// the dialog stays until it resolves, so failures can surface a toast without it vanishing.
+function confirmDanger({title,body,confirmLabel,onConfirm}){
+  const ov=document.createElement("div");ov.className="cfm-ov";
+  ov.innerHTML=`<div class="cfm" role="dialog" aria-modal="true">
+    <div class="cfm-t">🗑 ${title}</div>
+    <div class="cfm-b">${body}</div>
+    <div class="cfm-actions"><button class="btn" data-x>Cancel</button>
+      <button class="btn danger" data-y>${esc(confirmLabel||"Delete")}</button></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>{ov.remove();document.removeEventListener("keydown",onkey);};
+  function onkey(e){if(e.key==="Escape")close();}
+  document.addEventListener("keydown",onkey);
+  ov.addEventListener("click",e=>{if(e.target===ov)close();});
+  ov.querySelector("[data-x]").onclick=close;
+  ov.querySelector("[data-y]").onclick=async e=>{
+    const b=e.currentTarget;b.disabled=true;b.textContent="Working…";
+    try{await onConfirm();close();}
+    catch(err){toast(err&&err.message?err.message:"Delete failed");b.disabled=false;b.textContent=esc(confirmLabel||"Delete");}
+  };
+}
 function loadbar(p){const l=$("#load");l.style.transform=`scaleX(${p})`;if(p>=1)setTimeout(()=>l.style.transform="scaleX(0)",300);}
 
 let DATA={items:[],actresses:[],facets:{}};
+// One player session: a ResizeObserver on the seek bar and a document fullscreenchange
+// listener, both closing over that <video>. Without this teardown every opened movie
+// stayed reachable (Safari keeps the decoder alive).
+const PVSESS={ro:null,ac:null};
+function pvCleanup(){if(PVSESS.ro){try{PVSESS.ro.disconnect();}catch(_){}PVSESS.ro=null;}
+  if(PVSESS.ac){try{PVSESS.ac.abort();}catch(_){}PVSESS.ac=null;}}
 let META={};                       // code -> {duration,width,height}
 let ACTBYID={},ACTBYNAME={};
 let BYCODE=new Map();   // code -> item (avoids O(n) DATA.items.find on hot paths)
+let BYUID=new Map();    // uid  -> item. uid = one FOLDER on disk; it equals the code unless
+// the same code sits in two folders, so play / thumb / open / delete / markers address the
+// card you clicked instead of whichever folder the walk happened to see first.
+const itemOf=el=>(el&&(BYUID.get(el.dataset.uid)||BYCODE.get(el.dataset.code)))||null;
 // can THIS browser decode HEVC/H.265? (Safari yes; Chrome-on-macOS via hardware; else no)
 const HEVC_OK=(()=>{const v=document.createElement("video");
   return !!(v.canPlayType('video/mp4; codecs="hvc1.1.6.L93.B0"')||v.canPlayType('video/mp4; codecs="hev1"'));})();
@@ -595,7 +771,15 @@ function buildHay(it){return ((it.actress||"")+" "+(it.actress_jp||"")+" "+(it.a
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||"[]")}catch(e){return[]}}
 function lsGetObj(k){try{return JSON.parse(localStorage.getItem(k)||"{}")||{}}catch(e){return{}}}
 const STORE={fav:new Set(),seen:new Set(),rating:{},afav:new Set()};
-function udPost(obj){try{fetch("/api/userdata",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(obj)});}catch(e){}}
+function udPost(obj){
+  // the response was never read, so a rejected write left STORE claiming a change that the
+  // server never recorded; say so instead of diverging silently
+  return fetch("/api/userdata",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(obj)})
+    .then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json().catch(()=>({}));})
+    .then(j=>{if(j&&j.ok===false)throw new Error(j.error||"rejected");})
+    .catch(()=>{toast("Not saved — the server did not record that change");});
+}
 function setStoreFrom(sd){
   STORE.fav=new Set((sd.fav||[]).map(String));STORE.seen=new Set((sd.seen||[]).map(String));
   STORE.rating=sd.rating||{};STORE.afav=new Set((sd.afav||[]).map(String));
@@ -605,12 +789,25 @@ async function loadUserData(){
   // never migrated, push it up (server unions it in) so nothing is lost, then forget it.
   if(!localStorage.getItem("vault_ud_migrated")){
     const lf=lsGet("vault_fav"),ls=lsGet("vault_seen"),la=lsGet("vault_afav"),lr=lsGetObj("vault_rating");
-    if(lf.length||ls.length||la.length||Object.keys(lr).length){
-      try{await fetch("/api/userdata",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({replace:{fav:lf,seen:ls,afav:la,rating:lr}})});}catch(e){}
+    const hasLegacy=lf.length||ls.length||la.length||Object.keys(lr).length;
+    let saved=true;
+    if(hasLegacy){
+      // The local copy is the ONLY copy until the server confirms it has it. This used to
+      // delete the keys regardless: fetch does not throw on HTTP 500, and the catch swallowed
+      // network errors, so a failed upload lost every favorite, played mark and rating.
+      saved=false;
+      try{
+        const r=await fetch("/api/userdata",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({replace:{fav:lf,seen:ls,afav:la,rating:lr}})});
+        saved=r.ok&&((await r.json().catch(()=>({}))).ok!==false);
+      }catch(e){saved=false;}
     }
-    try{localStorage.setItem("vault_ud_migrated","1");
-      ["vault_fav","vault_seen","vault_afav","vault_rating"].forEach(k=>localStorage.removeItem(k));}catch(e){}
+    if(saved){
+      try{localStorage.setItem("vault_ud_migrated","1");
+        ["vault_fav","vault_seen","vault_afav","vault_rating"].forEach(k=>localStorage.removeItem(k));}catch(e){}
+    }else{
+      toast("Could not move this browser's favorites/ratings to the server — kept locally, will retry");
+    }
   }
   try{setStoreFrom(await (await fetch("/api/userdata")).json());}catch(e){}   // server is authoritative
 }
@@ -669,7 +866,8 @@ function toggleSeen(code,btn){
 }
 const F={q:"",ident:"all",showMissing:false,fmt:"all",actress:"all",cups:new Set(),res:new Set(),
          tags:new Set(),ageMin:0,ageMax:99,durMin:0,durMax:999,sort:"mtime",view:"grid",hd:false,parts:false,
-         watch:"all",favonly:false,afavonly:false,uncensOnly:false};
+         watch:"all",favonly:false,afavonly:false,uncensOnly:false,
+         aiTagged:false,manualTagged:false,noTags:false,toReview:false};
 const TAG_MIN=3;   // sidebar shows tags used on >= this many movies by default (search reaches all)
 const resBucket=h=>!h?"":h>=1800?"4K":h>=1000?"1080p":h>=700?"720p":"SD";
 const COLS=[
@@ -697,11 +895,18 @@ async function boot(){
   loadbar(.3);
   const r=await fetch("/api/data");DATA=await r.json();
   await loadUserData();
-  BYCODE.clear();DATA.items.forEach(it=>{BYCODE.set(it.code,it);it._rnd=Math.random();if(it.dur||it.h)META[it.code]={duration:it.dur,width:it.w,height:it.h,vcodec:it.vcodec};});
+  BYCODE.clear();BYUID.clear();DATA.items.forEach(it=>{BYCODE.set(it.code,it);BYUID.set(it.uid||it.code,it);it._rnd=Math.random();if(it.dur||it.h)META[it.code]={duration:it.dur,width:it.w,height:it.h,vcodec:it.vcodec};});
   DATA.actresses.forEach(a=>{if(a.id)ACTBYID[a.id]=a;if(a.name_en)ACTBYNAME[a.name_en.toLowerCase()]=a;});
   loadbar(.8);
   buildSidebar();bindUI();render();
   loadbar(1);
+  // A scan runs server-side in its own thread, so a reload never interrupts it — but nothing
+  // used to re-attach to it, and the counter just vanished. Pick it up again if one is running.
+  fetch("/api/scanprogress").then(r=>r.json()).then(p=>{if(p&&p.running)pollScanProgress();})
+    .catch(()=>{});
+  // a walk that was refused (unmounted share, unreadable folder) must not fail silently:
+  // the grid still shows the last good index, so say why it did not change
+  if(DATA.scan_warning)toast("Library scan ignored — "+DATA.scan_warning);
 }
 
 /* ---------------- sidebar ---------------- */
@@ -720,6 +925,13 @@ function buildSidebar(){
    ${frow('watch','all','Any watched state')}
    ${frow('watch','un','Unwatched only')}
    ${frow('watch','seen','Watched only')}
+   ${DATA.training?`
+   <h4>Scene tagging</h4>
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="revchk" ${F.toReview?'checked':''}> To review<span class="c">${DATA.items.filter(i=>i.ai_tags&&!i.missing).length}</span></label>
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="aichk" ${F.aiTagged?'checked':''}> Not started<span class="c">${DATA.items.filter(i=>i.to_review&&!i.missing).length}</span></label>
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="manchk" ${F.manualTagged?'checked':''}> Corrected manually<span class="c">${DATA.items.filter(i=>i.manual_tags).length}</span></label>
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="notagchk" ${F.noTags?'checked':''}> No markers yet<span class="c">${DATA.items.filter(i=>!i.ai_tags&&!i.manual_tags&&!i.missing).length}</span></label>
+   `:''}
    <label class="frow" style="cursor:pointer"><input type="checkbox" id="hdchk"> HD only (≥720p)</label>
    <label class="frow" style="cursor:pointer"><input type="checkbox" id="censchk"> Uncensored only</label>
 
@@ -768,6 +980,10 @@ function buildSidebar(){
   $("#partschk").onchange=e=>{F.parts=e.target.checked;render();};
   $("#wishchk").onchange=e=>{F.showMissing=e.target.checked;render();};
   $("#censchk").onchange=e=>{F.uncensOnly=e.target.checked;render();};
+  {const ai=$("#aichk");if(ai)ai.onchange=e=>{F.aiTagged=e.target.checked;render();};
+   const mn=$("#manchk");if(mn)mn.onchange=e=>{F.manualTagged=e.target.checked;render();};
+   const nt=$("#notagchk");if(nt)nt.onchange=e=>{F.noTags=e.target.checked;render();};
+ const rv=$("#revchk");if(rv)rv.onchange=e=>{F.toReview=e.target.checked;render();};}
   $("#favrow").onclick=()=>{F.favonly=!F.favonly;$("#favrow").classList.toggle('on',F.favonly);render();};
   $("#afavrow").onclick=()=>{F.afavonly=!F.afavonly;$("#afavrow").classList.toggle('on',F.afavonly);render();};
   $$('#cupchips .chip').forEach(c=>c.onclick=()=>{tog(F.cups,c.dataset.cup);c.classList.toggle('on');render();});
@@ -776,17 +992,22 @@ function buildSidebar(){
   const tf=$("#tagfilter");if(tf)tf.oninput=e=>{const q=e.target.value.toLowerCase();
     // no query -> default view (only common tags, count>=TAG_MIN); query -> search ALL
     $$('#tagchips .chip').forEach(c=>{c.style.display=(q?c.dataset.tl.includes(q):!c.classList.contains('rare'))?"":"none";});};
-  $("#actressInput").oninput=e=>{F.actress=e.target.value.trim();render();};
-  $("#studioInput").oninput=e=>{F.studio=e.target.value.trim();render();};
+  $("#actressInput").oninput=e=>{F.actress=e.target.value.trim();renderSoon();};
+  $("#studioInput").oninput=e=>{F.studio=e.target.value.trim();renderSoon();};
   const dmi=$("#durmin"),dma=$("#durmax");
   const upD=()=>{let a=+dmi.value,b=+dma.value;if(a>b)[a,b]=[b,a];F.durMin=a;F.durMax=b>=180?999:b;
-    $("#dmi").textContent=a<=0?'any':a+'m';$("#dma").textContent=b>=180?'any':b+'m';render();};
+    $("#dmi").textContent=a<=0?'any':a+'m';$("#dma").textContent=b>=180?'any':b+'m';renderSoon();};
   dmi.oninput=upD;dma.oninput=upD;
   const mi=$("#agemin"),ma=$("#agemax");
   const upA=()=>{let a=+mi.value,b=+ma.value;if(a>b){[a,b]=[b,a];}F.ageMin=a<=18?0:a;F.ageMax=b>=45?99:b;
-    $("#agemi").textContent=a<=18?'any':a;$("#agema").textContent=b>=45?'any':b;render();};
+    $("#agemi").textContent=a<=18?'any':a;$("#agema").textContent=b>=45?'any':b;renderSoon();};
   mi.oninput=upA;ma.oninput=upA;
 }
+// Typing re-rendered on every keystroke: render() filters, sorts, wipes the grid and rebuilds
+// the first 120 cards, throwing away everything the chunked renderer had mounted. Text boxes and
+// sliders now coalesce into one render; labels still update instantly.
+let _renderT=null;
+function renderSoon(ms){clearTimeout(_renderT);_renderT=setTimeout(()=>{_renderT=null;render();},ms==null?150:ms);}
 function frow(k,v,label,count){return `<div class="frow${F[k]===v?' on':''}" data-k="${k}" data-v="${v}">${label}<span class="c">${count??''}</span></div>`;}
 function syncFrow(){$$('.frow[data-k]').forEach(x=>x.classList.toggle('on',F[x.dataset.k]===x.dataset.v));
   const fr=$("#favrow");if(fr)fr.classList.toggle('on',F.favonly);
@@ -880,6 +1101,7 @@ function pollImportProgress(){
     }
   }).catch(()=>{importPollTimer=setTimeout(pollImportProgress,2000);});
 }
+let ORGPLAN="";          // fingerprint of the plan currently on screen
 function organizeLibrary(){
   const m=$("#orgmodal"),b=$("#orgbox");m.classList.add("on");
   const close=()=>m.classList.remove("on");
@@ -888,11 +1110,12 @@ function organizeLibrary(){
    .then(r=>r.json()).then(j=>{
      if(j.error){b.innerHTML=`<div class="orghd">Error</div><div class="orgsub">${esc(j.error)}</div><div class="pactions"><button class="btn" id="orgCancel">Close</button></div>`;$("#orgCancel").onclick=close;return;}
      if(!j.total){b.innerHTML=`<div class="orghd">Already tidy 🎉</div><div class="orgsub">Every folder is normalized, no junk, no duplicates.</div><div class="pactions"><button class="btn" id="orgCancel">Close</button></div>`;$("#orgCancel").onclick=close;return;}
+     ORGPLAN=j.plan_id||"";
      const c=j.counts;
      // group actions by code (null -> "no code"), preserving first-seen order
      const groups=new Map();
      for(const a of (j.actions||[])){
-       const k=a.code||" ";
+       const k=a.code||"";
        if(!groups.has(k))groups.set(k,{code:a.code,orig:null,acts:[]});
        const g=groups.get(k);g.acts.push(a);
        if(a.type==="folder")g.orig=a.from;                 // the un-normalized folder name
@@ -914,8 +1137,8 @@ function organizeLibrary(){
      }).join("");
      b.innerHTML=`
        <div class="orghd">Organize library — preview</div>
-       <div class="orgsub"><b>${c.folder||0}</b> folders · <b>${c.file||0}</b> files · <b>${c.junk||0}</b> junk → <code>_vault_trash/</code> · <b>${c.duplicate||0}</b> dupes → <code>_Duplicates/</code>. Uncheck any change to skip it; nothing is deleted or overwritten. Optionally add an actress/tags per folder (manual — deduce from the original name shown).</div>
-       <div class="orglist">${blocks}${j.truncated?'<div class="orgrow" style="color:var(--dim2)">…more changes not shown (they will still apply unless the list is complete)</div>':''}</div>
+       <div class="orgsub"><b>${c.folder||0}</b> folders · <b>${c.file||0}</b> files · <b>${c.junk||0}</b> junk → <code>_vault_trash/</code> · <b>${c.duplicate||0}</b> dupes → <code>_Duplicates/</code>. Uncheck any change to skip it; nothing is deleted or overwritten. ${j.truncated?`<b style="color:var(--warn)">Showing the first ${j.shown} of ${j.total} changes — only what is listed here will run; re-open afterwards for the rest.</b>`:''} Optionally add an actress/tags per folder (manual — deduce from the original name shown).</div>
+       <div class="orglist">${blocks}${j.truncated?'<div class="orgrow" style="color:var(--dim2)">…more changes not shown — only the rows listed here will run</div>':''}</div>
        <div class="pactions">
          <button class="btn pri" id="orgApply">Apply selected</button>
          <button class="btn" id="orgCancel">Cancel</button>
@@ -923,16 +1146,21 @@ function organizeLibrary(){
      $("#orgCancel").onclick=close;
      $("#orgApply").onclick=e=>{
        const ab=e.currentTarget;ab.textContent="Working…";ab.disabled=true;
-       const skip=[...b.querySelectorAll(".ogchk:not(:checked)")].map(x=>x.dataset.id);
+       // Only the rows on screen and ticked are sent. A skip-list used to mean "run
+       // everything except these", which silently executed the rows past the display cap.
+       const allow=[...b.querySelectorAll(".ogchk:checked")].map(x=>x.dataset.id);
+       const skipped=b.querySelectorAll(".ogchk:not(:checked)").length;
        const enrich={};
        b.querySelectorAll(".ogin").forEach(inp=>{
          const code=inp.dataset.code,v=inp.value.trim();if(!v)return;
          (enrich[code]=enrich[code]||{})[inp.classList.contains("ogact")?"actress":"tags"]=v;
        });
-       fetch("/api/organize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apply:true,skip,enrich})})
+       fetch("/api/organize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apply:true,allow,enrich,plan_id:ORGPLAN})})
         .then(r=>r.json()).then(res=>{
+          if(res.error){toast(res.error);ab.disabled=false;ab.textContent="Apply selected";
+            if(res.stale)organizeLibrary();return;}
           const d=(res.applied||{}).done||{};
-          toast(`Organized · ${d.folder||0} folders, ${d.file||0} files, ${d.junk||0} junk, ${d.duplicate||0} dups${skip.length?` · ${skip.length} skipped`:''}`);
+          toast(`Organized · ${d.folder||0} folders, ${d.file||0} files, ${d.junk||0} junk, ${d.duplicate||0} dups${skipped?` · ${skipped} skipped`:''}`);
           close();reloadData();
         }).catch(()=>{toast("Organize failed");ab.disabled=false;ab.textContent="Apply selected";});
      };
@@ -951,17 +1179,19 @@ function foldByActress(){
      b.innerHTML=`
        <div class="orghd">Organize by actress — preview</div>
        <div class="orgsub"><b>${j.total}</b> movie folder${j.total>1?'s':''} will move to match the catalog. Identified → <code>&lt;Actress&gt;/&lt;CODE&gt;/</code>, unidentified → root. Folders are only moved (never deleted); emptied actress folders are removed afterwards. Uncheck any row to skip it.</div>
-       <div class="orglist">${rows}${j.truncated?'<div class="orgrow" style="color:var(--dim2)">…more moves not shown (they will still apply unless you uncheck them here)</div>':''}</div>
+       <div class="orglist">${rows}${j.truncated?'<div class="orgrow" style="color:var(--dim2)">…more moves not shown — only the rows listed here will run</div>':''}</div>
        ${confl}
        <div class="pactions">
-         <button class="btn pri" id="foApply">Apply${j.truncated?' all':' selected'}</button>
+         <button class="btn pri" id="foApply">Apply selected</button>
          <button class="btn" id="foCancel">Cancel</button>
        </div>`;
      $("#foCancel").onclick=close;
      $("#foApply").onclick=e=>{
        const ab=e.currentTarget;ab.textContent="Moving…";ab.disabled=true;
-       const skip=[...b.querySelectorAll(".fochk:not(:checked)")].map(x=>x.dataset.id);
-       fetch("/api/foldactress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apply:true,skip})})
+       // send what MAY run, not what may not: the server can only be told about rows the
+       // browser rendered, so an exclusion list silently green-lights everything past the cap
+       const allow=[...b.querySelectorAll(".fochk:checked")].map(x=>x.dataset.id);
+       fetch("/api/foldactress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apply:true,allow})})
         .then(r=>r.json()).then(res=>{
           if(res.error){toast(res.error);ab.disabled=false;ab.textContent="Apply";return;}
           toast(`Foldered · ${res.moved} moved${res.pruned?` · ${res.pruned} empty folder${res.pruned>1?'s':''} removed`:''}`);
@@ -979,14 +1209,21 @@ function startLibraryScan(){
    .then(r=>r.json()).then(j=>{
      if(j.error){b.innerHTML=`<div class="orghd">Can't scan</div><div class="orgsub">${esc(j.error)}</div><div class="pactions"><button class="btn" id="scClose">Close</button></div>`;$("#scClose").onclick=()=>m.classList.remove("on");return;}
      SCANCANDS=j.candidates||[];SCANSCOPE="missing";
+     SCANFC2={ready:!!j.fc2db_ready,why:j.fc2db_why||"",net:!!j.fc2dbnet_ready,
+              truncated:!!j.truncated,ncands:j.ncands||0};
      renderScanModal();
    }).catch(()=>{b.innerHTML='<div class="orghd">Could not reach the scanner</div><div class="pactions"><button class="btn" id="scClose">Close</button></div>';const x=$("#scClose");if(x)x.onclick=()=>m.classList.remove("on");});
 }
+let SCANFC2={ready:false,why:"",net:false,truncated:false,ncands:0};
 function scanList(){return SCANSCOPE==="all"?SCANCANDS:SCANCANDS.filter(c=>!c.title_en);}
 function renderScanModal(){
   const b=$("#scanbox"),m=$("#scanmodal"),close=()=>m.classList.remove("on");
   const nMiss=SCANCANDS.filter(c=>!c.title_en).length,nAll=SCANCANDS.length;
   const list=scanList();
+  // Counts are of the TICKED rows and follow the checkboxes (upd() below): the server only
+  // ever fetches what is ticked, so a count of the whole list promised work it would not do.
+  const nNoAct=list.filter(c=>!c.fc2db_read).length;   // "page never read", the server's rule
+  const nNoNet=list.filter(c=>!c.fc2dbnet_read).length;
   const rows=list.map(c=>{
     const status=c.title_en?`<span class="of">${esc(c.title_en)}</span>`
                            :`<span class="of dim2">— no title yet${c.cover?' · has cover':''}</span>`;
@@ -999,7 +1236,25 @@ function renderScanModal(){
       <button data-scope="missing" class="${SCANSCOPE==='missing'?'on':''}">Missing titles (${nMiss})</button>
       <button data-scope="all" class="${SCANSCOPE==='all'?'on':''}">All movies (${nAll})</button>
     </div>
-    <div class="orgsub">Fetches English/Japanese titles, covers, dates & tags from web sources (123av, ffjav). Uncheck any to skip. Newest-added first; empty fields only are filled.</div>
+    <div class="orgsub">Checks your sources in priority order and fills in what's missing. Untick a movie to skip it. Newest-added first.</div>
+    <label class="frow" style="cursor:${SCANFC2.ready?'pointer':'default'};margin:8px 0 2px;opacity:${SCANFC2.ready?1:.55}">
+      <input type="checkbox" id="scFc2" ${SCANFC2.ready?'checked':'disabled'}>
+      <b>1 · fc2ppv-db</b> — the primary source: cast, JP title, date, cover, tags <span class="c" id="scN1">${nNoAct?nNoAct+' not read yet':''}</span>
+    </label>
+    <div class="orgsub" style="margin:0 0 6px">${SCANFC2.ready
+      ? 'Only movies whose fc2ppv-db page was never read. The slow part — roughly 3 s each.'
+      : esc(SCANFC2.why||'fc2ppv-db is not connected')+' — set it up in Settings. The other sources run either way.'}</div>
+    <label class="frow" style="cursor:${SCANFC2.net?'pointer':'default'};margin:2px 0 2px;opacity:${SCANFC2.net?1:.55}">
+      <input type="checkbox" id="scNet" ${SCANFC2.net?'checked':'disabled'}>
+      <b>2 · fc2db.net</b> — fills what fc2ppv-db left empty, often the performer <span class="c" id="scN2">${nNoNet?nNoNet+' not read yet':''}</span>
+    </label>
+    <div class="orgsub" style="margin:0 0 6px">${SCANFC2.net
+      ? 'Never overwrites fc2ppv-db or anything you set.'
+      : 'fc2db.net is switched off in Settings → Sources.'}</div>
+    <div class="frow" style="margin:2px 0 2px;cursor:default"><span style="width:16px;display:inline-block;color:var(--good)">✓</span>
+      <b>3 · 123av / ffjav</b> — English title, then anything still empty</div>
+    <div class="orgsub" style="margin:0 0 6px">Always last, and only fills gaps. Switch either off in Settings → Sources.</div>
+    ${SCANFC2.truncated?`<div class="orgsub" style="color:var(--warn);margin:0 0 6px">Showing the newest ${list.length} of ${SCANFC2.ncands}. Older movies are not in this list and will not be scanned from here.</div>`:''}
     <div class="orglist" id="scList">${rows}</div>
     <div class="pactions">
       <button class="btn pri" id="scGo">Scan <span id="scN">${list.length}</span> selected</button>
@@ -1013,12 +1268,22 @@ function renderScanModal(){
      .catch(()=>toast("Could not start"));
   };
   $("#scSeg").querySelectorAll("button").forEach(bt=>bt.onclick=()=>{SCANSCOPE=bt.dataset.scope;renderScanModal();});
-  const upd=()=>{$("#scN").textContent=b.querySelectorAll(".scchk:checked").length;};
+  const upd=()=>{
+    const ticked=new Set([...b.querySelectorAll(".scchk:checked")].map(x=>x.dataset.code));
+    const sel=list.filter(c=>ticked.has(c.code));
+    $("#scN").textContent=ticked.size;
+    const a=sel.filter(c=>!c.fc2db_read).length, n=sel.filter(c=>!c.fc2dbnet_read).length;
+    const e1=$("#scN1"),e2=$("#scN2");
+    if(e1)e1.textContent=a?a+" not read yet":"";
+    if(e2)e2.textContent=n?n+" not read yet":"";
+  };
   b.querySelectorAll(".scchk").forEach(x=>x.onchange=upd);
   $("#scGo").onclick=()=>{
     const codes=[...b.querySelectorAll(".scchk:checked")].map(x=>x.dataset.code);
     if(!codes.length){toast("Nothing selected");return;}
-    fetch("/api/scanlib",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codes})})
+    const fc2=!!($("#scFc2")&&$("#scFc2").checked);
+    const net=!!($("#scNet")&&$("#scNet").checked);
+    fetch("/api/scanlib",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codes,fc2db:fc2,fc2dbnet:net})})
      .then(r=>r.json()).then(j=>{if(j.error){toast(j.error);return;}renderScanProgress(codes.length);pollScanProgress();})
      .catch(()=>toast("Could not start scan"));
   };
@@ -1037,15 +1302,21 @@ function pollScanProgress(){
   fetch("/api/scanprogress").then(r=>r.json()).then(p=>{
     const b=$("#scanlibbtn"),open=$("#scanmodal").classList.contains("on");
     if(p.running){
-      b.textContent=p.total?`⟳ ${p.done}/${p.total} (${p.hits}✓)`:`⟳ ${p.code||'working…'}`;b.disabled=true;
+      b.textContent=p.total?`⟳ ${p.phase==="fc2ppv-db"?"db ":""}${p.done}/${p.total} (${p.hits}✓)`:`⟳ ${p.code||'working…'}`;b.disabled=true;
       const st=$("#scStat"),fill=$("#scFill"),now=$("#scNow");
-      if(st&&p.total){st.textContent=`${p.done} / ${p.total} · ${p.hits} updated`;fill.style.width=(100*p.done/p.total)+"%";now.textContent=p.code||"";}
+      if(st&&p.total){st.textContent=`${p.phase==="fc2ppv-db"?"1 · fc2ppv-db · ":p.phase==="fc2db.net"?"2 · fc2db.net · ":p.phase==="titles"?"3 · 123av / ffjav · ":""}${p.done} / ${p.total} · ${p.hits} updated${p.absent?` · ${p.absent} not found`:""}${p.failed?` · ${p.failed} failed`:""}`;fill.style.width=(100*p.done/p.total)+"%";now.textContent=p.code||"";}
       else if(st){st.textContent=p.code||"working…";}
       scanPollTimer=setTimeout(pollScanProgress,1200);
     }else{
       b.disabled=false;b.textContent="⟳ Scan library";
+      if(p.error) toast(p.error);
       const st=$("#scStat");
-      if(st){st.textContent=`Done — ${p.hits||0} updated.`;const f=$("#scFill");if(f)f.style.width="100%";
+      if(st){st.textContent=(p.error?p.error
+        :`Done — ${p.hits||0} updated`+(p.absent?`, ${p.absent} not found on fc2ppv-db / fc2db.net`:"")
+          +(p.failed?`, ${p.failed} could not be read`:"")+".")
+        +(p.note?"  ⚠ "+p.note:"");
+        if(p.note)toast(p.note);
+        const f=$("#scFill");if(f)f.style.width="100%";
         const pa=$("#scanbox").querySelector(".pactions");if(pa)pa.innerHTML='<button class="btn pri" id="scDone">Close</button>';
         const d=$("#scDone");if(d)d.onclick=()=>$("#scanmodal").classList.remove("on");}
       reloadData();
@@ -1054,6 +1325,8 @@ function pollScanProgress(){
 }
 /* ---------------- settings ---------------- */
 let SET=null, SETTAB="library";
+// where a Vault Pro key is sold; [["Patreon","https://…"],["SubscribeStar","https://…"]]
+const PRO_LINKS=[["Patreon","https://www.patreon.com/c/ForfunAdventures"],["Get your key","https://vault-key.vaultkey.workers.dev/"]];
 function post2(url,body,cb){fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})}).then(r=>r.json()).then(cb).catch(()=>toast("Request failed"));}
 function fmtBytes(b){return b>1e9?(b/1e9).toFixed(1)+' GB':b>1e6?(b/1e6).toFixed(0)+' MB':b>1e3?(b/1e3).toFixed(0)+' KB':(b||0)+' B';}
 function openSettings(){
@@ -1066,7 +1339,7 @@ function refreshSettings(tab){if(tab)SETTAB=tab;
   fetch("/api/settings").then(r=>r.json()).then(j=>{SET=j;renderSettings();reloadData&&reloadData();});}
 function renderSettings(){
   const b=$("#setbox"),close=()=>$("#setmodal").classList.remove("on");
-  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"]];
+  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["license",SET.license&&SET.license.pro?"Pro ✓":"License"]];
   b.innerHTML=`<div class="orghd">Settings</div>
     <div class="settabs">${tabs.map(([t,l])=>`<div class="settab${SETTAB===t?' on':''}" data-t="${t}">${l}</div>`).join("")}</div>
     <div class="setpane" id="setpane"></div>
@@ -1074,10 +1347,10 @@ function renderSettings(){
   b.querySelectorAll(".settab").forEach(t=>t.onclick=()=>{SETTAB=t.dataset.t;renderSettings();});
   $("#setClose").onclick=close;
   const pane=$("#setpane");
-  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources}[SETTAB]||renderSetLibrary)(pane);
+  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,license:renderSetLicense}[SETTAB]||renderSetLibrary)(pane);
 }
 function applyUnits(u){setUnits(u);render();
-  if($("#modal").classList.contains("on")){const c=$("#modal").dataset.code,o=BYCODE.get(c);if(o)openPlayer(o);}}
+  if($("#modal").classList.contains("on")){const o=itemOf($("#modal"));if(o)openPlayer(o);}}
 function renderSetLibrary(pane){
   const c=SET.cache||{};
   pane.innerHTML=`
@@ -1087,6 +1360,15 @@ function renderSetLibrary(pane){
       <button data-u="metric" class="${UNITS!=='imperial'?'on':''}">Metric (cm)</button>
       <button data-u="imperial" class="${UNITS==='imperial'?'on':''}">Imperial (in)</button>
     </div>
+    <div class="setsec">Scene markers — training mode</div>
+    <div class="setnote"><b>Off</b> (default): scene markers are view-only — click to jump, hover, ⏮/⏭. <b>On</b>: in the player you can add markers (＋), move them (drag) and relabel or delete them (right-click a marker). Every change is saved as a <b>manual</b> marker in the movie's <code>.scenes.json</code> — training data for future models — and the analyzer never overwrites it.</div>
+    <div class="seg" id="trainSeg" style="width:max-content;flex:none">
+      <button data-on="0" class="${SET.training_mode?'':'on'}">Off</button>
+      <button data-on="1" class="${SET.training_mode?'on':''}">On</button>
+    </div>
+    ${SET.training_mode?`<div class="setnote" style="margin-top:12px"><b>Custom labels</b> — extra label types for the marker editor, next to the built-in list. You can also create one in the editor's label list via <b>＋ New label…</b>. Removing a label only takes it off the list; markers that use it keep it.</div>
+    <div>${(SET.custom_labels||[]).map(l=>`<span class="costar" style="cursor:default">${esc(l)} <b data-rmlabel="${esc(l)}" title="Remove from the list" style="cursor:pointer;margin-left:4px">×</b></span>`).join("")||'<span class="setnote">None yet.</span>'}</div>
+    <div style="display:flex;gap:8px;margin-top:8px"><input class="setin" id="newLabel" style="flex:1" maxlength="32" placeholder="new label, e.g. footjob"><button class="setbtn" id="newLabelAdd">Add label</button></div>`:''}
     <div class="setsec">Library source folder</div>
     <div class="setnote">The folder Vault scans for your movies. Changing it triggers a full re-scan.</div>
     <div style="display:flex;gap:8px"><input class="setin" id="libPath" style="flex:1" value="${esc(SET.library||'')}"><button class="setbtn" id="libSave">Save &amp; rescan</button></div>
@@ -1109,6 +1391,19 @@ function renderSetLibrary(pane){
       <button class="setbtn" id="rebuild">↻ Rebuild index now</button>
     </div>`;
   pane.querySelectorAll("#unitSeg button").forEach(bt=>bt.onclick=()=>{applyUnits(bt.dataset.u);renderSettings();});
+  pane.querySelectorAll("#trainSeg button").forEach(bt=>bt.onclick=()=>post2("/api/settraining",{on:bt.dataset.on==="1"},j=>{
+    if(j.error){toast(j.error);return;}
+    SET.training_mode=j.training_mode;renderSettings();
+    toast(j.training_mode?"Training mode on — markers are editable in the player":"Training mode off — markers are view-only");
+    if($("#modal").classList.contains("on")){const o=itemOf($("#modal"));if(o)openPlayer(o);}}));
+  const labelSaved=(j,msg)=>{if(j.error){toast(j.error);return;}
+    SET.custom_labels=j.custom_labels;SCENE_CUSTOM=j.custom_labels;toast(msg);renderSettings();};
+  const nl=$("#newLabel");
+  if(nl){const addLabel=()=>{const v=nl.value.trim();if(!v)return;
+      post2("/api/scenelabel",{op:"add",label:v},j=>labelSaved(j,j.existed?`“${j.label}” is already a label`:`Label “${j.label}” added`));};
+    $("#newLabelAdd").onclick=addLabel;nl.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addLabel();}};}
+  pane.querySelectorAll("[data-rmlabel]").forEach(x=>x.onclick=()=>
+    post2("/api/scenelabel",{op:"remove",label:x.dataset.rmlabel},j=>labelSaved(j,`Removed “${x.dataset.rmlabel}”`)));
   $("#libSave").onclick=()=>{const p=$("#libPath").value.trim();if(!p)return;
     post2("/api/setlibrary",{path:p},j=>{if(j.error){toast(j.error);return;}toast("Library set — rescanning…");});};
   $("#dlSave").onclick=()=>{const p=$("#dlPath").value.trim();if(!p)return;
@@ -1118,6 +1413,59 @@ function renderSetLibrary(pane){
   pane.querySelectorAll("[data-clear]").forEach(x=>x.onclick=()=>post2("/api/clearcache",{targets:[x.dataset.clear]},j=>{toast("Cleared "+(j.cleared||[]).join(", ")+" — rebuilding");}));
   $("#clearAll").onclick=()=>post2("/api/clearcache",{targets:["index","probe","thumbs"]},j=>toast("Cache cleared — rebuilding"));
   $("#rebuild").onclick=()=>{toast("Rebuilding…");fetch("/api/rescan").then(r=>r.json()).then(j=>{toast("Rebuilt: "+j.count+" items");reloadData();});};
+}
+function renderSetLicense(pane){
+  const L=SET.license||{},capped=!L.pro&&L.on_disk>L.limit;
+  const state={pro:`<b>Vault Pro</b> — valid through ${esc(L.expires||"")}.`,
+    free:`<b>Free version</b> — up to ${L.limit} movies.`,
+    expired:`<b>Your Pro key expired</b> on ${esc(L.expires||"")}. Vault is back to the free version.`,
+    invalid:`<b>The saved key is not valid</b> (${esc(L.error||"")}). Vault runs as the free version.`}[L.state]||"";
+  pane.innerHTML=`
+    <div class="setsec">Status</div>
+    <div class="setnote">${state}${capped?` Showing ${L.limit} of your ${L.on_disk} movies — the ones Vault saw first.`:""}</div>
+    <div class="setsec">Vault Pro</div>
+    <div class="setnote">Pro unlocks <b>your whole library</b> (no ${L.limit}-movie limit), <b>fc2ppv-db</b> lookups (actress, face, aliases, filmographies) and <b>Enrich from web</b> for actresses. Supporters also get the trained <b>scene model</b> that places markers automatically, and every improved model after it.${PRO_LINKS.length?" Get a key: "+PRO_LINKS.map(([n,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>`).join(" · "):""}</div>
+    <div class="setnote">The key is checked on this machine. Vault never contacts a license server, and a key holds no name or email address.</div>
+    <div style="display:flex;gap:8px"><input class="setin" id="licKey" style="flex:1" placeholder="VAULT1-…" autocomplete="off" spellcheck="false"><button class="setbtn" id="licSave">Activate</button>${L.state!=="free"?'<button class="setbtn danger" id="licDel">Remove key</button>':""}</div>
+    <div class="setsec">Scene model</div>
+    <div class="setnote" id="mdlNote">${L.pro?"Checking…":"The trained model that places scene markers automatically. With a Pro key active, the newest build downloads here with one click."}</div>
+    ${L.pro?'<div style="display:flex;gap:8px;align-items:center"><button class="setbtn" id="mdlGet" disabled>Download</button><span class="setnote" id="mdlProg" style="margin:0"></span></div>':""}
+    <div class="setnote">Markers are written by <b>vault-scene-tagger</b>, a separate command-line tool that finds the downloaded model on its own — see the user guide.</div>`;
+  const save=key=>post2("/api/license",{key},j=>{if(j.error){toast(j.error);return;}
+    toast(j.license.pro?"Vault Pro activated":"Key removed — back to the free version");refreshSettings("license");});
+  const k=$("#licKey");
+  $("#licSave").onclick=()=>{const v=k.value.trim();if(v)save(v);};
+  k.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();$("#licSave").click();}};
+  const del=$("#licDel");
+  if(del)del.onclick=()=>{if(confirm("Remove the key from this Vault? Keep a copy if you want to add it again."))save("");};
+  if(L.pro)renderModel();
+}
+// Settings → License → Scene model: installed vs. newest, one button, progress while it runs.
+let MDL_TIMER=null;
+function renderModel(){
+  clearTimeout(MDL_TIMER);
+  const api=(u,cb)=>fetch(u).then(r=>r.json()).then(cb).catch(()=>toast("Request failed"));
+  const note=$("#mdlNote"),btn=$("#mdlGet"),prog=$("#mdlProg");
+  if(!note||!btn)return;
+  const mb=n=>(n/1048576).toFixed(0)+" MB";
+  const show=m=>{
+    const lt=m.latest||{},p=m.progress||{},inst=m.installed;
+    if(p.running){
+      btn.disabled=true;btn.textContent="Downloading…";
+      prog.textContent=p.state==="downloading"&&p.total?`${mb(p.done)} of ${mb(p.total)}`:p.state;
+      MDL_TIMER=setTimeout(()=>api("/api/modelprogress",j=>show(Object.assign({latest:lt},j))),1000);return;
+    }
+    if(p.state==="error"){prog.textContent="Failed: "+p.error;}
+    else if(p.state==="done"){prog.textContent="Installed "+p.name;}
+    else prog.textContent="";
+    const have=inst?`Installed: <b>${esc(inst)}</b> in <code>${esc(m.dir||"")}</code>.`:"No model installed yet.";
+    if(lt.error){note.innerHTML=have+" "+esc(lt.error);btn.disabled=true;btn.textContent="Download";return;}
+    const upToDate=inst&&lt.name===inst;
+    note.innerHTML=`${have} Newest: <b>${esc(lt.name||"?")}</b> (${mb(lt.size||0)}${lt.published?", "+esc(lt.published.slice(0,10)):""}).${lt.notes?" "+esc(lt.notes):""}`;
+    btn.disabled=!!upToDate;btn.textContent=upToDate?"Up to date":inst?"Update to "+lt.name:"Download "+(lt.name||"");
+    btn.onclick=()=>{btn.disabled=true;post2("/api/model",{},j=>{if(j.error){toast(j.error);btn.disabled=false;return;}show(Object.assign({latest:lt},j.model));});};
+  };
+  api("/api/model",show);
 }
 function renderSetTags(pane){
   const rows=SET.tags||[];   // [{en, jp, count}]
@@ -1185,46 +1533,125 @@ function renderSetActresses(pane){
   };
 }
 function renderSetSources(pane){
+  // Four groups, in the order you set things up: the resolver (generic, no site), the sites
+  // that need a way past Cloudflare, the plain scrapers, and one "scan the library" that
+  // runs every enabled source — the same pipeline as the toolbar button, over everything.
   const src=(SET.sources||[]).map(s=>Object.assign({},s));
   const db=SET.fc2db||{};
+  const mode=db.mode==="flaresolverr"?"flaresolverr":"cookie";
+  const flareOn=mode==="flaresolverr";
+  const fcReady=flareOn?!!(db.solver&&db.reachable):!!db.connected;
+  const netI=src.findIndex(s=>s.name==="fc2db.net"), net=src[netI]||{};
+  const pill=(on,txt)=>on?`<span style="color:var(--good)">● ${txt}</span>`:`<span style="color:var(--dim2)">○ ${txt}</span>`;
   pane.innerHTML=`
-    <div class="setsec">fc2ppv-db.com — premium source ${db.connected?'<span style="color:var(--good)">● connected</span>':'<span style="color:var(--dim2)">○ not connected</span>'}</div>
-    <div class="setnote">Richest source (actress + face + aliases, JP title, dates, tags). It's behind a human-check, so the server rides <b>your</b> logged-in session: log in at <a href="https://fc2ppv-db.com/en/login" target="_blank" rel="noopener">fc2ppv-db.com</a> in a browser <b>on this machine</b>, then paste the cookie + user-agent below. Stored ${db.encrypted?'in the macOS Keychain (encrypted)':'in a local 0600 file'}.</div>
-    <textarea class="setin" id="fcCookie" style="width:100%;height:52px;box-sizing:border-box;font-family:ui-monospace,monospace;font-size:11px" placeholder="Cookie header — DevTools → Network → any fc2ppv-db request → Request Headers → cookie (includes cf_clearance + session)"></textarea>
-    <input class="setin" id="fcUA" style="width:100%;margin-top:6px;box-sizing:border-box;font-size:11px" placeholder="User-Agent — DevTools console: navigator.userAgent">
+    <div class="setsec">FlareSolverr ${db.solver?pill(db.reachable,db.reachable?"reachable":"not reachable"):pill(false,"not set")}</div>
+    <div class="setnote">A headless browser that gets past Cloudflare for the sites below. A
+      <b>separate program you install and run yourself</b> — Vault only talks to it. It must leave
+      through the <b>same public IP</b> as Vault, and must be on your own network (localhost or a
+      private address). <code>/v1</code> is optional.</div>
+    <input class="setin" id="slvUrl" style="width:100%;box-sizing:border-box;font-size:12px;margin-top:6px" placeholder="http://127.0.0.1:8191" value="${esc(db.solver||'')}" ${db.solver_locked?'disabled title="set by VAULT_FLARESOLVERR"':''}>
     <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="setbtn" id="fcSave">Save session</button>
-      <button class="setbtn" id="fcTest">Test connection</button>
-      ${db.connected?'<button class="setbtn" id="fcScanMiss">Scan missing →</button><button class="setbtn" id="fcScanAll">Scan all →</button>':''}
+      <button class="setbtn" id="slvSave" ${db.solver_locked?'disabled':''}>Save resolver</button>
+      <button class="setbtn" id="slvCheck">Check resolver</button>
     </div>
-    <div class="setnote" id="fcResult" style="margin-top:6px"></div>
+    <div class="setnote" id="slvResult" style="margin-top:6px"></div>
+
+    <div class="setsec">Sites behind Cloudflare</div>
+    <div class="setnote">These need a way past the check. Each says how Vault gets through.</div>
+
+    <div class="setcard">
+      <div class="sethd"><b>fc2ppv-db.com</b>${pill(fcReady,fcReady?"ready":"not ready")}</div>
+      <div class="setnote">The <b>primary</b> source for the cast — actress, face, aliases — plus JP title, date and tags.${SET.license&&!SET.license.pro?' <b>Vault Pro</b> — see Settings → License.':''}</div>
+      <div style="display:flex;gap:14px;margin:8px 0;flex-wrap:wrap">
+        <label><input type="radio" name="fcMode" value="flaresolverr" ${flareOn?'checked':''}> Through FlareSolverr (above)</label>
+        <label><input type="radio" name="fcMode" value="cookie" ${flareOn?'':'checked'}> Browser session (pasted cookie)</label>
+      </div>
+      <div id="fcCookieBox" style="${flareOn?'display:none':''}">
+        <div class="setnote">Log in at <a href="https://fc2ppv-db.com/en/login" target="_blank" rel="noopener">fc2ppv-db.com</a> in a browser <b>on this machine</b>, then paste the cookie and user-agent. Stored ${db.encrypted?'in the macOS Keychain (encrypted)':'in a local 0600 file'}.</div>
+        <textarea class="setin" id="fcCookie" style="width:100%;height:52px;box-sizing:border-box;font-family:ui-monospace,monospace;font-size:11px" placeholder="Cookie header — DevTools → Network → any fc2ppv-db request → Request Headers → cookie (includes cf_clearance + session)"></textarea>
+        <input class="setin" id="fcUA" style="width:100%;margin-top:6px;box-sizing:border-box;font-size:11px" placeholder="User-Agent — DevTools console: navigator.userAgent">
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="setbtn" id="fcSave">Save access</button>
+        <button class="setbtn" id="fcTest">Test</button>
+      </div>
+      <div class="setnote" id="fcResult" style="margin-top:6px"></div>
+    </div>
+
+    <div class="setcard">
+      <div class="sethd"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="srcen" data-i="${netI}" ${net.enabled?'checked':''}><b>fc2db.net</b></label>${pill(!!net.enabled,net.enabled?"on":"off")}</div>
+      <div class="setnote">Fills what is still empty — cover, JP title, date, seller, and often a performer fc2ppv-db lists as nobody. Fetched <b>directly</b>; uses FlareSolverr above only if Cloudflare or its 18+ page gets in the way.</div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="setbtn" id="netTest" ${net.enabled?'':'disabled'}>Test</button>
+      </div>
+      <div class="setnote" id="netResult" style="margin-top:6px"></div>
+    </div>
+
     <div class="setsec">Other sources</div>
-    <div class="setnote">Shell scrapers wired into the scanner. Toggle any on/off.</div>
-    <div id="srcList">${src.map((s,i)=>`<div class="setrow">
+    <div class="setnote">Plain web pages — no resolver needed. Unticking one skips it everywhere, saved immediately.</div>
+    <div id="srcList">${src.map((s,i)=>i===netI?'':`<div class="setrow">
        <input type="checkbox" class="srcen" data-i="${i}" ${s.enabled?'checked':''} title="enabled">
        <div class="grow"><b>${esc(s.name)}</b><div class="cnt" style="white-space:normal;margin-top:2px">${esc(s.url||'')}${s.provides?' — '+esc(s.provides):''}</div></div>
      </div>`).join("")}</div>
-    <div style="margin-top:12px"><button class="setbtn" id="srcSave">Save on/off changes</button></div>`;
+
+    <div class="setsec">Scan the library</div>
+    <div class="setnote">Every enabled source above, in priority order: fc2ppv-db → fc2db.net → 123av/ffjav —
+      the same as <b>Scan library</b> in the toolbar, over the whole library. Each source only fills what the
+      ones before it left empty. <b>Scan missing</b> skips pages already read; <b>Re-read everything</b>
+      asks both cast sites again.</div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="setbtn" id="allMiss">Scan missing →</button>
+      <button class="setbtn" id="allAll">Re-read everything →</button>
+    </div>`;
   const collect=()=>src.map((s,i)=>{const c=pane.querySelector(`.srcen[data-i="${i}"]`);return Object.assign({},s,{enabled:c?c.checked:s.enabled});});
-  $("#srcSave").onclick=()=>post2("/api/sourcesave",{sources:collect()},j=>{toast("Saved");refreshSettings("sources");});
-  $("#fcSave").onclick=()=>{const cookie=$("#fcCookie").value.trim(),ua=$("#fcUA").value.trim();
-    if(!cookie){toast("Paste the cookie header");return;}
-    post2("/api/fc2db/save",{cookie,ua},j=>{toast(j.ok?"Session saved"+(j.encrypted?" (Keychain)":""):"Save failed");refreshSettings("sources");});};
-  $("#fcTest").onclick=()=>{$("#fcResult").textContent="Testing…";
-    post2("/api/fc2db/test",{},j=>{
-      if(j.error){$("#fcResult").innerHTML='<span style="color:var(--accent)">'+esc(j.error)+'</span>';return;}
-      const d=j.data||{};
-      $("#fcResult").innerHTML=(j.ok?'<span style="color:var(--good)">✓ '+esc(j.note)+'</span>':'<span style="color:var(--warn)">⚠ '+esc(j.note)+'</span>')
-        +(d.title_jp?'<br>sample: '+esc(d.title_jp.slice(0,60))+(d.actresses&&d.actresses.length?' · 👤 '+esc((d.actresses[0].name||'')):''):'');
-    });};
-  const startFc=scope=>post2("/api/fc2db/scan",{scope},j=>{if(j.error){toast(j.error);return;}toast("Scanning "+j.count+" from fc2ppv-db…");$("#setmodal").classList.remove("on");pollScanProgress();});
-  if($("#fcScanMiss"))$("#fcScanMiss").onclick=()=>startFc("missing");
-  if($("#fcScanAll"))$("#fcScanAll").onclick=()=>startFc("all");
+  // a toggle that sits in its own card cannot wait for a Save button somewhere else
+  pane.querySelectorAll(".srcen").forEach(c=>c.onchange=()=>post2("/api/sourcesave",{sources:collect()},
+    ()=>{toast((src[+c.dataset.i]||{}).name+(c.checked?" on":" off"));refreshSettings("sources");}));
+  const modeNow=()=>{const r=pane.querySelector('input[name=fcMode]:checked');return r?r.value:'cookie';};
+  pane.querySelectorAll('input[name=fcMode]').forEach(r=>r.onchange=()=>{
+    $("#fcCookieBox").style.display=modeNow()==="flaresolverr"?"none":"";});
+  const say=(el,j)=>{el.innerHTML=j.error?'<span style="color:var(--accent)">'+esc(j.error)+'</span>'
+      :(j.ok?'<span style="color:var(--good)">✓ '+esc(j.note||'')+'</span>':'<span style="color:var(--warn)">⚠ '+esc(j.note||'')+'</span>');};
+  $("#slvSave").onclick=()=>{
+    const u=($("#slvUrl").value||"").trim();
+    // the URL only — fc2ppv-db's access choice is its own setting, in its own card
+    post2("/api/fc2db/save",{solver:u},j=>{if(j.error){toast(j.error);return;}toast(u?"Resolver saved":"Resolver cleared");refreshSettings("sources");});
+  };
+  $("#slvCheck").onclick=()=>{$("#slvResult").textContent="Asking the resolver…";post2("/api/solver/check",{},j=>say($("#slvResult"),j));};
+  $("#fcSave").onclick=()=>{
+    const m=modeNow(),body={mode:m};
+    if(m==="flaresolverr"&&!db.solver){toast("Save a resolver URL under FlareSolverr first");return;}
+    if(m==="cookie"){
+      body.cookie=$("#fcCookie").value.trim();body.ua=$("#fcUA").value.trim();
+      if(!body.cookie){toast("Paste the cookie header");return;}
+    }
+    post2("/api/fc2db/save",body,j=>{if(j.error){toast(j.error);return;}
+      toast(j.ok?(m==="flaresolverr"?"fc2ppv-db goes through FlareSolverr":"Session saved"+(j.encrypted?" (Keychain)":"")):"Save failed");
+      refreshSettings("sources");});
+  };
+  $("#fcTest").onclick=()=>{
+    if(modeNow()!==mode){toast("Save access first");return;}
+    $("#fcResult").textContent=mode==="flaresolverr"?"Solving the check… this can take half a minute.":"Testing…";
+    post2("/api/fc2db/test",{},j=>{const d=j.data||{};say($("#fcResult"),j);
+      if(d.title_jp)$("#fcResult").innerHTML+='<br>sample: '+esc(d.title_jp.slice(0,60))+(d.actresses&&d.actresses.length?' · 👤 '+esc(d.actresses[0].name||''):'');});
+  };
+  $("#netTest").onclick=()=>{
+    $("#netResult").textContent="Fetching one page…";
+    post2("/api/fc2dbnet/test",{},j=>{const d=j.data||{};say($("#netResult"),j);
+      if(d.title_jp)$("#netResult").innerHTML+='<br>sample: '+esc(d.title_jp.slice(0,60))+(d.cast&&d.cast.length?' · 👤 '+esc(d.cast.join(", ")):'');});
+  };
+  const startAll=scope=>post2("/api/scanall",{scope},j=>{if(j.error){toast(j.error);return;}
+    const passes=(j.fc2db?["fc2ppv-db"]:[]).concat(j.fc2dbnet?["fc2db.net"]:[]).concat(["123av/ffjav"]);
+    toast("Scanning "+j.count+" movies — "+passes.join(" → ")+(j.fc2db?"":" (fc2ppv-db skipped: "+(j.fc2db_why||"not ready")+")"));
+    $("#setmodal").classList.remove("on");pollScanProgress();});
+  $("#allMiss").onclick=()=>startAll("missing");
+  $("#allAll").onclick=()=>startAll("all");
 }
+
 function reloadData(done){
   fetch("/api/data").then(r=>r.json()).then(d=>{
     DATA=d;META={};ACTBYID={};ACTBYNAME={};
-    BYCODE.clear();DATA.items.forEach(it=>{BYCODE.set(it.code,it);it._rnd=Math.random();if(it.dur||it.h)META[it.code]={duration:it.dur,width:it.w,height:it.h,vcodec:it.vcodec};});
+    BYCODE.clear();BYUID.clear();DATA.items.forEach(it=>{BYCODE.set(it.code,it);BYUID.set(it.uid||it.code,it);it._rnd=Math.random();if(it.dur||it.h)META[it.code]={duration:it.dur,width:it.w,height:it.h,vcodec:it.vcodec};});
     DATA.actresses.forEach(a=>{if(a.id)ACTBYID[a.id]=a;if(a.name_en)ACTBYNAME[a.name_en.toLowerCase()]=a;});
     render();
     if(typeof done==="function")done();
@@ -1233,6 +1660,7 @@ function reloadData(done){
 function resetFilters(){
   F.q="";F.ident="all";F.showMissing=false;F.actress="";F.studio="";F.cups.clear();F.res.clear();F.tags.clear();
   F.ageMin=0;F.ageMax=99;F.durMin=0;F.durMax=999;F.hd=false;F.parts=false;F.watch="all";F.favonly=false;F.afavonly=false;F.uncensOnly=false;
+  F.aiTagged=false;F.manualTagged=false;F.noTags=false;F.toReview=false;
   F.sort="mtime";
   $("#q").value="";$("#sort").value="mtime";
   buildSidebar();
@@ -1253,11 +1681,17 @@ function filtered(){
          && !(it.actress||"").toLowerCase().includes(a)
          && !(it.aka||"").toLowerCase().includes(a)
          && !cast.some(n=>n===a||n.includes(a)))return false;}
-    if(F.studio&&it.producer!==F.studio)return false;
+    // partial, case-insensitive — like the actress box. An exact-match test emptied the grid
+    // on every keystroke until the typed text happened to equal a producer name in full.
+    if(F.studio&&!(it.producer||"").toLowerCase().includes(F.studio.toLowerCase()))return false;
     if(F.favonly&&!STORE.fav.has(it.code))return false;
     if(F.afavonly&&!isActressFav(it))return false;
     if(F.watch==="un"&&STORE.seen.has(it.code))return false;
     if(F.watch==="seen"&&!STORE.seen.has(it.code))return false;
+    if(F.aiTagged&&!it.to_review)return false;           // a PART nobody has opened yet
+    if(F.manualTagged&&!it.manual_tags)return false;     // has markers you made/confirmed
+    if(F.noTags&&(it.ai_tags||it.manual_tags))return false;
+    if(F.toReview&&!it.ai_tags)return false;    // any AI marker left anywhere = work outstanding
     if(F.fmt!=="all"&&it.ext!==F.fmt)return false;
     if(F.cups.size&&!F.cups.has(it.cup))return false;
     if(F.parts&&it.nparts<2)return false;
@@ -1354,7 +1788,9 @@ function render(){
     items=[...items.filter(hit),...items.filter(it=>!hit(it))];}
   const nMiss=items.filter(i=>i.missing).length;
   SELORDER=items.map(i=>i.code);                 // display order for shift-range selection
-  $("#stat").innerHTML=`<b>${items.length}</b> of ${DATA.facets.total}${nMiss?` <span style="color:var(--warn)">(${nMiss}◇)</span>`:''} · <b>${fmtSize(items.reduce((s,i)=>s+i.size,0))}</b>`;
+  const L=DATA.license||{},capped=!L.pro&&L.on_disk>L.limit;
+  $("#stat").innerHTML=`<b>${items.length}</b> of ${DATA.facets.total}${nMiss?` <span style="color:var(--warn)">(${nMiss}◇)</span>`:''} · <b>${fmtSize(items.reduce((s,i)=>s+i.size,0))}</b>${capped?` · <a href="#" id="freecap" style="color:var(--warn)" title="The free version shows ${L.limit} movies. Vault Pro shows the whole library.">Free: ${L.limit} of ${L.on_disk}</a>`:''}`;
+  const fc=$("#freecap");if(fc)fc.onclick=e=>{e.preventDefault();SETTAB="license";openSettings();};
   const grid=$("#grid");
   $("#colbtn").style.display=F.view==="list"?"":"none";
   if(F.view!=="list")$("#colmenu").classList.remove("on");
@@ -1375,7 +1811,7 @@ function renderList(items,grid){
   tb.onclick=e=>{
     if(e.target.closest(".stars"))return;   // let star clicks rate, not open
     const r=e.target.closest(".lrow");if(!r)return;
-    const o=BYCODE.get(r.dataset.code);if(o)handleItemClick(o,e);};
+    const o=itemOf(r);if(o)handleItemClick(o,e);};
   const rowHTML=it=>`<tr class="lrow${it.missing?' lmiss':''}" data-code="${esc(it.code)}">${
     cols.map(c=>`<td class="col-${c.k}">${c.html?c.html(it):esc(c.get(it))}</td>`).join("")}</tr>`;
   const jobs=[];
@@ -1394,6 +1830,18 @@ function buildColMenu(){
     F.cols=COLS.map(c=>c.k).filter(x=>x===k?chk.checked:F.cols.includes(x));
     try{localStorage.setItem("vault_cols",JSON.stringify(F.cols));}catch(e){}
     render();});
+}
+// Why is there no performer? Without this, "fc2ppv-db has nobody for this code" and "nobody
+// has ever asked fc2ppv-db" are the same blank — and an unexplained blank reads like the
+// resolver is broken. 64 of the 519 unidentified movies are the former.
+function fc2dbStatusLine(it){
+  // Two cast sources now. Say what each has said, so "no performer" is never a mystery and
+  // never a reason to stop: fc2db.net often names someone fc2ppv-db lists as nobody.
+  if(it.missing)return '';
+  const a=it.fc2db_at, n=it.fc2dbnet_at;
+  if(a&&n)return `<div class="fc2st" title="fc2ppv-db read ${esc(a)} · fc2db.net read ${esc(n)}">no performer listed on fc2ppv-db or fc2db.net</div>`;
+  if(!a&&!n)return `<div class="fc2st todo" title="Neither cast source has been asked — run Scan metadata">fc2ppv-db · fc2db.net · not checked yet</div>`;
+  return `<div class="fc2st todo" title="${a?'fc2ppv-db read '+esc(a):'fc2db.net read '+esc(n)}">${a?'fc2ppv-db lists nobody':'fc2db.net lists nobody'} · ${a?'fc2db.net':'fc2ppv-db'} not checked yet</div>`;
 }
 function renderByActress(items,grid){
   const groups=new Map();
@@ -1500,6 +1948,7 @@ function openActressModal(name){
       </div>
       ${(a&&a.id)?`<button class="nedit afavbtn${STORE.afav.has(String(a.id))?' on':''}" id="aefav" title="Favorite actress">♥</button>`:''}
       ${(a&&a.id)?'<button class="nedit" id="aedit" title="Edit actress info">✎</button>':''}
+      ${(a&&a.id)?'<button class="nedit pbtn-danger" id="aedelete" title="Delete actress and her movies">🗑</button>':''}
       <span class="aclose" title="Close (Esc)">×</span>
     </div>
     <div class="abody">
@@ -1513,6 +1962,7 @@ function openActressModal(name){
   {const eb=b.querySelector("#aedit");if(eb&&a)eb.onclick=()=>editActressProfile(a);}
   {const fb=b.querySelector("#aefav");if(fb&&a)fb.onclick=()=>{const on=toggleAfav(a.id);fb.classList.toggle('on',on);
     if(F.view==="actress")render();};}
+  {const db=b.querySelector("#aedelete");if(db&&a)db.onclick=()=>deleteActress(a);}
   b.querySelectorAll(".rel").forEach(r=>r.onclick=()=>{
     const code=r.dataset.code;
     if(r.dataset.ghost==="1"){
@@ -1589,11 +2039,20 @@ function cardTags(it){
     .map(t=>`<span>${esc(t)}</span>`).join("");
 }
 function card(it){
-  const el=document.createElement("div");el.className="card";el.dataset.code=it.code;
+  const el=document.createElement("div");el.className="card";el.dataset.code=it.code;el.dataset.uid=it.uid||it.code;
   if(it.missing)return ghostCard(it,el);
   const parts=it.nparts>1?`<span class="bdg parts">${it.nparts}×</span>`:"";
   const cens=it.uncensored===false?'<span class="bdg cens">CENSORED</span>':"";
   const nm=it.identified?esc(it.actress):esc(it.code);
+  // When an actress filter matched a CO-STAR, the card still shows the lead — which reads like a
+  // wrong result. Name the co-star that matched so the card explains itself.
+  let costar="";
+  if(F.actress&&F.actress!=="all"){
+    const a=F.actress.toLowerCase();
+    const hit=(it.actresses||[]).find(x=>(x.disp||"").toLowerCase()===a);
+    if(hit&&(it.actress||"").toLowerCase()!==a&&(it.actress_jp||"").toLowerCase()!==a)
+      costar=`<div class="costar">with ${esc(hit.disp)}</div>`;
+  }
   const codeline=it.identified?esc(it.code)+(it.actress_jp?" · "+esc(it.actress_jp):""):esc(it.ext.toUpperCase()+" · "+fmtSize(it.size));
   const tags=cardTags(it);
   const isfav=STORE.fav.has(it.code),seen=STORE.seen.has(it.code);
@@ -1603,13 +2062,14 @@ function card(it){
      <button class="mark${seen?' on':''}" title="Played / mark unplayed">✓</button>
      <button class="fav${isfav?' on':''}" title="Favorite">♥</button>
    </div>
-   <div class="thumb" data-code="${esc(it.code)}">
+   <div class="thumb" data-code="${esc(it.code)}" data-uid="${esc(it.uid||it.code)}">
      <div class="ph">loading…</div>
      <div class="badges">${parts}<span class="bdg res" style="display:none"></span><span class="bdg dur" style="display:none"></span>${cens}</div>
      <div class="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
    </div>
    <div class="meta">
      <div class="a ${it.identified?'':'unk'}">${nm}</div>
+     ${costar}
      <div class="c">${codeline}</div>
      ${it.title_en?`<div class="ctitle">${esc(it.title_en)}</div>`:''}
      ${tags?`<div class="tags">${tags}</div>`:''}
@@ -1657,10 +2117,25 @@ function renderBulkBar(){
     bar.innerHTML=`<span class="bcount"></span>
       <input class="bulk-in" id="bulkAct" list="actressList" placeholder="assign actress (name)…" autocomplete="off">
       <button class="btn pri" id="bulkApply">Assign actress</button>
+      <button class="btn danger" id="bulkDelete" title="Move selected movies to Trash">🗑 Delete</button>
       <button class="btn" id="bulkClear">Clear</button>`;
     document.body.appendChild(bar);
     $("#bulkAct").onkeydown=e=>{if(e.key==="Enter")$("#bulkApply").click();if(e.key==="Escape")clearSel();};
     $("#bulkClear").onclick=clearSel;
+    $("#bulkDelete").onclick=()=>{
+      const codes=[...SEL];if(!codes.length)return;
+      const owned=codes.map(c=>BYCODE.get(c)).filter(x=>x&&!x.missing);
+      const bytes=owned.reduce((s,x)=>s+(x.size||0),0);
+      confirmDanger({title:`Delete ${codes.length} movie${codes.length>1?'s':''}?`,
+        body:`${codes.length} selected movie${codes.length>1?'s':''}${bytes?` (<b>${fmtSize(bytes)}</b>)`:''} will be <b>moved to a recoverable trash</b> and removed from the catalog.<br><span class="warn">Not permanently deleted — restorable from your Trash / the library's _vault_trash folder.</span>`,
+        confirmLabel:"Move to Trash",
+        onConfirm:async()=>{
+          const j=await (await fetch("/api/deletemovie",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codes})})).json();
+          if(j.error) throw new Error(j.error);
+          toast(`Moved ${j.deleted} movie${j.deleted>1?'s':''} to Trash`);
+          clearSel();await loadUserData();reloadData(refreshFavCounts);
+        }});
+    };
     $("#bulkApply").onclick=()=>{
       const name=$("#bulkAct").value.trim();if(!name){toast("Enter an actress name");return;}
       const codes=[...SEL],ab=$("#bulkApply");ab.disabled=true;ab.textContent="Saving…";
@@ -1698,14 +2173,14 @@ function wireThumbs(){
     io=new IntersectionObserver((es)=>{
       es.forEach(e=>{
         if(!e.isIntersecting)return;
-        const t=e.target,code=t.dataset.code;
+        const t=e.target,code=t.dataset.code,uid=t.dataset.uid||code;
         io.unobserve(t);
         const img=new Image();
         img.onload=()=>{t.innerHTML="";
           img.style.width="100%";img.style.height="100%";img.style.objectFit="cover";
           t.appendChild(img);t.appendChild(badgeEl(code));t.appendChild(playEl());applyMeta(code);};
         img.onerror=()=>{t.querySelector(".ph")&&(t.querySelector(".ph").textContent="no preview");};
-        img.src="/thumb/"+encodeURIComponent(code)+".jpg";
+        img.src="/thumb/"+encodeURIComponent(uid)+".jpg";
         if(META[code]===undefined){THPEND.add(code);clearTimeout(thTimer);thTimer=setTimeout(flushMeta,120);}
       });
     },{root:$("#main"),rootMargin:"400px"});
@@ -1828,7 +2303,32 @@ function openPlayer(it){
     ? `<div class="p-stage p-missing">${it.cover?`<img class="pm-cover" src="${esc(it.cover)}" referrerpolicy="no-referrer">`:''}<div class="pm-box"><div class="pm-ico">◇</div><div class="pm-t">Not in your library</div><div class="pm-s">Part of ${esc(it.actress||"this")} filmography — wishlist</div><div class="pm-code">${esc(it.code)}</div></div></div>`
     : (isHevc(it)&&!HEVC_OK)
     ? `<div class="p-stage p-missing"><div class="pm-box"><div class="pm-ico">▶</div><div class="pm-t">HEVC / H.265 video</div><div class="pm-s">This browser can't decode HEVC. Open it in your external player (or view in Safari).</div><button class="btn pri" id="hevcopen" style="margin-top:14px">▶ Open in external player</button></div></div>`
-    : `<div class="p-stage"><video controls autoplay playsinline preload="auto" src="/video/${encodeURIComponent(it.code)}${(it.parts||[]).length>1?'?part=0':''}"></video></div>`;
+    : `<div class="p-stage"><div class="pv-wrap" id="pvwrap">
+        <video autoplay playsinline preload="auto" src="/video/${encodeURIComponent(it.uid||it.code)}${(it.parts||[]).length>1?'?part=0':''}"></video>
+        <div class="pv-now" id="pvnow"></div>
+        <div class="pv-ed" id="pved" hidden></div>
+        <div class="pv-menu" id="pvmenu" hidden></div>
+        <div class="pv-skip" id="pvskip"></div>
+        <div class="pv-ctrl">
+          <button class="pv-btn" id="pvprev" title="Previous scene (no scenes: back 10 s)">${PV_ICON.prev}</button>
+          <button class="pv-btn" id="pvplay" title="Play / pause (space)">${PV_ICON.pause}</button>
+          <button class="pv-btn" id="pvnext" title="Next scene (no scenes: forward 30 s)">${PV_ICON.next}</button>
+          <span class="pv-time" id="pvcur">0:00</span>
+          <div class="pv-seek" id="pvseek">
+            <div class="pv-chips" id="pvchips"></div>
+            <div class="pv-track"></div><div class="pv-buf" id="pvbuf"></div>
+            <div class="pv-fill" id="pvfill"></div><div class="pv-mklayer" id="pvmk"></div>
+            <div class="pv-handle" id="pvhandle"></div>
+            <div class="pv-thumb" id="pvthumb"></div><div class="pv-tip" id="pvtip"></div>
+          </div>
+          <span class="pv-time" id="pvdur">0:00</span>
+          <button class="pv-btn" id="pvadd" title="Add a scene marker at the playhead">${PV_ICON.plus}</button>
+          <button class="pv-btn" id="pvmute" title="Mute (m)">${PV_ICON.volume}</button>
+          <button class="pv-btn" id="pvtheater" title="Theater mode — widen the video (t)">${PV_ICON.theater}</button>
+          <button class="pv-btn" id="pvfs" title="Fullscreen (f)">${PV_ICON.fullscreen}</button>
+          <button class="pv-btn" id="pvclose" title="Close (Esc)">${PV_ICON.close}</button>
+        </div>
+      </div></div>`;
   const seenBtn=it.missing?"":`<button class="btn${seen?' on':''}" id="pseen">${seen?'✓ Played':'○ Mark played'}</button>`;
   const playActions=it.missing?"":`
       <div class="pactions">
@@ -1845,7 +2345,7 @@ function openPlayer(it){
           ${it.identified&&it.actress_en&&it.actress_jp?`<div class="jp">${esc(it.actress_jp)}</div>`:''}
           <div class="code">${esc(it.code)}</div>
           ${(()=>{const o=(it.actresses||[]).filter(a=>a.disp&&(a.role?a.role!=='main':a.disp!==it.actress));return o.length?`<div class="costars"><span class="costars-lbl">co-stars</span> ${o.map(a=>`<span class="costar" data-name="${esc(a.disp)}" title="See ${esc(a.disp)}">${esc(a.disp)}</span>`).join("")}</div>`:'';})()}
-          ${it.identified?actressStatsLine(it):''}
+          ${it.identified?actressStatsLine(it):fc2dbStatusLine(it)}
           ${it.title_en?`<div class="entitle">${esc(it.title_en)}</div>`:''}
           ${it.title?`<div class="jp mjp">${esc(it.title)}</div>`:''}
         </div>
@@ -1868,10 +2368,11 @@ function openPlayer(it){
       <div class="pactions"><button class="btn" id="pscan" title="Fetch title / cover / tags from web sources">⟳ Scan metadata</button></div>
       <h4 class="sec">Your rating</h4>
       <div class="prate">${starsHTML(it.code)}</div>
+      <div class="pactions"><button class="btn pbtn-danger" id="pdelete" title="${it.missing?'Remove this wishlist entry':'Move files to Trash and remove from catalog'}">🗑 ${it.missing?'Remove from wishlist':'Delete movie'}</button></div>
     </div>`;
   buildPlayerTabs(p,it);
   m.classList.add("on");
-  m.dataset.code=it.code;
+  m.dataset.code=it.code;m.dataset.uid=it.uid||it.code;
   p.querySelector(".close").onclick=closePlayer;
   p.querySelector("#nedit").onclick=()=>editActress(it);
   {const rb=p.querySelector("#nreassign");if(rb)rb.onclick=()=>reassignActress(it);}
@@ -1879,8 +2380,8 @@ function openPlayer(it){
   p.querySelector("#pfav").classList.toggle("on",isfav);
   if(isfav)p.querySelector("#pfav").style.color="var(--accent)";
   const hh=p.querySelector("h2.link");if(hh)hh.onclick=()=>openActressModal(it.actress);
-  const ob=p.querySelector('[data-act="open"]');if(ob)ob.onclick=()=>post("/api/open",it.code,"Opening in player…");
-  const rb=p.querySelector('[data-act="reveal"]');if(rb)rb.onclick=()=>post("/api/reveal",it.code,"Revealing in Finder…");
+  const ob=p.querySelector('[data-act="open"]');if(ob)ob.onclick=()=>post("/api/open",it.uid||it.code,"Opening in player…");
+  const rb=p.querySelector('[data-act="reveal"]');if(rb)rb.onclick=()=>post("/api/reveal",it.uid||it.code,"Revealing in Finder…");
   p.querySelector("#pfav").onclick=e=>{toggleFav(it.code,e.currentTarget);
     e.currentTarget.innerHTML=STORE.fav.has(it.code)?'♥ Favorited':'♡ Favorite';
     e.currentTarget.style.color=STORE.fav.has(it.code)?'var(--accent)':'';};
@@ -1904,24 +2405,41 @@ function openPlayer(it){
         const c=j.item||{};
         it.title=c.title;it.title_en=c.title_en;it.release=c.release;it.cover=c.cover;it.tags=c.tags||it.tags;delete it._hay;
         const di=BYCODE.get(it.code);if(di){Object.assign(di,{title:c.title,title_en:c.title_en,release:c.release,cover:c.cover,tags:c.tags});delete di._hay;}
-        toast(Object.keys(j.changed||{}).length?"Updated: "+Object.keys(j.changed).join(", "):"No new data found");
-        openPlayer(it);
+        const fields=Object.keys(j.changed||{});
+        // the note travels WITH the fields now: "Updated: title" used to swallow the half of
+        // the click that was refused or came back empty
+        const head=j.fc2db_hit?("Updated"+(fields.length?": "+fields.join(", "):" from the web"))
+                  :fields.length?"Updated: "+fields.join(", "):"No new data found";
+        toast(j.note?head+" · "+j.note:head);
+        // the fc2ppv-db pass writes the cast straight to the catalog, so the whole item has
+        // to come back from the server — patching the four title fields is not enough
+        if(j.fc2db_hit)reloadData(()=>{const fresh=BYCODE.get(it.code)||it;openPlayer(fresh);});
+        else{
+          // a clean "not in fc2ppv-db" stamps fc2db_at server-side; without this the panel
+          // kept claiming "not checked yet" until some unrelated action reloaded the grid
+          const di=BYCODE.get(it.code), nt=j.note||"";
+          if(nt.includes("not in fc2ppv-db")){it.fc2db_at=it.fc2db_at||"just now";if(di)di.fc2db_at=it.fc2db_at;}
+          if(nt.includes("not on fc2db.net")){it.fc2dbnet_at=it.fc2dbnet_at||"just now";if(di)di.fc2dbnet_at=it.fc2dbnet_at;}
+          openPlayer(it);
+        }
       }).catch(()=>{toast("Scan failed");b.textContent="⟳ Scan metadata";b.disabled=false;});
   };
-  const ho=p.querySelector("#hevcopen");if(ho)ho.onclick=()=>post("/api/open",it.code,"Opening in player…");
+  const ho=p.querySelector("#hevcopen");if(ho)ho.onclick=()=>post("/api/open",it.uid||it.code,"Opening in player…");
   const ps=p.querySelector("#pmSukebei");if(ps)ps.onclick=()=>sukebei(it.code);
+  {const db=p.querySelector("#pdelete");if(db)db.onclick=()=>deleteMovie(it);}
+  if(!it.missing)setupScenes(p,it);
   bindTagEditor(it);
   bindStars(p);
   // related nav + keep the current one in view
   p.querySelectorAll(".p-related .rel:not(.cur)").forEach(r=>r.onclick=()=>{
-    const o=BYCODE.get(r.dataset.code);if(o)openPlayer(o);});
+    const o=itemOf(r);if(o)openPlayer(o);});
   const curEl=p.querySelector(".p-related .rel.cur");if(curEl)curEl.scrollIntoView({block:"nearest"});
   // multi-part playback: click a part to play it; auto-advance when one ends
   const vid=p.querySelector(".p-stage video");
   if(vid&&(it.parts||[]).length>1){
     let curPart=0;
     const playPart=idx=>{curPart=idx;
-      vid.src="/video/"+encodeURIComponent(it.code)+"?part="+idx;vid.play().catch(()=>{});
+      vid.src="/video/"+encodeURIComponent(it.uid||it.code)+"?part="+idx;vid.play().catch(()=>{});
       p.querySelectorAll(".prt").forEach(x=>x.classList.toggle("cur",+x.dataset.part===idx));};
     p.querySelectorAll(".prt").forEach(el=>el.onclick=()=>playPart(+el.dataset.part));
     vid.addEventListener("ended",()=>{if(curPart+1<it.parts.length)playPart(curPart+1);});
@@ -1980,6 +2498,468 @@ function updateCardTags(it){
 // Move ONE movie to another actress (for a misgrouped/misfoldered title). Unlike the edit
 // form — which renames the currently-linked actress — this relinks only this movie, via the
 // same safe find-or-create path the multi-select bulk-assign uses (never renames anyone).
+/* -------- scene markers (timeline + jump-list + manual add/edit) -------- */
+// acts + positions (SCENES_SPEC §4 state/structure labels are not used); older markers with other labels still display
+const SCENE_VOCAB=[
+  "fingering","blowjob","titjob","toy","creampie",
+  "missionary","doggy","cowgirl","standing",
+  "scoop-up"];
+let SCENE_CUSTOM=[];   // user-defined labels (Settings → training mode); refreshed from /api/markers
+const _SCN_POS=new Set(["missionary","doggy","cowgirl","standing","scoop-up"]);
+const _SCN_STATE=new Set(["clothed","undressing","topless","nude"]);
+const _SCN_STRUCT=new Set(["scene","intro","outro","talk"]);
+function labelColor(l){l=(l||"").toLowerCase();
+  if(_SCN_STRUCT.has(l))return"#8b90a6"; if(_SCN_STATE.has(l))return"#38bdf8";
+  if(_SCN_POS.has(l))return"#a78bfa"; if(l&&!SCENE_VOCAB.includes(l))return"#fbbf24"; return"#f472b6";}
+// Scene marker icons — original SVG set (24px, currentColor so each takes its
+// category color). Sourced from icons-svg.zip; a stroke is added so the open line
+// paths (limbs/splash) render alongside the filled shapes.
+const MARKER_ICONS={
+  "69":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"8\" cy=\"8\" r=\"3\"/> <circle cx=\"16\" cy=\"16\" r=\"3\"/> <path d=\"M11 8c2 0 3 2 3 4M13 16c-2 0-3-2-3-4\"/> <path d=\"M8 11v2M16 13v-2\"/></svg>',
+  "anal":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"6\" r=\"3\"/> <path d=\"M9 10h6v3c0 1-1 2-3 2s-3-1-3-2v-3z\"/> <ellipse cx=\"12\" cy=\"17\" rx=\"3\" ry=\"2\"/> <path d=\"M12 15v4\" stroke=\"currentColor\" stroke-width=\"1.5\" fill=\"none\"/></svg>',
+  "blowjob":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"7\" r=\"3\"/> <path d=\"M8 11c0 3 1.5 5 4 6.5 2.5-1.5 4-3.5 4-6.5\"/> <ellipse cx=\"12\" cy=\"18\" rx=\"3\" ry=\"1.5\"/></svg>',
+  "clothed":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"6\" r=\"3\"/> <path d=\"M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2\"/> <path d=\"M9 12h6\" stroke=\"currentColor\" stroke-width=\"1.5\" fill=\"none\"/></svg>',
+  "cowgirl":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"4\" r=\"2\"/> <circle cx=\"12\" cy=\"14\" r=\"2\"/> <path d=\"M9 7h6v4H9z\"/> <path d=\"M10 11h4v3h-4z\"/> <path d=\"M8 17h8\"/> <path d=\"M10 17v3M14 17v3\"/></svg>',
+  "creampie":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 6h8v4c0 3-2 6-4 8-2-2-4-5-4-8V6z\"/> <circle cx=\"12\" cy=\"10\" r=\"2\"/> <path d=\"M10 14h4\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg>',
+  "cumshot":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"14\" r=\"4\"/> <path d=\"M12 4v4M8 6l2 3M16 6l-2 3M6 10l3 2M18 10l-3 2\"/></svg>',
+  "cunnilingus":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 4c-3 0-5 2-5 5 0 2 1 3.5 2.5 4.5L12 16l2.5-2.5C16 12.5 17 11 17 9c0-3-2-5-5-5z\"/> <ellipse cx=\"12\" cy=\"19\" rx=\"4\" ry=\"2\"/></svg>',
+  "deepthroat":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"5\" r=\"2.5\"/> <path d=\"M9 8c-1 2-1 5 0 7h6c1-2 1-5 0-7\"/> <path d=\"M10 15v4M14 15v4\"/> <path d=\"M9 19h6\"/></svg>',
+  "doggy":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"7\" cy=\"8\" r=\"2\"/> <circle cx=\"16\" cy=\"6\" r=\"2\"/> <path d=\"M5 11h5v5H5z\"/> <path d=\"M14 9h4v4h-4z\"/> <path d=\"M10 13h4\"/> <path d=\"M7 16v3M16 13v5\"/> <path d=\"M5 19h5M14 18h4\"/></svg>',
+  "facial":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"10\" r=\"6\"/> <circle cx=\"9.5\" cy=\"9\" r=\"1\"/> <circle cx=\"14.5\" cy=\"9\" r=\"1\"/> <path d=\"M9 13c1 1.5 2 2 3 2s2-.5 3-2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\"/> <path d=\"M8 4l1 2M12 3v2M16 4l-1 2\"/></svg>',
+  "fingering":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 8h2v10H6z\"/> <path d=\"M9 6h2v12H9z\"/> <path d=\"M12 8h2v10h-2z\"/> <path d=\"M15 10h2v8h-2z\"/> <circle cx=\"12\" cy=\"4\" r=\"1.5\"/></svg>',
+  "foreplay":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 12c0-2 1-4 3-5 1 2 2 3 3 3s2-1 3-3c2 1 3 3 3 5 0 3-2 5-6 5s-6-2-6-5z\"/> <circle cx=\"10\" cy=\"11\" r=\"1\"/> <circle cx=\"14\" cy=\"11\" r=\"1\"/></svg>',
+  "handjob":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 6c0-1 1-2 2-2h4c1 0 2 1 2 2v4\"/> <path d=\"M7 10h10v2c0 2-2 3-5 3s-5-1-5-3v-2z\"/> <path d=\"M10 15v4M14 15v4\"/></svg>',
+  "intro":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/> <path d=\"M10 8l6 4-6 4V8z\"/></svg>',
+  "kissing":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 10c0-2 1.5-3.5 4-3.5s4 1.5 4 3.5c0 1-0.5 2-1.5 2.5L12 15l-2.5-2.5C8.5 12 8 11 8 10z\"/> <path d=\"M7 9c-1-1-1-2.5 0-3.5M17 9c1-1 1-2.5 0-3.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\"/></svg>',
+  "masturbation":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"6\" r=\"3\"/> <path d=\"M9 10h6v2c0 1.5-1 2.5-3 2.5s-3-1-3-2.5V10z\"/> <path d=\"M10 15c0 2 1 4 2 5 1-1 2-3 2-5\"/></svg>',
+  "missionary":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"9\" cy=\"5\" r=\"2\"/> <circle cx=\"15\" cy=\"5\" r=\"2\"/> <path d=\"M7 8h4v8H7z\"/> <path d=\"M13 8h4v5h-4z\"/> <path d=\"M9 16v3M15 13v6\"/> <path d=\"M7 19h4M13 19h4\"/></svg>',
+  "nude":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"5\" r=\"2.5\"/> <path d=\"M9 9h6v3c0 1-1 2-3 2s-3-1-3-2V9z\"/> <path d=\"M10 14v6M14 14v6\"/> <path d=\"M8 20h8\"/></svg>',
+  "outro":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/> <rect x=\"9\" y=\"8\" width=\"2.5\" height=\"8\" rx=\"0.5\"/> <rect x=\"12.5\" y=\"8\" width=\"2.5\" height=\"8\" rx=\"0.5\"/></svg>',
+  "reverse-cowgirl":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"4\" r=\"2\"/> <circle cx=\"12\" cy=\"14\" r=\"2\"/> <path d=\"M9 7h6v4H9z\"/> <path d=\"M10 11h4v3h-4z\"/> <path d=\"M8 17h8\"/> <path d=\"M9 17l-2 3M15 17l2 3\"/></svg>',
+  "scene":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"1\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/> <rect x=\"5\" y=\"6\" width=\"14\" height=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\"/> <circle cx=\"8\" cy=\"18\" r=\"1\"/> <circle cx=\"12\" cy=\"18\" r=\"1\"/> <circle cx=\"16\" cy=\"18\" r=\"1\"/></svg>',
+  "sex":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"8\" cy=\"7\" r=\"2.5\"/> <circle cx=\"16\" cy=\"7\" r=\"2.5\"/> <path d=\"M6 11h4v6H6z\"/> <path d=\"M14 11h4v6h-4z\"/> <path d=\"M10 14h4\"/></svg>',
+  "sideways":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"6\" cy=\"10\" r=\"2\"/> <circle cx=\"18\" cy=\"10\" r=\"2\"/> <path d=\"M4 13h5v4H4z\"/> <path d=\"M15 13h5v4h-5z\"/> <path d=\"M9 15h6\"/> <path d=\"M6 17v2M18 17v2\"/></svg>',
+  "spooning":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"7\" cy=\"8\" r=\"2\"/> <circle cx=\"14\" cy=\"8\" r=\"2\"/> <path d=\"M5 11h5v6H5z\"/> <path d=\"M12 11h5v6h-5z\"/> <path d=\"M10 14h2\"/> <path d=\"M7 17v2M14 17v2\"/></svg>',
+  "standing":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"8\" cy=\"4\" r=\"2\"/> <circle cx=\"16\" cy=\"4\" r=\"2\"/> <path d=\"M6 7h4v10H6z\"/> <path d=\"M14 7h4v10h-4z\"/> <path d=\"M10 12h4\"/> <path d=\"M8 17v3M16 17v3\"/></svg>',
+  "talk":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z\"/> <circle cx=\"9\" cy=\"11\" r=\"1\"/> <circle cx=\"12\" cy=\"11\" r=\"1\"/> <circle cx=\"15\" cy=\"11\" r=\"1\"/></svg>',
+  "titjob":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"8\" cy=\"9\" r=\"3.5\"/> <circle cx=\"16\" cy=\"9\" r=\"3.5\"/> <path d=\"M10 13c0 2 1 4 2 5 1-1 2-3 2-5\"/> <ellipse cx=\"12\" cy=\"19\" rx=\"2\" ry=\"1\"/></svg>',
+  "topless":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"5\" r=\"2.5\"/> <path d=\"M8 9c0 0 1 3 4 3s4-3 4-3\"/> <path d=\"M7 12v6a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-6\"/> <circle cx=\"9.5\" cy=\"13\" r=\"1.2\"/> <circle cx=\"14.5\" cy=\"13\" r=\"1.2\"/></svg>',
+  "toy":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><ellipse cx=\"12\" cy=\"8\" rx=\"3\" ry=\"5\"/> <rect x=\"10\" y=\"13\" width=\"4\" height=\"6\" rx=\"1\"/> <circle cx=\"12\" cy=\"20\" r=\"1.5\"/></svg>',
+  "undressing":'<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"5.5\" r=\"2.5\"/> <path d=\"M8 10h8l-1 4H9l-1-4z\"/> <path d=\"M7 14l-2 6h2l1.5-4h5l1.5 4h2l-2-6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\"/> <path d=\"M10 8l-3-2M14 8l3-2\" stroke=\"currentColor\" stroke-width=\"1.2\" fill=\"none\"/></svg>',
+};
+// Player control icons: flat single-colour SVGs (currentColor) — emoji rendered as colour pictures on iOS.
+const _svg=d=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill-rule="evenodd">${d}</svg>`;
+const PV_ICON={
+  play:_svg('<path d="M8 5v14l11-7z"/>'),
+  pause:_svg('<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'),
+  prev:_svg('<path d="M6 6h2v12H6zM9.5 12L18 18V6z"/>'),
+  next:_svg('<path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/>'),
+  volume:_svg('<path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/>'),
+  muted:_svg('<path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M17.5 10.6l2.5-2.5 1.4 1.4-2.5 2.5 2.5 2.5-1.4 1.4-2.5-2.5-2.5 2.5-1.4-1.4 2.5-2.5-2.5-2.5 1.4-1.4z"/>'),
+  fullscreen:_svg('<path d="M4 4h6v2H6v4H4zM14 4h6v6h-2V6h-4zM4 14h2v4h4v2H4zM18 14h2v6h-6v-2h4z"/>'),
+  theater:_svg('<path d="M2 6h20v12H2zm2 2v8h16V8z"/>'),
+  rewind:_svg('<path d="M11 18V6l-8.5 6zM11.5 12l8.5 6V6z"/>'),
+  forward:_svg('<path d="M4 18l8.5-6L4 6zM13 6v12l8.5-6z"/>'),
+  close:_svg('<path d="M6.4 5L12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/>'),
+  plus:_svg('<path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/>'),
+};
+const _MARKER_DEFAULT='<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>';
+for(const l of ['missionary','doggy','cowgirl','blowjob','standing'])
+  MARKER_ICONS[l]=`<span class="mk-png" style="--mk:url(/icons/${l}.png)"></span>`;
+function markerIcon(label){return MARKER_ICONS[(label||'').toLowerCase()]||_MARKER_DEFAULT;}
+function fmtTC(s){s=Math.max(0,Math.floor(s||0));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60;
+  return (h?h+":"+String(m).padStart(2,'0'):String(m))+":"+String(ss).padStart(2,'0');}
+let SCN=[];
+let _scnLastLabel="blowjob";
+// single-choice label list for the marker editor, grouped like SCENES_SPEC §4
+function scnLabelOptions(sel){
+  const act=SCENE_VOCAB.filter(v=>!_SCN_STRUCT.has(v)&&!_SCN_STATE.has(v)&&!_SCN_POS.has(v));
+  const groups=[["Act",act],["Position",SCENE_VOCAB.filter(v=>_SCN_POS.has(v))]];
+  if(SCENE_CUSTOM.length)groups.push(["Custom",SCENE_CUSTOM]);
+  return groups.map(([g,vs])=>`<optgroup label="${g}">`
+    +vs.map(v=>`<option value="${esc(v)}"${v===sel?' selected':''}>${esc(v)}</option>`).join("")+`</optgroup>`).join("")
+    +`<option value="__new__">＋ New label…</option>`;
+}
+const scnAllLabels=()=>SCENE_VOCAB.concat(SCENE_CUSTOM);
+// Custom video player: scene markers are start points drawn on the seek bar (spankbang-style).
+// Click a chip to jump. In training mode (Settings → Library) you can also drag a chip to move it,
+// right-click a chip, the bar or the video for a menu (add a marker AT THE PLAYHEAD, edit or delete one), and ＋
+// adds one at the playhead. New label types can be created from the editor ("＋ New label…") or Settings. Every change is saved as a manual marker — the
+// training signal for future models (see SCENES_SPEC "User feedback").
+function setupScenes(p,it){
+  const wrap=p.querySelector('#pvwrap'),vid=wrap&&wrap.querySelector('video');
+  if(!wrap||!vid)return;
+  const seek=p.querySelector('#pvseek'),mk=p.querySelector('#pvmk'),fill=p.querySelector('#pvfill'),
+    buf=p.querySelector('#pvbuf'),handle=p.querySelector('#pvhandle'),tip=p.querySelector('#pvtip'),
+    now=p.querySelector('#pvnow'),curEl=p.querySelector('#pvcur'),durEl=p.querySelector('#pvdur'),
+    playBtn=p.querySelector('#pvplay'),muteBtn=p.querySelector('#pvmute'),fsBtn=p.querySelector('#pvfs'),
+    addBtn=p.querySelector('#pvadd'),ed=p.querySelector('#pved'),menu=p.querySelector('#pvmenu'),chips=p.querySelector('#pvchips'),
+    prevBtn=p.querySelector('#pvprev'),nextBtn=p.querySelector('#pvnext'),skipEl=p.querySelector('#pvskip'),
+    ctrl=p.querySelector('.pv-ctrl');
+  // which part of a multi-part movie is playing (the parts list swaps the video's ?part=N)
+  const partOf=()=>{try{return +(new URL(vid.currentSrc||vid.src,location.href).searchParams.get('part')||0);}catch(_){return 0;}};
+  let loadedPart=-1,training=false;   // training mode comes with /api/markers
+  const D=()=>(vid.duration&&isFinite(vid.duration))?vid.duration:(SCN.length?SCN[SCN.length-1].t*1.05:0);
+  const seekToT=t=>{vid.currentTime=Math.max(0,t);if(vid.play)vid.play().catch(()=>{});show();};
+  // Lead-in: jumping to a marker starts this many seconds earlier, so you see the build-up. Display
+  // only: the stored t stays where the event is visible (creampie = the pull-out), which is what the
+  // training clips are cut from. Off in training mode: when reviewing you want to land exactly
+  // where the marker (or the model) put it.
+  const LEAD_IN={creampie:10};
+  const jumpT=m=>training?m.t:Math.max(0,m.t-(LEAD_IN[m.label]||0));
+  const nearest=(t,win)=>{let best=null,bd=1e9;for(const m of SCN){const dd=Math.abs(m.t-t);if(dd<bd){bd=dd;best=m;}}
+    return best&&bd<=win?best:null;};
+  const currentAt=ct=>{let c=null;for(const m of SCN){if(m.t<=ct+0.05)c=m;else break;}return c;};
+  const srcText=m=>m.source==='manual'?'manual':('AI'+(m.confidence!=null?' '+Math.round(m.confidence*100)+'%':''));
+  // clickable scene chips ABOVE the bar
+  function layoutChips(){
+    if(!chips)return;
+    // hysteresis: wrap the scrubber onto its own row when it gets squeezed, unwrap when there's room
+    let bw=seek.getBoundingClientRect().width||1;
+    const ctrlW=ctrl?ctrl.getBoundingClientRect().width:0;
+    if(!wrap.classList.contains('narrow')&&bw<170){wrap.classList.add('narrow');bw=seek.getBoundingClientRect().width||1;}
+    else if(wrap.classList.contains('narrow')&&ctrlW>700){wrap.classList.remove('narrow');bw=seek.getBoundingClientRect().width||1;}
+    const d=D()||1;
+    if(bw<280){chips.innerHTML='';chips.style.height='0';return;}  // too cramped -> use ⏮/⏭ + bar right-click instead
+    chips.style.bottom='26px';
+    // Stagger: a chip that would overlap its left neighbour goes up a row, its stem stretching
+    // down to the bar. SCN is sorted by t, so one greedy pass does it. If 3 rows of full-size
+    // chips still collide (a long, busy movie), retry with 4 rows of small chips.
+    const stagger=(CW,ROWS)=>{const end=Array(ROWS).fill(-1e9);let clash=false;
+      const rows=SCN.map(m=>{const cx=(m.t/d)*bw;
+        let r=end.findIndex(e=>e+2<=cx-CW/2);
+        if(r<0){clash=true;r=end.indexOf(Math.min(...end));}     // all rows busy: least-crowded
+        end[r]=cx+CW/2;return r;});
+      return {rows,clash};};
+    let lay=stagger(38,3),sm=false,ROW=34;
+    if(lay.clash){lay=stagger(28,4);sm=true;ROW=26;}
+    const rows=lay.rows;
+    chips.innerHTML=SCN.map((m,i)=>{const cx=(m.t/d)*bw,col=labelColor(m.label),r=rows[i];
+      return `<button class="pv-chip${m.source==='manual'?'':' ai'}${sm?' sm':''}" data-i="${i}" data-cx="${Math.round(cx)}" `
+        +`title="${esc(m.label)} · ${fmtTC(m.t)} · ${esc(srcText(m))}${training?' — click: jump · drag: move (video follows) · right-click: edit':''}" `
+        +`style="left:${Math.round(cx)}px;bottom:${r*ROW}px;--stem:${18+r*ROW}px;border-bottom-color:${col}">`
+        +`<span class="pv-chip-ic" style="color:${col}">${markerIcon(m.label)}</span></button>`;}).join("");
+    chips.querySelectorAll('.pv-chip').forEach(el=>{
+      const m=SCN[+el.dataset.i];
+      let down=false,moved=false,sx=0;
+      const tipAt=(x,t)=>{if(!tip)return;tip.style.left=x+'px';
+        tip.innerHTML=`<span class="tl" style="color:${labelColor(m.label)}">${esc(m.label)}</span><span class="tt">${fmtTC(t)}</span>`;
+        tip.classList.add('on');};
+      let pendingT=null,raf=0;
+      const scrub=()=>{raf=0;if(pendingT!=null){vid.currentTime=pendingT;pendingT=null;tick();}};
+      el.addEventListener('pointerdown',e=>{e.stopPropagation();if(e.button!==0)return;
+        down=true;moved=false;sx=e.clientX;try{el.setPointerCapture(e.pointerId);}catch(_){}});
+      el.addEventListener('pointermove',e=>{if(!down||!training)return;
+        if(!moved&&Math.abs(e.clientX-sx)<5)return;
+        if(!moved){moved=true;el.classList.add('dragging');vid.pause();}   // scrub, don't play on
+        const r=seek.getBoundingClientRect(),x=Math.max(0,Math.min(r.width,e.clientX-r.left));
+        el.style.left=x+'px';
+        const t=x/r.width*D();
+        tipAt(x,t);
+        pendingT=t;if(!raf)raf=requestAnimationFrame(scrub);   // the video follows the marker
+      });
+      el.addEventListener('pointerup',e=>{if(!down)return;down=false;el.classList.remove('dragging');
+        if(tip)tip.classList.remove('on');
+        if(!moved){seekToT(jumpT(m));return;}
+        const r=seek.getBoundingClientRect(),nt=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*D();
+        if(Math.abs(nt-m.t)>=0.5)updateMarker(m,{new_t:nt});else layoutChips();});
+      el.addEventListener('pointercancel',()=>{down=false;moved=false;el.classList.remove('dragging');layoutChips();});
+      el.onclick=e=>{e.stopPropagation();if(e.detail===0)seekToT(jumpT(m));};   // keyboard activation
+      el.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();
+        if(training)openMenu(e,markerItems(m).concat([[`＋ Add marker at playhead (${fmtTC(vid.currentTime||0)})`,()=>openEditor(null)]]));});
+      el.onmouseenter=()=>{if(!down)tipAt(+el.dataset.cx,m.t);};
+      el.onmouseleave=()=>{if(!down&&tip)tip.classList.remove('on');};
+    });
+  }
+  // ---- controls auto-hide ----
+  let hideT;
+  const show=()=>{wrap.classList.add('show');clearTimeout(hideT);
+    if(!vid.paused&&ed.hidden)hideT=setTimeout(()=>wrap.classList.remove('show'),2600);};
+  // pointer events (not mousemove): iOS fires a synthetic mousemove on every tap
+  wrap.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')show();});
+  let lastPointer='mouse';
+  wrap.addEventListener('pointerdown',e=>{lastPointer=e.pointerType||'mouse';},true);
+  wrap.addEventListener('mouseleave',()=>{if(!vid.paused&&ed.hidden)wrap.classList.remove('show');});
+  const toggle=()=>{if(vid.paused)vid.play().catch(()=>{});else vid.pause();};
+  // single click/tap: play/pause (touch: first tap only reveals hidden controls). It waits 250 ms so a
+  // double click/tap can seek instead, YouTube-style: left half −10 s, right half +30 s; further quick
+  // taps on the same half add up.
+  const SKIP_BACK=10,SKIP_FWD=30;
+  let tapTimer=null,tapSide=0,skipTotal=0,skipHide;
+  const singleClick=()=>{
+    if(lastPointer!=='mouse'&&!wrap.classList.contains('show')){show();return;}
+    toggle();show();};
+  function skip(side){
+    const amt=side<0?SKIP_BACK:SKIP_FWD,d=vid.duration||0;
+    vid.currentTime=Math.max(0,Math.min(d?d-0.5:1e9,(vid.currentTime||0)+side*amt));
+    skipTotal=(skipEl.classList.contains('on')&&skipEl.dataset.side===String(side))?skipTotal+amt:amt;
+    skipEl.dataset.side=String(side);
+    skipEl.className='pv-skip on '+(side<0?'l':'r');
+    skipEl.innerHTML=side<0?`${PV_ICON.rewind}<span>${skipTotal} s</span>`:`<span>${skipTotal} s</span>${PV_ICON.forward}`;
+    clearTimeout(skipHide);skipHide=setTimeout(()=>skipEl.classList.remove('on'),700);
+    tick();show();
+  }
+  vid.addEventListener('click',e=>{
+    const r=vid.getBoundingClientRect(),side=(e.clientX-r.left)<r.width/2?-1:1;
+    if(tapTimer&&side===tapSide){            // 2nd (3rd, …) click on the same half in quick succession
+      clearTimeout(tapTimer);skip(side);
+      tapTimer=setTimeout(()=>{tapTimer=null;},450);
+      return;}
+    clearTimeout(tapTimer);tapSide=side;
+    tapTimer=setTimeout(()=>{tapTimer=null;singleClick();},250);
+  });
+  vid.addEventListener('dblclick',e=>e.preventDefault());
+  playBtn.onclick=e=>{e.stopPropagation();toggle();};
+  vid.addEventListener('play',()=>{playBtn.innerHTML=PV_ICON.pause;show();});
+  vid.addEventListener('pause',()=>{playBtn.innerHTML=PV_ICON.play;wrap.classList.add('show');clearTimeout(hideT);});
+  muteBtn.onclick=()=>{vid.muted=!vid.muted;};
+  const muteIcon=()=>{muteBtn.innerHTML=(vid.muted||vid.volume===0)?PV_ICON.muted:PV_ICON.volume;};
+  vid.addEventListener('volumechange',muteIcon);   // also follows the m key / hardware volume
+  fsBtn.onclick=()=>{const d=document;
+    if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d);return;}
+    const nativeFs=()=>{if(vid.webkitEnterFullscreen)vid.webkitEnterFullscreen();};   // iPhone: video-only fullscreen
+    if(wrap.requestFullscreen)wrap.requestFullscreen().catch(nativeFs);
+    else if(wrap.webkitRequestFullscreen)wrap.webkitRequestFullscreen();
+    else nativeFs();};
+  // sticky sequential nav between scenes
+  // ⏮ goes to the start of the current scene, or the previous one if we're within ~1 s of its start
+  // (like chapters); before the first scene it goes to 0:00. ⏭ goes to the next scene start.
+  // Both step through jump times (lead-in applied outside training mode), which can reorder a creampie
+  // before a nearby marker.
+  // A movie without scenes: −10 s / +30 s.
+  prevBtn.onclick=()=>{if(!SCN.length){skip(-1);return;}
+    const t=(vid.currentTime||0)-1.2,j=SCN.map(jumpT).filter(x=>x<t);seekToT(j.length?Math.max(...j):0);};
+  nextBtn.onclick=()=>{if(!SCN.length){skip(1);return;}
+    const t=(vid.currentTime||0)+0.4,j=SCN.map(jumpT).filter(x=>x>t);if(j.length)seekToT(Math.min(...j));};
+  // theater mode (persisted) + close
+  const pl=$('#player'),thBtn=p.querySelector('#pvtheater'),clBtn=p.querySelector('#pvclose');
+  const applyTheater=on=>{pl.classList.toggle('theater',on);if(thBtn)thBtn.classList.toggle('on',on);
+    try{localStorage.setItem('vault_theater',on?'1':'');}catch(_){}
+    setTimeout(layoutChips,60);};   // width changed -> reflow chips
+  applyTheater(!!(()=>{try{return localStorage.getItem('vault_theater')}catch(_){return ''}})());
+  if(thBtn)thBtn.onclick=()=>applyTheater(!pl.classList.contains('theater'));
+  if(clBtn)clBtn.onclick=closePlayer;
+  // keep chips aligned when the player is resized (window, fullscreen, sidebar)
+  pvCleanup();                       // drop the previous player session first
+  PVSESS.ac=new AbortController();
+  if(window.ResizeObserver){PVSESS.ro=new ResizeObserver(()=>layoutChips());PVSESS.ro.observe(seek);}
+  document.addEventListener('fullscreenchange',layoutChips,{signal:PVSESS.ac.signal});
+  // ---- markers on the bar (start ticks only — no durations) ----
+  function renderMarks(){
+    const d=D()||1;
+    mk.innerHTML=SCN.map(m=>`<div class="pv-mk tick${m.source==='manual'?'':' ai'}" style="left:${Math.max(0,Math.min(100,100*m.t/d))}%;background:${labelColor(m.label)}"></div>`).join("");
+    layoutChips();
+  }
+  function tick(){
+    const d=vid.duration||0,ct=vid.currentTime||0,pct=d?100*ct/d:0;
+    fill.style.width=pct+'%';handle.style.left=pct+'%';
+    if(curEl)curEl.textContent=fmtTC(ct);if(durEl&&d)durEl.textContent=fmtTC(d);
+    const c=currentAt(ct);
+    if(now)now.innerHTML=c?`▶ <b style="color:${labelColor(c.label)}">${esc(c.label)}</b>`
+      +(c.source==='manual'?'':`<span class="nowai" title="AI suggestion — not confirmed yet${c.confidence!=null?' · model confidence':''}">AI${c.confidence!=null?' '+Math.round(c.confidence*100)+'%':''}</span>`):'';
+  }
+  vid.addEventListener('timeupdate',tick);
+  vid.addEventListener('loadedmetadata',()=>{if(durEl)durEl.textContent=fmtTC(vid.duration||0);
+    if(partOf()!==loadedPart){closeEditor();reload();}else{renderMarks();tick();}});
+  vid.addEventListener('progress',()=>{try{if(vid.buffered.length){const d=vid.duration||1;
+    buf.style.width=(100*vid.buffered.end(vid.buffered.length-1)/d)+'%';}}catch(_){}});
+  // ---- seek (click + drag) + hover label ----
+  const fracAt=e=>{const r=seek.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));};
+  const seekTo=f=>{const d=vid.duration;if(d&&isFinite(d))vid.currentTime=f*d;};
+  let drag=false;
+  seek.addEventListener('pointerdown',e=>{if(e.button!==0||e.target.closest('.pv-chip'))return;  // left button only; chips handle their own pointer
+    drag=true;try{seek.setPointerCapture(e.pointerId);}catch(_){}
+    seekTo(fracAt(e));});
+  seek.addEventListener('pointermove',e=>{if(drag)seekTo(fracAt(e));hover(e);});
+  seek.addEventListener('pointerup',()=>{drag=false;});
+  seek.addEventListener('pointerleave',()=>{if(tip)tip.classList.remove('on');});
+  function hover(e){if(!tip||e.target.closest('.pv-chip'))return;const f=fracAt(e),d=vid.duration||D()||0,t=f*d;
+    const m=nearest(t,d?d*0.01:2);
+    tip.style.left=(f*100)+'%';
+    tip.innerHTML=(m?`<span class="tl" style="color:${labelColor(m.label)}">${esc(m.label)}</span>`:'')
+      +`<span class="tt">${fmtTC(t)}</span>`;
+    tip.classList.add('on');}
+  // right-click the bar near a marker to edit it (works when chips are hidden on small screens)
+  seek.addEventListener('contextmenu',e=>{
+    if(!training)return;
+    const d=vid.duration||0;if(!d)return;
+    const t=fracAt(e)*d,m=nearest(t,d*0.02);
+    openMenu(e,(m?markerItems(m):[]).concat([[`＋ Add marker at playhead (${fmtTC(vid.currentTime||0)})`,()=>openEditor(null)]],confirmAllItem()));
+  });
+  // ---- marker editor: single-choice label, move, delete ----
+  function closeEditor(){if(!ed)return;ed.hidden=true;ed.innerHTML='';show();}
+  // ---- right-click context menu (training mode) ----
+  function closeMenu(){if(menu&&!menu.hidden){menu.hidden=true;menu.innerHTML='';}}
+  function openMenu(e,items){
+    if(!menu)return;e.preventDefault();e.stopPropagation();
+    menu.innerHTML=items.map((x,i)=>`<button data-i="${i}">${x[0]}</button>`).join('');
+    menu.hidden=false;
+    const r=wrap.getBoundingClientRect(),mw=menu.offsetWidth,mh=menu.offsetHeight;
+    menu.style.left=Math.max(6,Math.min(e.clientX-r.left,r.width-mw-6))+'px';
+    menu.style.top=Math.max(6,Math.min(e.clientY-r.top,r.height-mh-6))+'px';
+    menu.onpointerdown=ev=>ev.stopPropagation();
+    menu.onclick=ev=>{const b=ev.target.closest('button');if(!b)return;ev.stopPropagation();
+      const f=items[+b.dataset.i][1];closeMenu();f();};
+    wrap.classList.add('show');clearTimeout(hideT);
+  }
+  wrap.addEventListener('pointerdown',e=>{if(menu&&!menu.hidden&&!menu.contains(e.target))closeMenu();},true);
+  const markerItems=m=>(m.source==='manual'?[]:[[`✓ Confirm “${esc(m.label)}”`,()=>confirmMarker(m)]])
+    .concat([[`✎ Edit “${esc(m.label)}”…`,()=>openEditor(m)],[`🗑 Delete “${esc(m.label)}”`,()=>deleteMarker(m)]]);
+  const confirmAllItem=()=>{const n=SCN.filter(m=>m.source==='ml'||m.source==='heuristic').length;
+    return n?[[`✓ Confirm all AI markers (${n})`,()=>confirmAll(n)]]:[];};
+  vid.addEventListener('contextmenu',e=>{if(!training)return;const ct=vid.currentTime||0;
+    openMenu(e,[[`＋ Add marker at playhead (${fmtTC(ct)})`,()=>openEditor(null)]].concat(confirmAllItem()));});
+  function openEditor(m,tNew){
+    if(!ed||!training)return;
+    closeMenu();
+    vid.pause&&vid.pause();
+    const isNew=!m,t0=isNew?(tNew!=null?tNew:(vid.currentTime||0)):m.t,lbl=isNew?_scnLastLabel:m.label;
+    const known=scnAllLabels().includes(lbl);
+    let edT=t0;
+    ed.innerHTML=`<div class="ed-h"><span>${isNew?'New marker':'Edit marker'}${isNew?'':` <span class="ed-src${m.source==='manual'?'':' ai'}">${esc(srcText(m))}</span>`}</span>`
+      +`<button data-a="close" title="Close (Esc)">✕</button></div>`
+      +`<select id="pvedlabel" aria-label="Marker label">${known?'':`<option value="${esc(lbl)}" selected disabled>${esc(lbl)} (not in list)</option>`}${scnLabelOptions(known?lbl:'')}</select>`
+      +`<div class="ed-row" id="pvednew" hidden><input class="ed-new" id="pvednewin" placeholder="new label, e.g. footjob" maxlength="32" autocomplete="off">`
+      +`<button data-a="newok">Create</button><button data-a="newcancel" title="Cancel">✕</button></div>`
+      +`<div class="ed-row"><button data-a="nudge" data-d="-1" title="1 s earlier">−1s</button>`
+      +`<span class="ed-t" id="pvedt">${fmtTC(t0)}</span>`
+      +`<button data-a="nudge" data-d="1" title="1 s later">+1s</button>`
+      +`<button data-a="here" title="Set to the current playhead">⤓ Playhead</button></div>`
+      +`<div class="ed-row">${isNew?'<button class="pri" data-a="add">Add marker</button>'
+        :(m.source==='manual'?'':'<button data-a="confirm" title="This AI suggestion is correct">✓ Confirm</button>')
+          +'<button class="pri" data-a="save">Save</button><button class="danger" data-a="delete">🗑 Delete</button>'}</div>`;
+    ed.hidden=false;wrap.classList.add('show');clearTimeout(hideT);
+    const sel=ed.querySelector('#pvedlabel'),tEl=ed.querySelector('#pvedt');
+    const setT=v=>{edT=Math.max(0,Math.min(D()||v,v));tEl.textContent=fmtTC(edT);};
+    const newRow=ed.querySelector('#pvednew'),newIn=ed.querySelector('#pvednewin');
+    let prevLabel=sel.value;
+    sel.onchange=()=>{if(sel.value==='__new__'){newRow.hidden=false;newIn.value='';newIn.focus();}
+      else{prevLabel=sel.value;newRow.hidden=true;}};
+    const cancelNew=()=>{newRow.hidden=true;sel.value=prevLabel;sel.focus();};
+    const createLabel=()=>{const v=newIn.value.trim();if(!v){newIn.focus();return;}
+      post2('/api/scenelabel',{op:'add',label:v},j=>{if(j.error){toast(j.error);return;}
+        SCENE_CUSTOM=j.custom_labels||SCENE_CUSTOM;
+        sel.innerHTML=scnLabelOptions(j.label);prevLabel=j.label;newRow.hidden=true;sel.focus();
+        toast(j.existed?`“${j.label}” is already a label`:`Label “${j.label}” created`);});};
+    sel.focus();
+    ed.onkeydown=e=>{e.stopPropagation();   // keep player shortcuts (space, Esc, arrows) out of the editor
+      if(e.key==='Escape'){e.preventDefault();if(!newRow.hidden)cancelNew();else closeEditor();}
+      else if(e.key==='Enter'){e.preventDefault();
+        if(e.target===newIn){createLabel();return;}
+        const b=ed.querySelector('[data-a="add"],[data-a="save"]');if(b)b.click();}};
+    ed.onpointerdown=e=>e.stopPropagation();
+    ed.onclick=e=>{const b=e.target.closest('button');if(!b)return;e.stopPropagation();
+      const a=b.dataset.a,label=sel.value;
+      if(a==='close')closeEditor();
+      else if(a==='newok')createLabel();
+      else if(a==='newcancel')cancelNew();
+      else if(a==='nudge')setT(edT+(+b.dataset.d));
+      else if(a==='here')setT(vid.currentTime||0);
+      else if(a==='add'){if(!scnAllLabels().includes(label)){toast('Pick a label');return;}
+        _scnLastLabel=label;closeEditor();addMarker(label,edT);}
+      else if(a==='save'){const ch={};
+        if(label&&label!==m.label&&scnAllLabels().includes(label))ch.new_label=label;
+        if(Math.abs(edT-m.t)>=0.05)ch.new_t=edT;
+        closeEditor();if(ch.new_label||ch.new_t!=null)updateMarker(m,ch);}
+      else if(a==='delete'){closeEditor();deleteMarker(m);}
+      else if(a==='confirm'){closeEditor();confirmMarker(m);}
+    };
+  }
+  // ---- API ----
+  async function reload(){
+    const part=partOf();loadedPart=part;
+    try{const j=await (await fetch('/api/markers?code='+encodeURIComponent(it.uid||it.code))).json();
+      training=!!j.training;
+      if(Array.isArray(j.custom_labels))SCENE_CUSTOM=j.custom_labels;
+      SCN=(j.markers||[]).filter(m=>(m.part||0)===part).sort((a,b)=>a.t-b.t);}catch(e){SCN=[];}
+    addBtn.hidden=!training;
+    if(!training&&ed&&!ed.hidden)closeEditor();
+    if(!training)closeMenu();
+    renderMarks();tick();
+  }
+  async function markerApi(body,okMsg){
+    try{const r=await fetch('/api/marker',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(Object.assign({code:it.uid||it.code,part:partOf()},body))});
+      const j=await r.json();
+      if(j.error)toast(j.error);else if(okMsg)toast(okMsg);
+    }catch(_){toast('Could not save the marker');}
+    reload();
+  }
+  const r1=v=>Math.round(v*10)/10;
+  const addMarker=(label,t)=>markerApi({op:'add',t:r1(t),label},`Added “${label}” at ${fmtTC(t)}`);
+  const updateMarker=(m,ch)=>markerApi(Object.assign({op:'update',t:m.t,label:m.label},
+    ch.new_t!=null?{new_t:r1(ch.new_t)}:{},ch.new_label?{new_label:ch.new_label}:{}),
+    ch.new_label?`Marker set to “${ch.new_label}”`:`Marker moved to ${fmtTC(ch.new_t)}`);
+  const deleteMarker=m=>markerApi({op:'delete',t:m.t,label:m.label},`Deleted “${m.label}”`);
+  const confirmMarker=m=>markerApi({op:'confirm',t:m.t,label:m.label},`Confirmed “${m.label}”`);
+  const confirmAll=n=>{if(confirm(`Confirm all ${n} AI marker${n>1?'s':''} of this video as correct?`))
+    markerApi({op:'confirm_all'},`Confirmed ${n} AI marker${n>1?'s':''}`);};
+  playBtn.innerHTML=vid.paused?PV_ICON.play:PV_ICON.pause;
+  setTimeout(()=>{if(vid.paused){playBtn.innerHTML=PV_ICON.play;wrap.classList.add('show');}},900);
+  addBtn.hidden=true;   // shown by reload() when training mode is on
+  addBtn.onclick=e=>{e.stopPropagation();if(ed&&!ed.hidden)closeEditor();else openEditor(null);};
+  show();reload();
+}
+
+/* -------- deletes (movie / actress) — all move files to Trash, all confirmed -------- */
+function refreshFavCounts(){const fc=$("#favc");if(fc)fc.textContent=STORE.fav.size;
+  const ac=$("#afavc");if(ac)ac.textContent=STORE.afav.size;}
+function deleteMovie(it){
+  const ghost=!!it.missing, who=it.identified?esc(it.actress)+" — ":"", n=it.nparts>1?it.nparts:1;
+  const body=ghost
+    ? `<b>${esc(it.code)}</b> is a wishlist entry (no downloaded file).<br><br>This removes it from the catalog and her filmography.`
+    : `<b>${who}${esc(it.code)}</b><br><br>${n} video file${n>1?'s':''}${it.size?` (<b>${fmtSize(it.size)}</b>)`:''} will be <b>moved to a recoverable trash</b> and the movie removed from your catalog.<br><span class="warn">Not permanently deleted — restore from your Trash, or the library's <b>_vault_trash</b> folder.</span>`;
+  confirmDanger({title:ghost?"Remove from wishlist?":"Delete this movie?", body,
+    confirmLabel:ghost?"Remove":"Move to Trash",
+    onConfirm:async()=>{
+      // Let go of the file FIRST. While the player streams it the server holds an open
+      // handle, and this SMB share refuses to rename a folder with an open file inside —
+      // which used to send the delete down a multi-minute copy of the whole movie.
+      if(!ghost){
+        const v=$("#modal").querySelector("video");
+        if(v){try{v.pause();}catch(_){}
+          v.removeAttribute("src");try{v.load();}catch(_){}}
+        await new Promise(r=>setTimeout(r,250));   // let the aborted range request unwind
+      }
+      const j=await (await fetch("/api/deletemovie",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:it.uid||it.code})})).json();
+      if(j.error) throw new Error(j.error);
+      toast(ghost?"Removed from wishlist":"Moved to Trash");
+      closePlayer();await loadUserData();reloadData(refreshFavCounts);
+    }});
+}
+function actressDeletePlan(a){
+  let sole=0,shared=0,soleBytes=0;
+  DATA.items.forEach(it=>{
+    if(it.missing)return;
+    const cast=new Set();
+    if(it.actress_id!=null)cast.add(it.actress_id);
+    (it.actresses||[]).forEach(x=>{if(x.id!=null)cast.add(x.id);});
+    if(!cast.has(a.id))return;
+    cast.delete(a.id);
+    if(cast.size===0){sole++;soleBytes+=it.size||0;}else shared++;
+  });
+  return {sole,shared,soleBytes};
+}
+function deleteActress(a){
+  if(!a||!a.id){toast("No actress record to delete");return;}
+  const {sole,shared,soleBytes}=actressDeletePlan(a);
+  const nm=esc(a.disp||a.name_en||a.name_jp||"this actress");
+  const li=[sole
+      ? `<li><b>${sole}</b> movie${sole>1?'s':''} where she is the only performer${soleBytes?` (<b>${fmtSize(soleBytes)}</b>)`:''} → <b>moved to a recoverable trash</b></li>`
+      : `<li>No solo movies to delete</li>`];
+  if(shared)li.push(`<li><b>${shared}</b> shared title${shared>1?'s':''} → <b>kept</b>; she is just removed from the cast</li>`);
+  li.push(`<li>Her profile, portrait and aliases → removed</li>`);
+  confirmDanger({title:"Delete actress?",
+    body:`Delete <b>${nm}</b> and everything linking to her:<ul>${li.join("")}</ul><span class="warn">Not permanently deleted — trashed files are restorable from your Trash / the library's _vault_trash folder.</span>`,
+    confirmLabel:sole?"Delete & Trash":"Delete actress",
+    onConfirm:async()=>{
+      const j=await (await fetch("/api/deleteactress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.id})})).json();
+      if(j.error) throw new Error(j.error);
+      toast(`Deleted ${nm}`+(j.deleted_movies?` — ${j.deleted_movies} movie(s) trashed`:"")+(j.unlinked?`, ${j.unlinked} unlinked`:""));
+      const am=$("#amodal");if(am)am.classList.remove("on");
+      closePlayer();await loadUserData();reloadData(refreshFavCounts);
+    }});
+}
 function reassignActress(it){
   const nb=document.querySelector("#player .p-side");if(!nb)return;
   const pl=$("#player");if(pl)pl.classList.add("editing");
@@ -2094,7 +3074,7 @@ function editActress(it){
   };
   // only the Save button persists; Enter no longer auto-saves (so Cancel/Esc truly discard)
   nb.querySelectorAll("input,select").forEach(el=>el.onkeydown=e=>{
-    if(e.key==="Escape"){e.preventDefault();openPlayer(it);}});
+    if(e.key==="Escape"){e.preventDefault();e.stopPropagation();openPlayer(it);}});
 }
 function applyMetaUpdate(it,j){
   const c=j.item||{},aid=c.actress_id,set=new Set(j.affected||[]);
@@ -2159,13 +3139,34 @@ function enrichFromWeb(it,btn){
      };
    }).catch(()=>{b.innerHTML='<div class="orghd">Lookup failed</div><div class="orgsub">Could not reach the metadata sites.</div><div class="pactions"><button class="btn" id="enClose">Close</button></div>';const x=$("#enClose");if(x)x.onclick=close;});
 }
-function closePlayer(){const m=$("#modal");const v=m.querySelector("video");if(v){v.pause();v.src="";}m.classList.remove("on");}
+function closePlayer(){const m=$("#modal");const v=m.querySelector("video");if(v){v.pause();v.src="";}pvCleanup();m.classList.remove("on");}
+// Esc closes ONE layer at a time, topmost first. It used to run closePlayer() AND clear #amodal
+// together, so opening the actress sheet from a movie and pressing Esc dumped you back on the
+// grid instead of back on the movie. Returns true when it consumed the key.
+function escTop(){
+  if(document.querySelector(".cfm-ov"))return true;        // confirmDanger brings its own Esc
+  // only while the player is actually up: closing it with ✕ leaves a visible #pved behind
+  const ed=$("#modal").classList.contains("on")?$("#pved"):null;
+  if(ed&&!ed.hidden){                                     // marker editor: hand it its own Esc
+    ed.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:false}));return true;}
+  if(document.fullscreenElement)return false;              // let the browser leave fullscreen first
+  const menu=$("#colmenu");
+  if(menu&&menu.classList.contains("on")){menu.classList.remove("on");return true;}
+  const on=id=>{const m=$("#"+id);return m&&m.classList.contains("on")?m:null;};
+  const a=on("amodal");if(a){a.classList.remove("on");return true;}
+  for(const id of ["setmodal","orgmodal","enrichmodal","scanmodal"]){
+    const m=on(id);if(m){m.classList.remove("on");return true;}}
+  const im=on("impmodal");
+  if(im){if(!IMPORT_RUNNING)im.classList.remove("on");return true;}   // never while it is writing
+  if(on("modal")){closePlayer();return true;}
+  return false;
+}
 function post(url,code,msg){fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code})})
   .then(r=>r.json()).then(j=>toast(j.ok?msg:("Error: "+(j.error||"?")))).catch(e=>toast("Error"));}
 
 /* ---------------- UI wiring ---------------- */
 function bindUI(){
-  $("#q").oninput=e=>{F.q=e.target.value;render();};
+  $("#q").oninput=e=>{F.q=e.target.value;renderSoon();};
   // filter drawer (small screens only; the button is display:none above 820px)
   const drawer=(on)=>{$("#side").classList.toggle("on",on);$("#scrim").classList.toggle("on",on);};
   $("#drawerBtn").onclick=()=>drawer(!$("#side").classList.contains("on"));
@@ -2196,20 +3197,22 @@ function bindUI(){
   $("#modal").onclick=e=>{if(e.target.id==="modal")closePlayer();};
   $("#amodal").onclick=e=>{if(e.target.id==="amodal")$("#amodal").classList.remove("on");};
   document.addEventListener("keydown",e=>{
-    if(e.key==="Escape"){closePlayer();$("#amodal").classList.remove("on");}
+    if(e.key==="Escape"){if(escTop())e.preventDefault();return;}
     const typing=/^(INPUT|SELECT|TEXTAREA)$/.test((e.target.tagName||""));
     if(e.key==="/"&&!typing){e.preventDefault();$("#q").focus();return;}
     if(typing)return;
     const v=$("#modal").classList.contains("on")?$("#modal").querySelector("video"):null;
     if(!v)return;
     const K=e.key.toLowerCase(),step=e.shiftKey?60:10;
-    if(K===" "||K==="k"){e.preventDefault();v.paused?v.play():v.pause();}
-    else if(e.key==="ArrowRight"||K==="l"){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+step);}
-    else if(e.key==="ArrowLeft"||K==="j"){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-step);}
+    // a / s / d = back / pause / forward (left-hand, so the right hand stays on the mouse)
+    if(K===" "||K==="s"){e.preventDefault();if(v.paused)v.play().catch(()=>{});else v.pause();}
+    else if(e.key==="ArrowRight"||K==="d"){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+step);}
+    else if(e.key==="ArrowLeft"||K==="a"){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-step);}
     else if(e.key==="ArrowUp"){e.preventDefault();v.volume=Math.min(1,v.volume+0.1);}
     else if(e.key==="ArrowDown"){e.preventDefault();v.volume=Math.max(0,v.volume-0.1);}
     else if(K==="m"){v.muted=!v.muted;}
-    else if(K==="f"){if(document.fullscreenElement)document.exitFullscreen();else v.requestFullscreen&&v.requestFullscreen();}
+    else if(K==="f"){const w=v.closest('.pv-wrap')||v;if(document.fullscreenElement)document.exitFullscreen();else w.requestFullscreen&&w.requestFullscreen();}
+    else if(K==="t"){const tb=$("#pvtheater");if(tb)tb.click();}
     else if(K>="0"&&K<="9"){if(v.duration)v.currentTime=v.duration*(+K)/10;}
     else if(e.key===">"||e.key===".")  {v.playbackRate=Math.min(4,+(v.playbackRate+0.25).toFixed(2));toast("Speed "+v.playbackRate+"×");}
     else if(e.key==="<"||e.key===",")  {v.playbackRate=Math.max(0.25,+(v.playbackRate-0.25).toFixed(2));toast("Speed "+v.playbackRate+"×");}
