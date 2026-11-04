@@ -112,21 +112,27 @@ class DownloadTest(unittest.TestCase):
         self.blob = open(zpath, "rb").read()
         os.remove(zpath)
         self.calls = []
+        self.refuse = False
 
     def opener(self, req, timeout=0):
         url = req.full_url
         self.calls.append(url)
-        if url.endswith("/model"):
-            return FakeResponse(json.dumps({"name": "vault-r3", "file": "vault-r3.zip",
-                                            "size": len(self.blob)}).encode())
-        if "/model/download?key=VAULT1-good" in url:
+        if url.endswith("/releases/latest"):
+            rel = {"tag_name": "vault-r3", "published_at": "2026-11-04T06:40:58Z", "body": "notes",
+                   "assets": [{"name": "README.txt", "size": 1, "browser_download_url": "https://x/README.txt"},
+                              {"name": "vault-r3.zip", "size": len(self.blob),
+                               "browser_download_url": "https://example.test/dl/vault-r3.zip"}]}
+            return FakeResponse(json.dumps(rel).encode())
+        if url == "https://example.test/dl/vault-r3.zip" and not self.refuse:
             return FakeResponse(self.blob, {"Content-Length": str(len(self.blob))})
         from urllib.error import HTTPError
-        raise HTTPError(url, 403, "forbidden", {}, io.BytesIO(json.dumps({"error": "this key expired on 2020-01-01"}).encode()))
+        raise HTTPError(url, 404, "not found", {}, io.BytesIO(b""))
 
     def test_latest_is_cached_and_reports_offline(self):
         info = vm.latest(opener=self.opener)
-        self.assertEqual(info["name"], "vault-r3")
+        self.assertEqual((info["name"], info["file"], info["size"], info["notes"]),
+                         ("vault-r3", "vault-r3.zip", len(self.blob), "notes"))
+        self.assertEqual(info["url"], "https://example.test/dl/vault-r3.zip")
         vm.latest(opener=self.opener)
         self.assertEqual(len(self.calls), 1, "second call served from cache")
         vm._LATEST.update(at=0.0, info=None)
@@ -136,7 +142,7 @@ class DownloadTest(unittest.TestCase):
         self.assertIn("could not reach", vm.latest(opener=down)["error"])
 
     def test_download_installs_and_cleans_up(self):
-        name = vm.download("VAULT1-good", models_dir=self.dir, opener=self.opener)
+        name = vm.download(models_dir=self.dir, opener=self.opener)
         self.assertEqual(name, "vault-r3")
         self.assertTrue(os.path.isfile(os.path.join(self.dir, "vault-r3", "config.json")))
         self.assertEqual([f for f in os.listdir(self.dir) if f.endswith(".part")], [])
@@ -145,10 +151,11 @@ class DownloadTest(unittest.TestCase):
                          ("done", False, len(self.blob), len(self.blob), "vault-r3"))
         self.assertEqual(vm.installed(self.dir), "vault-r3")
 
-    def test_refused_key_surfaces_the_servers_reason(self):
+    def test_refused_download_is_reported(self):
+        self.refuse = True
         with self.assertRaises(RuntimeError) as cm:
-            vm.download("VAULT1-bad", models_dir=self.dir, opener=self.opener)
-        self.assertIn("expired on 2020-01-01", str(cm.exception))
+            vm.download(models_dir=self.dir, opener=self.opener)
+        self.assertIn("download refused", str(cm.exception))
         self.assertEqual(vm.PROGRESS["state"], "error")
         self.assertFalse(vm.PROGRESS["running"])
         self.assertIsNone(vm.installed(self.dir))
@@ -156,7 +163,7 @@ class DownloadTest(unittest.TestCase):
     def test_only_one_download_at_a_time(self):
         vm.PROGRESS["running"] = True
         with self.assertRaises(RuntimeError):
-            vm.download("VAULT1-good", models_dir=self.dir, opener=self.opener)
+            vm.download(models_dir=self.dir, opener=self.opener)
         vm.PROGRESS["running"] = False
 
 

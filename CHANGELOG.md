@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.7.0 — Freeware
+
+### No more Free and Pro
+
+Vault is freeware now. The 250-movie limit, the Pro key, the License tab and the key server are
+gone; fc2ppv-db lookups, *Enrich from web* and the scene model are open to everyone. Settings has
+a **Scene model** tab instead: it shows the installed model and the newest build, and one button
+downloads or updates it. The model is a release asset of the public repository
+github.com/fc2vault/models, so the download goes straight to GitHub and nothing about you travels.
+`vault_license.py`, `POST /api/license` and the `license` field in `/api/data` and `/api/settings`
+are removed; `/api/model` no longer needs a key.
+
+### Scene model round 2
+
+`vault-r2` is published: trained on 412 reviewed movies (5,067 clips), validation accuracy 75.4%
+(round 1: 73.1%), macro-F1 0.71 (0.67). Biggest gains on creampie, fingering, titjob and doggy,
+and fewer false markers. Same classes and input pipeline, so the tagger needs no change.
+
+### Website
+
+The website has screenshots now (blurred where needed), and says plainly that Vault is free and
+how to support it.
+
 ## 1.6.0 — Free and Pro, the scene model, run at login
 
 ### The scene model downloads itself

@@ -63,13 +63,12 @@ try:
     import dedupe as dedupemod
 except Exception:
     dedupemod = None
-import vault_license
 import vault_model
 import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.6.0"
+VAULT_VERSION = "1.7.0"
 DATA_DIR = os.environ.get("VAULT_DATA") or HERE
 try:
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -569,23 +568,9 @@ STATE = {
 }
 
 
-def license_status():
-    """Vault Pro, checked offline from the key in config.json (see vault_license.py)."""
-    return vault_license.status(load_config().get("license_key"))
-
-
-def _license_info():
-    """License state plus the free cap, for Settings and the poster wall's banner."""
-    return dict(license_status(), limit=vault_license.FREE_LIMIT,
-                on_disk=STATE.get("on_disk") or 0)
-
-
-PRO_ONLY = "is a Vault Pro feature — add a key in Settings → License"
-
-
 def _model_info(fetch_latest=False):
-    """The scene model, for Settings → License: what is installed, what the key server offers
-    (only asked for when the tab opens: fetch_latest), and the running download."""
+    """The scene model, for Settings → Scene model: what is installed, what the newest release
+    is (only asked for when the tab opens: fetch_latest), and the running download."""
     d = vault_model.user_models_dir()
     home = os.path.expanduser("~")
     if home and d.startswith(home + os.sep):     # the tab shows "~/…", not the account name
@@ -595,18 +580,6 @@ def _model_info(fetch_latest=False):
     if fetch_latest:
         out["latest"] = vault_model.latest()
     return out
-
-
-def _free_cap(items):
-    """The free version shows FREE_LIMIT movies: the ones Vault saw first, so the set stays
-    put as new downloads arrive. With Pro, or a small library, the list comes back as is."""
-    STATE["on_disk"] = len(items)
-    limit = vault_license.FREE_LIMIT
-    if len(items) <= limit or license_status()["pro"]:
-        return items
-    keep = {id(it) for it in sorted(items, key=lambda it: (it.get("added") or 0,
-                                                           it["code"]))[:limit]}
-    return [it for it in items if id(it) in keep]
 
 
 # Outcome of the most recent filesystem walk. An unmounted share or an unreadable folder
@@ -1138,9 +1111,7 @@ def rebuild_index(fs_items=None):
         # A walk is only allowed to replace what we have if we believe it. An unmounted share,
         # a permission failure or a partial walk returns a SHORT list, and writing that to the
         # cache made movies disappear until a later full walk happened to succeed.
-        # on_disk: the free version publishes only part of the walk, so compare with the full count
-        known = ((max(len(STATE["items"]), STATE.get("on_disk") or 0) if STATE["items"] else 0)
-                 or len(_load_fs_index(lib) or []))
+        known = len(STATE["items"]) or len(_load_fs_index(lib) or [])
         why = ""
         if LAST_WALK["missing_root"]:
             why = "library folder is not there (share unmounted?)"
@@ -1164,7 +1135,6 @@ def rebuild_index(fs_items=None):
         items = fs_items
         src = "cache"
     _stamp_added(items)                      # idempotent 'date added' (also upgrades old caches)
-    items = _free_cap(items)                 # after the cache write: unlocking needs no re-walk
     by_code, by_uid, alist, facets = enrich(items)  # fast: DB overlay + ghosts (mutates items)
     # Publish in ONE step. These five used to be assigned separately, so a request arriving
     # mid-swap could see the new grid with the previous path map. Several rebuilds can also
@@ -2042,8 +2012,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._set_download(body.get("path"))
         if p == "/api/settraining":
             return self._set_training(body.get("on"))
-        if p == "/api/license":
-            return self._set_license(body.get("key"))
         if p == "/api/model":
             return self._download_model()
         if p == "/api/scenelabel":
@@ -2196,7 +2164,6 @@ class Handler(BaseHTTPRequestHandler):
             "scanned_at": STATE["scanned_at"],
             "library": STATE["library"],
             "scan_warning": STATE.get("scan_warning") or "",
-            "license": _license_info(),
         }).encode("utf-8")
         STATE["data_json"], STATE["data_sig"] = body, sig
         return self._send_data_json(body)
@@ -2544,7 +2511,6 @@ class Handler(BaseHTTPRequestHandler):
                            "tags": tags, "actresses": actresses,
                            "sources": _load_sources(), "cache": cache,
                            "fc2db": self._fc2db_status(),
-                           "license": _license_info(),
                            "counts": {"actresses": len(actresses), "tags": len(tags)}})
 
     def _tag_edit(self, key, en, jp):
@@ -2724,33 +2690,14 @@ class Handler(BaseHTTPRequestHandler):
         save_config(training_mode=on)
         return self._json({"ok": True, "training_mode": on})
 
-    def _set_license(self, key):
-        """Settings -> License: store a Vault Pro key (checked offline), or remove it with ""."""
-        key = "".join((key or "").split())
-        st = vault_license.status(key)
-        if key and not st["pro"]:
-            return self._json({"error": st["error"] or "this key does not unlock Pro"}, 400)
-        if not save_config(license_key=key):
-            return self._json({"error": "could not write config.json"}, 500)
-        # the free cap is applied when the index is built; the cached walk makes that instant
-        fs = _load_fs_index(STATE["library"])
-        if fs is not None:
-            rebuild_index(fs_items=fs)
-        else:
-            threading.Thread(target=rebuild_index, daemon=True).start()
-        return self._json({"ok": True, "license": _license_info()})
-
     def _download_model(self):
-        """Settings -> License: fetch the newest scene model with the saved Pro key."""
-        if not license_status()["pro"]:
-            return self._json({"error": "The scene model " + PRO_ONLY}, 403)
+        """Settings -> Scene model: fetch the newest scene model release."""
         if vault_model.PROGRESS["running"]:
             return self._json({"error": "a model download is already running"}, 409)
-        key = load_config().get("license_key") or ""
 
         def run():
             try:
-                vault_model.download(key)
+                vault_model.download()
             except Exception as e:
                 print("Vault: model download failed: %s" % e, file=sys.stderr)
         threading.Thread(target=run, daemon=True).start()
@@ -2948,8 +2895,6 @@ class Handler(BaseHTTPRequestHandler):
         """(can we talk to fc2ppv-db, why not). The toolbar scan uses this to decide whether
         to run its actress pass; it must never be a hard requirement, because 123av/ffjav
         work without any fc2ppv-db session at all."""
-        if not license_status()["pro"]:
-            return False, "fc2ppv-db " + PRO_ONLY
         mode, solver, _locked = self._fc2db_choice()
         if mode == "flaresolverr":
             if not solver:
@@ -3055,8 +3000,6 @@ class Handler(BaseHTTPRequestHandler):
     def _fc2db_test(self, code):
         if not scanmod or not hasattr(scanmod, "fetch_fc2ppvdb"):
             return self._json({"error": "scanner unavailable"}, 500)
-        if not license_status()["pro"]:
-            return self._json({"error": "fc2ppv-db " + PRO_ONLY, "pro_required": True}, 403)
         mode, solver, _locked = self._fc2db_choice()
         code = (code or "").strip() or "FC2-PPV-4964424"
         if mode == "flaresolverr":
@@ -3190,9 +3133,6 @@ class Handler(BaseHTTPRequestHandler):
         (no writes). Resolves the actress from an explicit id, or a movie code's link."""
         if not scanmod or not hasattr(scanmod, "enrich_actress"):
             return self._json({"error": "enricher unavailable"}, 500)
-        if not license_status()["pro"]:
-            return self._json({"error": "Enrich from web " + PRO_ONLY, "pro_required": True},
-                              403)
         if not os.path.exists(DB_PATH):
             return self._json({"error": "no catalog db"}, 500)
         con = sqlite3.connect(DB_PATH, timeout=30)
@@ -4103,10 +4043,8 @@ def load_config():
 
 
 def save_config(library=None, port=None, download=None, training_mode=None, custom_labels=None,
-                flaresolverr=None, fc2db_mode=None, license_key=None):
+                flaresolverr=None, fc2db_mode=None):
     cfg = load_config()
-    if license_key is not None:
-        cfg["license_key"] = license_key
     if custom_labels is not None:
         cfg["custom_labels"] = list(custom_labels)
     if training_mode is not None:
