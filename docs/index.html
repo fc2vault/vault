@@ -4,10 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vault</title>
-<meta name="description" content="Vault is a self-hosted poster wall, player and scene tagger for an FC2 / JAV library. One Python file, no cloud, no accounts, no telemetry.">
+<meta name="description" content="Vault is a free, self-hosted poster wall, player and scene tagger for an FC2 / JAV library. One Python file, no cloud, no accounts, no telemetry.">
 <meta property="og:title" content="Vault">
-<meta property="og:description" content="A private, self-hosted Plex for FC2 / JAV. Poster wall, streaming player, scene markers on the seek bar, actress catalog. Runs on your machine only.">
+<meta property="og:description" content="A free, self-hosted Plex for FC2 / JAV. Poster wall, streaming player, scene markers on the seek bar, actress catalog. Runs on your machine only.">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://fc2vault.vaultkey.workers.dev/img/wall.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Figtree:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -39,6 +40,7 @@ html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--body);font-size:17px;line-height:1.55;
   -webkit-font-smoothing:antialiased}
 a{color:inherit}
+img{max-width:100%;height:auto;display:block}
 h1,h2,h3{font-family:var(--display);font-weight:800;line-height:.95;margin:0;text-wrap:balance;letter-spacing:.005em}
 h1{font-size:clamp(56px,9vw,124px);text-transform:uppercase}
 h2{font-size:clamp(40px,6vw,76px);text-transform:uppercase}
@@ -60,7 +62,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 nav .wrap{display:flex;align-items:center;gap:22px;height:60px}
 .brand{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:28px;text-decoration:none;letter-spacing:.02em}
 .brand i{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
-nav ul{display:flex;gap:22px;list-style:none;margin:0 0 0 auto;padding:0;font-size:15px;color:var(--dim)}
+nav ul{display:flex;gap:22px;list-style:none;margin:0 0 0 auto;padding:0;font-size:15px;color:var(--dim);align-items:center}
 nav ul a{text-decoration:none}
 nav ul a:hover{color:var(--txt)}
 @media (max-width:720px){nav ul li:not(.keep){display:none}}
@@ -70,6 +72,7 @@ nav ul a:hover{color:var(--txt)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.small{padding:8px 14px;font-size:14px}
+.btn svg{width:18px;height:18px;fill:currentColor}
 
 /* hero */
 .hero{padding-top:clamp(48px,7vw,96px);padding-bottom:0;overflow:hidden}
@@ -81,60 +84,13 @@ nav ul a:hover{color:var(--txt)}
 .strip{display:flex;flex-wrap:wrap;gap:10px 28px;font-family:var(--mono);font-size:13px;color:var(--dim);margin-top:4px}
 .strip b{color:var(--txt);font-weight:500}
 
-/* app mock */
-.mock{margin-top:clamp(36px,5vw,64px);border:1px solid var(--line);border-bottom:0;border-radius:14px 14px 0 0;background:var(--panel);
-  box-shadow:0 -1px 0 color-mix(in srgb,var(--txt) 6%,transparent),0 40px 120px -40px color-mix(in srgb,var(--accent) 35%,transparent);
-  overflow:hidden;font-size:12px;min-width:0}
-.mock-top{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);color:var(--dim)}
-.mock-top .brand{font-size:20px}
-.mock-top .brand i{width:10px;height:10px;box-shadow:none}
-.mock-search{flex:1;max-width:360px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--bg)}
-.mock-top .count{margin-left:auto;font-family:var(--mono);white-space:nowrap}
-.mock-top .count b{color:var(--txt);font-weight:500}
-.mock-top .count .free{color:var(--warn)}
-.mock-body{display:grid;grid-template-columns:200px 1fr;min-height:420px}
-.mock-side{border-right:1px solid var(--line);padding:14px;display:grid;align-content:start;gap:14px;color:var(--dim)}
-.mock-side h6{margin:0 0 6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
-.mock-side .row{display:flex;justify-content:space-between;padding:3px 0}
-.mock-side .row.on{color:var(--txt);background:var(--panel2);margin:0 -6px;padding:3px 6px;border-radius:6px}
-.chips{display:flex;flex-wrap:wrap;gap:5px}
-.chip{border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:11px;color:var(--dim)}
-.chip.on{border-color:var(--accent);color:var(--accent)}
-.mock-grid{padding:14px;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-content:start}
-.card{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg);min-width:0}
-.poster{aspect-ratio:16/10;background:
-  linear-gradient(135deg,color-mix(in srgb,var(--accent) var(--a,30%),var(--panel2)),color-mix(in srgb,var(--purple) var(--b,25%),var(--bg)));
-  position:relative}
-.poster::after{content:"";position:absolute;inset:0;background:
-  repeating-linear-gradient(90deg,transparent 0 14px,color-mix(in srgb,var(--txt) 4%,transparent) 14px 15px),
-  repeating-linear-gradient(0deg,transparent 0 14px,color-mix(in srgb,var(--txt) 4%,transparent) 14px 15px)}
-.poster .parts{position:absolute;top:6px;right:6px;background:var(--purple);color:#fff;font:600 10px var(--mono);padding:1px 5px;border-radius:4px}
-.poster .seen{position:absolute;top:6px;left:6px;width:14px;height:14px;border-radius:50%;background:var(--good)}
-.meta{padding:8px 9px;display:grid;gap:3px}
-.meta .who{font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.meta .code{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.meta .tags{display:flex;gap:4px;flex-wrap:wrap}
-.meta .tags span{font-size:9.5px;background:var(--panel2);border-radius:4px;padding:1px 5px;color:var(--dim)}
-.card.playing{grid-column:span 2;grid-row:span 2}
-.card.playing .poster{aspect-ratio:auto;height:100%;min-height:150px;display:flex;align-items:flex-end}
-.player{width:100%;padding:10px 10px 8px;background:linear-gradient(transparent,color-mix(in srgb,#000 70%,transparent));position:relative;z-index:1}
-.scenes{position:relative;height:26px}
-.scenes .sc{position:absolute;bottom:0;transform:translateX(-50%);display:grid;justify-items:center;gap:2px;font-size:9px;color:#fff;font-family:var(--mono)}
-.scenes .sc b{display:block;width:16px;height:16px;border-radius:5px;background:color-mix(in srgb,#fff 18%,transparent);border:1px solid color-mix(in srgb,#fff 35%,transparent)}
-.scenes .sc.ai b{border-style:dashed}
-.scenes .sc.hot{color:var(--accent)}
-.scenes .sc.hot b{background:var(--accent);border-color:var(--accent)}
-.bar{position:relative;height:4px;border-radius:2px;background:color-mix(in srgb,#fff 25%,transparent);margin:4px 0 6px}
-.bar .fill{position:absolute;inset:0 auto 0 0;width:38%;background:var(--accent);border-radius:2px}
-.bar .tick{position:absolute;top:-3px;width:2px;height:10px;background:#fff;opacity:.85;transform:translateX(-50%)}
-.pl-row{display:flex;justify-content:space-between;font:10px var(--mono);color:#fff;opacity:.9}
-@media (max-width:860px){
-  .mock-body{grid-template-columns:1fr}
-  .mock-side{display:none}
-  .mock-grid{grid-template-columns:repeat(3,1fr)}
-  .mock-top .mock-search{display:none}
-}
-@media (max-width:520px){.mock-grid{grid-template-columns:repeat(2,1fr)} .card.playing{grid-column:span 2;grid-row:span 1} .card.playing .poster{min-height:170px}}
+/* screenshots: a thin window frame, the app's own dark chrome inside */
+.shot{margin:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#0c0d12;
+  box-shadow:0 1px 0 color-mix(in srgb,var(--txt) 6%,transparent) inset,0 40px 120px -40px color-mix(in srgb,var(--accent) 35%,transparent)}
+.shot img{width:100%}
+.shot figcaption{padding:10px 14px;font-size:13px;color:var(--dim);border-top:1px solid var(--line);background:var(--panel)}
+.hero .shot{margin-top:clamp(36px,5vw,64px);border-bottom:0;border-radius:14px 14px 0 0}
+.hero .shot img{border-radius:14px 14px 0 0}
 
 /* features */
 .feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
@@ -142,6 +98,20 @@ nav ul a:hover{color:var(--txt)}
 .feat article p{color:var(--dim);font-size:16px}
 .feat .k{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}
 .feat svg{width:30px;height:30px;stroke:var(--txt);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* gallery: two wide shots, then the phone beside a note */
+.gallery{display:grid;gap:clamp(24px,4vw,48px);margin-top:clamp(40px,6vw,72px)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:clamp(18px,3vw,32px);align-items:start}
+.two .shot{box-shadow:none}
+.two h3{margin:16px 0 6px}
+.two p{color:var(--dim);font-size:15.5px;max-width:48ch}
+.phone-row{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:clamp(24px,5vw,72px);align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:clamp(22px,4vw,44px)}
+.phone-row .text{display:grid;gap:14px;color:var(--dim);max-width:52ch}
+.phone-row .text h3{color:var(--txt)}
+.phone-row .text strong{color:var(--txt);font-weight:500}
+.phone{margin:0 auto;width:min(100%,260px);border:6px solid #1d2030;border-radius:34px;overflow:hidden;background:#0c0d12;box-shadow:0 30px 80px -30px #000}
+.phone img{width:100%;max-height:520px;object-fit:cover;object-position:top}
+@media (max-width:860px){.two{grid-template-columns:1fr} .phone-row{grid-template-columns:1fr}}
 
 /* model */
 .model{background:var(--panel);border-block:1px solid var(--line)}
@@ -158,32 +128,31 @@ nav ul a:hover{color:var(--txt)}
 .bars div{height:12px;border-radius:3px;background:var(--line);position:relative;overflow:hidden}
 .bars div::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:var(--c,var(--dim));border-radius:3px}
 .bars div.now::after{background:var(--accent)}
-.legend{display:flex;gap:18px;font-size:12px;color:var(--dim);font-family:var(--mono)}
+.legend{display:flex;gap:18px;font-size:12px;color:var(--dim);font-family:var(--mono);flex-wrap:wrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--dim)}
 .legend i.now{background:var(--accent)}
 .labels{display:flex;flex-wrap:wrap;gap:6px}
 .labels span{font:12px var(--mono);border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--dim)}
 .labels span b{color:var(--txt);font-weight:500}
 .foot-note{font-size:13px;color:var(--dim)}
+.model .shot{margin-top:clamp(28px,4vw,48px);box-shadow:none}
 
-/* pricing */
-.plans{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch}
-@media (max-width:760px){.plans{grid-template-columns:1fr}}
-.plan{border:1px solid var(--line);border-radius:16px;padding:30px 28px;background:var(--panel);display:grid;gap:22px;align-content:start;min-width:0}
-.plan.pro{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));box-shadow:0 30px 80px -40px color-mix(in srgb,var(--accent) 45%,transparent)}
-.plan .price{font-family:var(--display);font-size:64px;font-weight:800;line-height:1}
-.plan .price small{font:500 15px var(--body);color:var(--dim);margin-left:8px}
-.plan ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:16px}
-.plan li{display:flex;gap:10px;align-items:flex-start}
-.plan li::before{content:"";flex:none;width:18px;height:18px;margin-top:3px;border-radius:50%;background:var(--good);
+/* support */
+.support{display:grid;grid-template-columns:1.1fr .9fr;gap:clamp(24px,4vw,56px);align-items:stretch}
+@media (max-width:860px){.support{grid-template-columns:1fr}}
+.card-free,.card-sup{border:1px solid var(--line);border-radius:16px;padding:30px 28px;background:var(--panel);display:grid;gap:20px;align-content:start;min-width:0}
+.card-sup{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));box-shadow:0 30px 80px -40px color-mix(in srgb,var(--accent) 45%,transparent)}
+.price{font-family:var(--display);font-size:64px;font-weight:800;line-height:1}
+.price small{font:500 15px var(--body);color:var(--dim);margin-left:8px}
+.card-free ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:16px}
+.card-free li{display:flex;gap:10px;align-items:flex-start}
+.card-free li::before{content:"";flex:none;width:18px;height:18px;margin-top:3px;border-radius:50%;background:var(--good);
   -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.3 14.4-3.6-3.6 1.4-1.4 2.2 2.2 5-5 1.4 1.4-6.4 6.4z'/%3E%3C/svg%3E") center/contain no-repeat;
   mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.3 14.4-3.6-3.6 1.4-1.4 2.2 2.2 5-5 1.4 1.4-6.4 6.4z'/%3E%3C/svg%3E") center/contain no-repeat}
-.plan li.dim{color:var(--dim)}
-.plan li.dim::before{background:var(--line)}
-.plan .sup{display:flex;flex-wrap:wrap;gap:10px}
-.plan .fine{font-size:13px;color:var(--dim)}
-.keybox{font-family:var(--mono);font-size:12px;color:var(--dim);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;word-break:break-all}
-.keybox b{color:var(--accent);font-weight:500}
+.card-sup p{color:var(--dim);font-size:16px}
+.card-sup p strong{color:var(--txt);font-weight:500}
+.card-sup .sup{display:flex;flex-wrap:wrap;gap:10px}
+.fine{font-size:13px;color:var(--dim)}
 
 /* privacy */
 .priv{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px}
@@ -201,8 +170,6 @@ nav ul a:hover{color:var(--txt)}
 pre{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:var(--mono);font-size:14px;line-height:1.6;color:var(--txt)}
 pre .c{color:var(--dim)}
 @media (max-width:520px){.step{grid-template-columns:1fr;gap:6px} .step::before{font-size:40px}}
-
-/* install: dependencies + OS tabs */
 .deps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-bottom:clamp(32px,5vw,56px)}
 .deps div{display:grid;gap:6px;padding:18px 0;border-top:2px solid var(--line);align-content:start}
 .deps div b{font-family:var(--display);font-size:26px;font-weight:600;line-height:1}
@@ -237,7 +204,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     <ul>
       <li><a href="#features">Features</a></li>
       <li><a href="#model">Scene model</a></li>
-      <li><a href="#pro">Free &amp; Pro</a></li>
+      <li><a href="#support">Support</a></li>
       <li><a href="#install">Install</a></li>
       <li class="keep"><a class="btn small" href="https://github.com/fc2vault/vault">GitHub</a></li>
     </ul>
@@ -247,13 +214,13 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
 <header class="hero" id="top">
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">Self‑hosted · v1.5.2 · macOS · Windows · Linux</p>
+      <p class="eyebrow">Free &amp; self‑hosted · v1.7.0 · macOS · Windows · Linux</p>
       <h1>Your library,<br>finally <span>browsable.</span></h1>
-      <p class="lede">Vault turns a folder of FC2 / JAV movies into a fast, private web app: a poster wall, a streaming player with scene markers on the seek bar, and an actress catalog. <strong>One Python file. No cloud, no accounts, no telemetry.</strong></p>
+      <p class="lede">Vault turns a folder of FC2 / JAV movies into a fast, private web app: a poster wall, a streaming player with scene markers on the seek bar, and an actress catalog. <strong>One Python file. No cloud, no accounts, no telemetry. Free, the whole thing.</strong></p>
       <div class="cta">
-        <a class="btn primary" href="https://github.com/fc2vault/vault">Get Vault — free</a>
-        <a class="btn" href="#pro">Vault Pro · from $30 / year</a>
-        <span class="note">Free for libraries up to 250 movies. Pro unlocks everything, with a key that is checked on your own machine.</span>
+        <a class="btn primary" href="https://github.com/fc2vault/vault/releases/latest">Download Vault — free</a>
+        <a class="btn" href="#support">Support the project</a>
+        <span class="note">No limit, no key, no sign‑up. The scene model is a free download inside the app.</span>
       </div>
       <div class="strip">
         <span><b>0</b> pip installs</span>
@@ -263,54 +230,9 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
       </div>
     </div>
 
-    <div class="mock" aria-label="Illustration of the Vault interface">
-      <div class="mock-top">
-        <span class="brand"><i></i>Vault</span>
-        <span class="mock-search">Search actress, code, tag, title…  ( / )</span>
-        <span>By actress</span><span>List</span><span>Newest added ▾</span>
-        <span class="count"><b>3,412</b> of 3,412 · 15 TB</span>
-      </div>
-      <div class="mock-body">
-        <aside class="mock-side">
-          <div><h6>Library</h6>
-            <div class="row on"><span>All movies</span><span>3,412</span></div>
-            <div class="row"><span>Identified</span><span>2,921</span></div>
-            <div class="row"><span>Amateur / unknown</span><span>491</span></div>
-            <div class="row"><span>♥ Favorites</span><span>128</span></div>
-            <div class="row"><span>Wishlist</span><span>648 missing</span></div>
-            <div class="row"><span>To review</span><span>12</span></div>
-          </div>
-          <div><h6>Resolution</h6><div class="chips"><span class="chip">4K 72</span><span class="chip on">1080p 3,132</span><span class="chip">720p 198</span></div></div>
-          <div><h6>Cup size</h6><div class="chips"><span class="chip">B 125</span><span class="chip">C 24</span><span class="chip">E 33</span><span class="chip on">F 38</span><span class="chip">G 18</span></div></div>
-          <div><h6>Tags · 383 of 1,311</h6><div class="chips"><span class="chip on">Creampie</span><span class="chip">Uncensored</span><span class="chip">Amateur</span><span class="chip">POV</span><span class="chip">Slender</span><span class="chip">Debut</span></div></div>
-        </aside>
-        <div class="mock-grid">
-          <div class="card playing"><div class="poster" style="--a:55%;--b:40%">
-            <div class="player">
-              <div class="scenes">
-                <span class="sc" style="left:9%"><b></b>blowjob</span>
-                <span class="sc" style="left:27%"><b></b>cowgirl</span>
-                <span class="sc hot" style="left:38%"><b></b>doggy</span>
-                <span class="sc ai" style="left:58%"><b></b>missionary</span>
-                <span class="sc ai" style="left:84%"><b></b>creampie</span>
-              </div>
-              <div class="bar"><span class="fill"></span><span class="tick" style="left:9%"></span><span class="tick" style="left:27%"></span><span class="tick" style="left:38%"></span><span class="tick" style="left:58%"></span><span class="tick" style="left:84%"></span></div>
-              <div class="pl-row"><span>▶ 24:51 / 1:05:20</span><span>doggy · AI 81%</span><span>1080p · HEVC</span></div>
-            </div>
-          </div><div class="meta"><span class="who">Akari</span><span class="code">FC2-PPV-4687325 · あかり</span><div class="tags"><span>Creampie</span><span>POV</span><span>Uncensored</span><span>5.0 GB</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:20%;--b:45%"><span class="parts">2×</span></div><div class="meta"><span class="who">Mio</span><span class="code">FC2-PPV-4790442 · みお</span><div class="tags"><span>Amateur</span><span>Debut</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:40%;--b:15%"><span class="seen"></span></div><div class="meta"><span class="who">Hina</span><span class="code">FC2-PPV-4360814 · ひな</span><div class="tags"><span>Slender</span><span>Toys</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:12%;--b:30%"></div><div class="meta"><span class="who">Yuyutan</span><span class="code">FC2-PPV-4968930 · ゆゆたん</span><div class="tags"><span>Creampie</span><span>Blowjob</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:48%;--b:22%"><span class="parts">3×</span></div><div class="meta"><span class="who">Karin</span><span class="code">FC2-PPV-4400670 · かりん</span><div class="tags"><span>Massage</span><span>19 years</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:28%;--b:55%"></div><div class="meta"><span class="who">Nana</span><span class="code">FC2-PPV-4970405 · なな</span><div class="tags"><span>G cup</span><span>Big tits</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:60%;--b:10%"><span class="seen"></span></div><div class="meta"><span class="who">Ui</span><span class="code">FC2-PPV-4957101 · うい</span><div class="tags"><span>Cosplay</span><span>POV</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:18%;--b:18%"></div><div class="meta"><span class="who">Amateur</span><span class="code">FC2-PPV-4969139 · 12 GB</span><div class="tags"><span>Face shown</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:35%;--b:35%"></div><div class="meta"><span class="who">Erika</span><span class="code">FC2-PPV-4689167 · えりか</span><div class="tags"><span>Blowjob</span><span>Cosplay</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:8%;--b:50%"></div><div class="meta"><span class="who">Yumi</span><span class="code">FC2-PPV-4960166 · ゆみ</span><div class="tags"><span>Fair skin</span><span>Uncensored</span></div></div></div>
-          <div class="card"><div class="poster" style="--a:45%;--b:45%"><span class="parts">2×</span></div><div class="meta"><span class="who">Rena</span><span class="code">FC2-PPV-4866678 · れな</span><div class="tags"><span>Student</span><span>Creampie</span></div></div></div>
-        </div>
-      </div>
-    </div>
+    <figure class="shot">
+      <img src="img/wall.webp" width="2000" height="1250" alt="The Vault poster wall: filters on the left, a grid of movies with resolution, length, tags and size on each card. Poster imagery is pixelated." fetchpriority="high">
+    </figure>
   </div>
 </header>
 
@@ -353,89 +275,112 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
         <p>The same page adapts to a phone over your LAN or VPN: two‑column wall, a filter drawer, a stacked player. No separate app and nothing to install on the phone.</p>
       </article>
     </div>
+
+    <div class="gallery">
+      <div class="two">
+        <div>
+          <figure class="shot"><img src="img/player.webp" width="2000" height="1250" alt="The Vault player: a movie playing with scene chips above the seek bar, the current scene's label in the corner, and the movie's tags, metadata and actions on the right." loading="lazy"></figure>
+          <h3>The player</h3>
+          <p>Scene chips above the seek bar, the current scene named in the corner, tags and metadata beside the picture. Filmography of the performer on the left, so the next title is one click away.</p>
+        </div>
+        <div>
+          <figure class="shot"><img src="img/actress.webp" width="2000" height="1250" alt="An actress page in Vault: portrait, Japanese name, age, cup size, height and measurements, aliases, and a grid of the 82 titles owned." loading="lazy"></figure>
+          <h3>The catalog</h3>
+          <p>Portrait, Japanese name, measurements and aliases from the sources you enable, and everything you own by her in one place. Favorite, rename or merge from the same card.</p>
+        </div>
+      </div>
+      <div class="phone-row">
+        <div class="text">
+          <p class="eyebrow">On the phone</p>
+          <h3>Same page, two columns.</h3>
+          <p>Open Vault's address from any phone on your network and you get a two‑column wall, a filter drawer and a stacked player. <strong>Nothing to install on the phone</strong>, and nothing leaves your LAN.</p>
+          <p class="fine">Screenshots on this page come from a real library. Poster and video imagery is pixelated; the interface is as shipped.</p>
+        </div>
+        <div class="phone"><img src="img/phone.webp" width="780" height="1688" alt="Vault on a phone: the poster wall in two columns with a filters button, sort menu and search box at the top." loading="lazy"></div>
+      </div>
+    </div>
   </div>
 </section>
 
 <section class="model" id="model">
-  <div class="wrap model-grid">
-    <div>
-      <div class="sec-head">
-        <p class="eyebrow">The scene model</p>
-        <h2>Trained on real reviews.<br>Updated every round.</h2>
-      </div>
-      <div class="text">
-        <p>Vault Pro includes a video classifier fine‑tuned on thousands of hand‑reviewed scene markers. It watches a movie in 6.4‑second windows and proposes where each act starts: <strong>blowjob, doggy, cowgirl, missionary, fingering, toy, creampie</strong> and more. You confirm or correct the proposals in the player and the markers land on the seek bar.</p>
-        <p>The model is <strong>actively maintained</strong>: each round is trained on a larger reviewed set and measured against the same held‑out performers, so every release is a verified step up. Supporters get each new model as it ships, along with the app updates that go with it.</p>
-        <p>Tagging runs on a Mac with Apple Silicon or any machine with an NVIDIA GPU, offline. Nothing from your library leaves your network.</p>
-        <div class="labels" aria-label="Round-1 recall per label">
-          <span>blowjob <b>96%</b></span><span>creampie <b>96%</b></span><span>cowgirl <b>95%</b></span><span>missionary <b>89%</b></span><span>fingering <b>84%</b></span><span>doggy <b>81%</b></span><span>scoop‑up <b>67%</b></span><span>standing <b>62%</b></span><span>toy <b>60%</b></span>
+  <div class="wrap">
+    <div class="model-grid">
+      <div>
+        <div class="sec-head">
+          <p class="eyebrow">The scene model</p>
+          <h2>Trained on real reviews.<br>Updated every round.</h2>
         </div>
-        <p class="foot-note">Share of real scenes the current model found on its own, per label, measured on 50 fully reviewed movies.</p>
+        <div class="text">
+          <p>Vault ships with a video classifier fine‑tuned on thousands of hand‑reviewed scene markers. It watches a movie in 6.4‑second windows and proposes where each act starts: <strong>blowjob, doggy, cowgirl, missionary, fingering, toy, creampie</strong> and more. You confirm or correct the proposals in the player and the markers land on the seek bar.</p>
+          <p>The model is <strong>actively maintained</strong>: each round is trained on a larger reviewed set and measured against the same held‑out performers, so every release is a verified step up. The newest build is a <strong>free download</strong> in Settings → Scene model, and the app tells you when there is a new one.</p>
+          <p>Tagging runs on a Mac with Apple Silicon or any machine with an NVIDIA GPU, offline. Nothing from your library leaves your network.</p>
+          <div class="labels" aria-label="Round-1 recall per label">
+            <span>blowjob <b>96%</b></span><span>creampie <b>96%</b></span><span>cowgirl <b>95%</b></span><span>missionary <b>89%</b></span><span>fingering <b>84%</b></span><span>doggy <b>81%</b></span><span>scoop‑up <b>67%</b></span><span>standing <b>62%</b></span><span>toy <b>60%</b></span>
+          </div>
+          <p class="foot-note">Share of real scenes the model found on its own, per label, measured on 50 fully reviewed movies (round 1).</p>
+        </div>
+      </div>
+      <div class="rounds">
+        <h3>Generic model vs. the Vault model</h3>
+        <div class="legend"><span><i></i>off‑the‑shelf action model</span><span><i class="now"></i>Vault model</span></div>
+        <div class="metric">
+          <div class="lab"><span>Precision · proposals that were right</span><b>56% → 68%</b></div>
+          <div class="bars"><div style="--w:56%"></div><div class="now" style="--w:68%"></div></div>
+        </div>
+        <div class="metric">
+          <div class="lab"><span>Recall · real scenes it found</span><b>41% → 86%</b></div>
+          <div class="bars"><div style="--w:41%"></div><div class="now" style="--w:86%"></div></div>
+        </div>
+        <div class="metric">
+          <div class="lab"><span>Scenes you still add by hand, per movie</span><b>4.9 → 0.8</b></div>
+          <div class="bars"><div style="--w:100%"></div><div class="now" style="--w:16%"></div></div>
+        </div>
+        <div class="metric">
+          <div class="lab"><span>Validation accuracy, round 1 → round 2</span><b>73.1% → 75.4%</b></div>
+          <div class="bars"><div style="--w:73.1%"></div><div class="now" style="--w:75.4%"></div></div>
+        </div>
+        <p class="foot-note">Precision and recall measured against hand‑placed markers on real movies, not a lab benchmark. Validation holds out whole performers. Current build: vault‑r2.</p>
       </div>
     </div>
-    <div class="rounds">
-      <h3>Generic model vs. the Vault model</h3>
-      <div class="legend"><span><i></i>off‑the‑shelf action model</span><span><i class="now"></i>Vault model, current</span></div>
-      <div class="metric">
-        <div class="lab"><span>Precision · proposals that were right</span><b>56% → 68%</b></div>
-        <div class="bars"><div style="--w:56%"></div><div class="now" style="--w:68%"></div></div>
-      </div>
-      <div class="metric">
-        <div class="lab"><span>Recall · real scenes it found</span><b>41% → 86%</b></div>
-        <div class="bars"><div style="--w:41%"></div><div class="now" style="--w:86%"></div></div>
-      </div>
-      <div class="metric">
-        <div class="lab"><span>Scenes you still add by hand, per movie</span><b>4.9 → 0.8</b></div>
-        <div class="bars"><div style="--w:100%"></div><div class="now" style="--w:16%"></div></div>
-      </div>
-      <div class="metric">
-        <div class="lab"><span>Timing · median shift after review</span><b>0 s</b></div>
-      </div>
-      <p class="foot-note">Measured against hand‑placed markers on real movies, not a lab benchmark. Validation holds out whole performers.</p>
-    </div>
+    <figure class="shot">
+      <img src="img/settings.webp" width="1600" height="1022" alt="Settings → Scene model in Vault: the installed model, the newest build with its release notes, and an Update button." loading="lazy">
+      <figcaption>Settings → Scene model. One button fetches the newest build from the project's GitHub releases; the tagger finds it on its own.</figcaption>
+    </figure>
   </div>
 </section>
 
-<section id="pro">
+<section id="support">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Free &amp; Pro</p>
-      <h2>Free to start.<br>Pro when it's your main library.</h2>
-      <p class="lede">Vault is funded by supporters, not by ads or your data. The free version is the full app for a small collection. Pro removes the limit and adds the parts that cost work to keep running.</p>
+      <p class="eyebrow">Free, and supported by you</p>
+      <h2>Everything is free.<br>Contributions keep it moving.</h2>
+      <p class="lede">Vault is a hobby project, developed in the open and given away whole: the app, every source, the catalog and the scene model. There is no paid tier and nothing held back. If it earns a place in your setup, a contribution helps cover the tools, the GPU hours and the work that go into the next release.</p>
     </div>
-    <div class="plans">
-      <div class="plan">
-        <div><p class="eyebrow">Free</p><p class="price">$0</p></div>
+    <div class="support">
+      <div class="card-free">
+        <div><p class="eyebrow">Vault</p><p class="price">$0<small>for everyone, forever</small></p></div>
         <ul>
-          <li>Up to <b>&nbsp;250 movies</b>&nbsp;shown</li>
+          <li>The whole library, no movie limit</li>
           <li>Poster wall, filters, search, sorting</li>
           <li>Streaming player, multi‑part, shortcuts</li>
           <li>Scene markers, training mode, custom labels</li>
           <li>Tags, actress edits, organize &amp; dedupe</li>
-          <li>Metadata from fc2db.net, 123av, ffjav</li>
-          <li class="dim">fc2ppv‑db cast lookups</li>
-          <li class="dim">Enrich from web</li>
-          <li class="dim">Scene model &amp; updates</li>
+          <li>Metadata from fc2db.net, 123av, ffjav and fc2ppv‑db</li>
+          <li>Enrich from web, verified by code overlap</li>
+          <li>The scene model, and every new build after it</li>
         </ul>
-        <div class="sup"><a class="btn" href="https://github.com/fc2vault/vault">Download on GitHub</a></div>
-        <p class="fine">No sign‑up. A bigger library shows the 250 movies Vault saw first and says how many there are in all.</p>
+        <div><a class="btn" href="https://github.com/fc2vault/vault/releases/latest">Download on GitHub</a></div>
+        <p class="fine">No sign‑up, no key. The source is on GitHub; the terms are in LICENSE.md.</p>
       </div>
-      <div class="plan pro">
-        <div><p class="eyebrow">Pro</p><p class="price">$30<small>per year, via Patreon or SubscribeStar</small></p></div>
-        <ul>
-          <li><b>Whole library</b>, no movie limit</li>
-          <li>Everything in Free</li>
-          <li><b>fc2ppv‑db</b>: actress, face, aliases, filmography</li>
-          <li><b>Enrich from web</b>, verified by code overlap</li>
-          <li>The <b>scene model</b>, with every new release</li>
-          <li>Continuous updates and support</li>
-          <li>A say in what gets built next</li>
-        </ul>
+      <div class="card-sup">
+        <div><p class="eyebrow">Say thanks</p><p class="price">Patreon<small>any amount, cancel any time</small></p></div>
+        <p><strong>Thank you</strong> to everyone who contributes. Vault keeps being developed either way, but your support is what pays for the parts that are not free to make: the GPU time that trains each model round, the tooling, the metadata sources, and the evenings that go into every release.</p>
+        <p>Supporters get the same Vault as everyone else, plus my gratitude, an early look at what is coming, and a say in what gets built next.</p>
         <div class="sup">
-          <a class="btn primary" href="https://github.com/fc2vault/vault#free-and-pro" data-pro="patreon">Support on Patreon</a>
-          <a class="btn" href="https://github.com/fc2vault/vault#free-and-pro" data-pro="subscribestar">SubscribeStar</a>
+          <a class="btn primary" href="https://www.patreon.com/FC2vault" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 2.5a6.2 6.2 0 1 1 0 12.4 6.2 6.2 0 0 1 0-12.4zM2.5 2.5h3.1v19H2.5z"/></svg>Support on Patreon</a>
+          <a class="btn" href="https://github.com/fc2vault/vault/issues">Request a feature</a>
         </div>
-        <p class="fine">Already a supporter? <a href="https://github.com/fc2vault/vault#free-and-pro" data-pro="key">Get your key</a>: log in with the account you support with and the key appears. It is checked on your machine with a signature, so Vault never contacts a license server, and the key holds no name or email.</p>
+        <p class="fine">Nothing on Patreon is required to use Vault or the scene model.</p>
       </div>
     </div>
   </div>
@@ -449,7 +394,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     </div>
     <div class="priv">
       <div><b>No cloud</b><p>A single Python process serves a single HTML page from your machine. Your library index, posters and catalog live in a folder next to it.</p></div>
-      <div><b>No account</b><p>Nothing to register. The only outbound traffic is the metadata scan you start yourself, to the sources you enabled.</p></div>
+      <div><b>No account</b><p>Nothing to register. The only outbound traffic is the metadata scan you start yourself, and the model download you press the button for.</p></div>
       <div><b>No telemetry</b><p>No analytics, no update pings, no crash reports. The source is open; read the whole server in one sitting.</p></div>
       <div><b>LAN only</b><p>Vault has no login and no HTTPS on purpose. Use it on a trusted home network or over a VPN, and don't port‑forward it.</p></div>
     </div>
@@ -467,8 +412,8 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     <div class="deps">
       <div><b>Python 3.8+</b><p>Required. macOS: already there once the command‑line tools are installed. Windows: <a href="https://www.python.org/downloads/">python.org</a>, tick <em>Add python to PATH</em>. Linux: your package manager.</p></div>
       <div><b>ffmpeg / ffprobe</b><p>Required. Makes posters and reads duration, resolution and codec. <code>brew install ffmpeg</code>, <code>winget install ffmpeg</code>, or <code>apt install ffmpeg</code>.</p></div>
-      <div><b>FlareSolverr</b><p>Optional, Pro only. fc2ppv‑db sits behind a Cloudflare check; FlareSolverr clears it for you. A separate third‑party program, usually run in Docker. Without it you can paste a browser session instead.</p></div>
-      <div><b>Scene model</b><p>Optional, Pro only. A ~0.5 GB download placed next to the app. Tagging needs Apple Silicon or an NVIDIA GPU; viewing and editing markers needs nothing special.</p></div>
+      <div><b>FlareSolverr</b><p>Optional. fc2ppv‑db sits behind a Cloudflare check; FlareSolverr clears it for you. A separate third‑party program, usually run in Docker. Without it you can paste a browser session instead.</p></div>
+      <div><b>Scene model</b><p>Optional. A ~450 MB download from Settings → Scene model. Tagging needs Apple Silicon or an NVIDIA GPU; viewing and editing markers needs nothing special.</p></div>
     </div>
 
     <div class="os-tabs" role="tablist" aria-label="Operating system">
@@ -523,11 +468,11 @@ python3 serve.py --library "/srv/movies"</pre></div></div>
       <h2>Fair questions.</h2>
     </div>
     <div class="faq">
-      <details><summary>What happens to my library in the free version?</summary><p>Nothing. Files are never touched by the limit. Vault shows the 250 movies it saw first and tells you how many it found in all. Add a key and the rest appears at once, without a rescan. Remove the key and you are back to the free view.</p></details>
-      <details><summary>What does a Pro key contain?</summary><p>Three things: the word <code>pro</code>, the last valid day, and a random eight‑character id. No name, no email, no machine fingerprint. The key is signed, and Vault checks the signature with a public key that ships in the code, so it works offline forever.</p></details>
-      <details><summary>What if my key expires?</summary><p>Vault keeps running and goes back to the free view. Nothing is deleted and nothing locks. Renew when you want the full view back.</p></details>
-      <details><summary>Does the scene model need a GPU?</summary><p>Tagging runs on Apple Silicon (MPS) at roughly 3× realtime, or much faster on any NVIDIA GPU. Reviewing markers in the player needs nothing special. The model is a download for supporters and runs entirely on your machine.</p></details>
-      <details><summary>Which sources does it use for metadata?</summary><p>fc2db.net, 123av and ffjav work in both versions. fc2ppv‑db, which supplies the cast and faces, is a Pro feature and sits behind a Cloudflare check, so it needs a pasted browser session or a FlareSolverr instance on your LAN.</p></details>
+      <details><summary>Is it really all free?</summary><p>Yes. The app, every metadata source, the bundled catalog and the scene model, with no movie limit and no key. Earlier versions had a paid tier; it was dropped in 1.7 because free is simpler for everyone. The terms are in <code>LICENSE.md</code>: use it, share it, don't sell it.</p></details>
+      <details><summary>What do I get for supporting on Patreon?</summary><p>The same Vault as everyone else, and my thanks. Contributions pay for the GPU time that trains each model round, the tooling and the hours behind every release, and supporters get an early look at what is coming and a say in what gets built next. Nothing is held back from people who don't contribute.</p></details>
+      <details><summary>How does the scene model get onto my machine?</summary><p>Settings → Scene model shows the newest build and a Download button. Vault fetches it from the project's GitHub releases into a per‑user folder, and vault‑scene‑tagger finds it there on its own. When a new round ships, the same tab offers the update.</p></details>
+      <details><summary>Does the scene model need a GPU?</summary><p>Tagging runs on Apple Silicon (MPS) at roughly 3× realtime, or much faster on any NVIDIA GPU. Reviewing markers in the player needs nothing special. The model runs entirely on your machine.</p></details>
+      <details><summary>Which sources does it use for metadata?</summary><p>fc2db.net, 123av and ffjav work out of the box. fc2ppv‑db, which supplies the cast and faces, sits behind a Cloudflare check, so it needs a pasted browser session or a FlareSolverr instance on your LAN.</p></details>
       <details><summary>Is this affiliated with FC2?</summary><p>No. Vault is an independent, open‑source media manager for files you already own. It hosts nothing, links to no content, and includes no videos or images.</p></details>
     </div>
   </div>
@@ -541,18 +486,13 @@ python3 serve.py --library "/srv/movies"</pre></div></div>
       <li><a href="https://github.com/fc2vault/vault/blob/main/README.md">README</a></li>
       <li><a href="https://github.com/fc2vault/vault/blob/main/CHANGELOG.md">Changelog</a></li>
       <li><a href="https://github.com/fc2vault/vault/issues">Issues</a></li>
+      <li><a href="https://www.patreon.com/FC2vault" rel="noopener">Patreon</a></li>
     </ul>
-    <small>Vault runs on your machine and talks only to the metadata sources you enable. The interface shown above is an illustration with placeholder titles. Not affiliated with FC2, Inc. or any studio.</small>
+    <small>Vault runs on your machine and talks only to the metadata sources you enable. Screenshots show a real library with all imagery pixelated. Not affiliated with FC2, Inc. or any studio.</small>
   </div>
 </footer>
 
 <script>
-// Supporter links are filled in once the pages exist; until then both point at the README.
-const PRO_LINKS = {patreon: "https://www.patreon.com/FC2vault", subscribestar: "", key: "https://vault-key.vaultkey.workers.dev/"};   // key = the key server
-for (const a of document.querySelectorAll("[data-pro]")) {
-  const u = PRO_LINKS[a.dataset.pro];
-  if (u) a.href = u;
-}
 // Install tabs: open on the visitor's own OS.
 const tabs = document.querySelectorAll(".os-tabs [data-os]");
 function showOS(os) {

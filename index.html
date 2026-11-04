@@ -1325,8 +1325,8 @@ function pollScanProgress(){
 }
 /* ---------------- settings ---------------- */
 let SET=null, SETTAB="library";
-// where a Vault Pro key is sold; [["Patreon","https://…"],["SubscribeStar","https://…"]]
-const PRO_LINKS=[["Patreon","https://www.patreon.com/FC2vault"],["Get your key","https://vault-key.vaultkey.workers.dev/"]];
+// Vault is freeware; supporters cover the tools and the work. Shown in Settings → Scene model.
+const SUPPORT_URL="https://www.patreon.com/FC2vault";
 function post2(url,body,cb){fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})}).then(r=>r.json()).then(cb).catch(()=>toast("Request failed"));}
 function fmtBytes(b){return b>1e9?(b/1e9).toFixed(1)+' GB':b>1e6?(b/1e6).toFixed(0)+' MB':b>1e3?(b/1e3).toFixed(0)+' KB':(b||0)+' B';}
 function openSettings(){
@@ -1339,7 +1339,7 @@ function refreshSettings(tab){if(tab)SETTAB=tab;
   fetch("/api/settings").then(r=>r.json()).then(j=>{SET=j;renderSettings();reloadData&&reloadData();});}
 function renderSettings(){
   const b=$("#setbox"),close=()=>$("#setmodal").classList.remove("on");
-  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["license",SET.license&&SET.license.pro?"Pro ✓":"License"]];
+  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["model","Scene model"]];
   b.innerHTML=`<div class="orghd">Settings</div>
     <div class="settabs">${tabs.map(([t,l])=>`<div class="settab${SETTAB===t?' on':''}" data-t="${t}">${l}</div>`).join("")}</div>
     <div class="setpane" id="setpane"></div>
@@ -1347,7 +1347,7 @@ function renderSettings(){
   b.querySelectorAll(".settab").forEach(t=>t.onclick=()=>{SETTAB=t.dataset.t;renderSettings();});
   $("#setClose").onclick=close;
   const pane=$("#setpane");
-  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,license:renderSetLicense}[SETTAB]||renderSetLibrary)(pane);
+  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,model:renderSetModel}[SETTAB]||renderSetLibrary)(pane);
 }
 function applyUnits(u){setUnits(u);render();
   if($("#modal").classList.contains("on")){const o=itemOf($("#modal"));if(o)openPlayer(o);}}
@@ -1414,33 +1414,17 @@ function renderSetLibrary(pane){
   $("#clearAll").onclick=()=>post2("/api/clearcache",{targets:["index","probe","thumbs"]},j=>toast("Cache cleared — rebuilding"));
   $("#rebuild").onclick=()=>{toast("Rebuilding…");fetch("/api/rescan").then(r=>r.json()).then(j=>{toast("Rebuilt: "+j.count+" items");reloadData();});};
 }
-function renderSetLicense(pane){
-  const L=SET.license||{},capped=!L.pro&&L.on_disk>L.limit;
-  const state={pro:`<b>Vault Pro</b> — valid through ${esc(L.expires||"")}.`,
-    free:`<b>Free version</b> — up to ${L.limit} movies.`,
-    expired:`<b>Your Pro key expired</b> on ${esc(L.expires||"")}. Vault is back to the free version.`,
-    invalid:`<b>The saved key is not valid</b> (${esc(L.error||"")}). Vault runs as the free version.`}[L.state]||"";
+function renderSetModel(pane){
   pane.innerHTML=`
-    <div class="setsec">Status</div>
-    <div class="setnote">${state}${capped?` Showing ${L.limit} of your ${L.on_disk} movies — the ones Vault saw first.`:""}</div>
-    <div class="setsec">Vault Pro</div>
-    <div class="setnote">Pro unlocks <b>your whole library</b> (no ${L.limit}-movie limit), <b>fc2ppv-db</b> lookups (actress, face, aliases, filmographies) and <b>Enrich from web</b> for actresses. Supporters also get the trained <b>scene model</b> that places markers automatically, and every improved model after it.${PRO_LINKS.length?" Get a key: "+PRO_LINKS.map(([n,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>`).join(" · "):""}</div>
-    <div class="setnote">The key is checked on this machine. Vault never contacts a license server, and a key holds no name or email address.</div>
-    <div style="display:flex;gap:8px"><input class="setin" id="licKey" style="flex:1" placeholder="VAULT1-…" autocomplete="off" spellcheck="false"><button class="setbtn" id="licSave">Activate</button>${L.state!=="free"?'<button class="setbtn danger" id="licDel">Remove key</button>':""}</div>
     <div class="setsec">Scene model</div>
-    <div class="setnote" id="mdlNote">${L.pro?"Checking…":"The trained model that places scene markers automatically. With a Pro key active, the newest build downloads here with one click."}</div>
-    ${L.pro?'<div style="display:flex;gap:8px;align-items:center"><button class="setbtn" id="mdlGet" disabled>Download</button><span class="setnote" id="mdlProg" style="margin:0"></span></div>':""}
-    <div class="setnote">Markers are written by <b>vault-scene-tagger</b>, a separate command-line tool that finds the downloaded model on its own — see the user guide.</div>`;
-  const save=key=>post2("/api/license",{key},j=>{if(j.error){toast(j.error);return;}
-    toast(j.license.pro?"Vault Pro activated":"Key removed — back to the free version");refreshSettings("license");});
-  const k=$("#licKey");
-  $("#licSave").onclick=()=>{const v=k.value.trim();if(v)save(v);};
-  k.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();$("#licSave").click();}};
-  const del=$("#licDel");
-  if(del)del.onclick=()=>{if(confirm("Remove the key from this Vault? Keep a copy if you want to add it again."))save("");};
-  if(L.pro)renderModel();
+    <div class="setnote" id="mdlNote">Checking…</div>
+    <div style="display:flex;gap:8px;align-items:center"><button class="setbtn" id="mdlGet" disabled>Download</button><span class="setnote" id="mdlProg" style="margin:0"></span></div>
+    <div class="setnote">The trained model places scene markers (blowjob, doggy, cowgirl, missionary, creampie …) on the seek bar. It is a free download from the project's GitHub releases; every improved build shows up here as an <b>Update</b>. Markers are written by <b>vault-scene-tagger</b>, a separate command-line tool that finds the downloaded model on its own — see the user guide.</div>
+    <div class="setsec">Support</div>
+    <div class="setnote">Vault is free and stays free. If it earns a place in your setup, a contribution on <a href="${esc(SUPPORT_URL)}" target="_blank" rel="noopener">Patreon</a> helps cover the tools and the hours that go into the next release — thank you.</div>`;
+  renderModel();
 }
-// Settings → License → Scene model: installed vs. newest, one button, progress while it runs.
+// Settings → Scene model: installed vs. newest, one button, progress while it runs.
 let MDL_TIMER=null;
 function renderModel(){
   clearTimeout(MDL_TIMER);
@@ -1561,7 +1545,7 @@ function renderSetSources(pane){
 
     <div class="setcard">
       <div class="sethd"><b>fc2ppv-db.com</b>${pill(fcReady,fcReady?"ready":"not ready")}</div>
-      <div class="setnote">The <b>primary</b> source for the cast — actress, face, aliases — plus JP title, date and tags.${SET.license&&!SET.license.pro?' <b>Vault Pro</b> — see Settings → License.':''}</div>
+      <div class="setnote">The <b>primary</b> source for the cast — actress, face, aliases — plus JP title, date and tags.</div>
       <div style="display:flex;gap:14px;margin:8px 0;flex-wrap:wrap">
         <label><input type="radio" name="fcMode" value="flaresolverr" ${flareOn?'checked':''}> Through FlareSolverr (above)</label>
         <label><input type="radio" name="fcMode" value="cookie" ${flareOn?'':'checked'}> Browser session (pasted cookie)</label>
@@ -1788,9 +1772,7 @@ function render(){
     items=[...items.filter(hit),...items.filter(it=>!hit(it))];}
   const nMiss=items.filter(i=>i.missing).length;
   SELORDER=items.map(i=>i.code);                 // display order for shift-range selection
-  const L=DATA.license||{},capped=!L.pro&&L.on_disk>L.limit;
-  $("#stat").innerHTML=`<b>${items.length}</b> of ${DATA.facets.total}${nMiss?` <span style="color:var(--warn)">(${nMiss}◇)</span>`:''} · <b>${fmtSize(items.reduce((s,i)=>s+i.size,0))}</b>${capped?` · <a href="#" id="freecap" style="color:var(--warn)" title="The free version shows ${L.limit} movies. Vault Pro shows the whole library.">Free: ${L.limit} of ${L.on_disk}</a>`:''}`;
-  const fc=$("#freecap");if(fc)fc.onclick=e=>{e.preventDefault();SETTAB="license";openSettings();};
+  $("#stat").innerHTML=`<b>${items.length}</b> of ${DATA.facets.total}${nMiss?` <span style="color:var(--warn)">(${nMiss}◇)</span>`:''} · <b>${fmtSize(items.reduce((s,i)=>s+i.size,0))}</b>`;
   const grid=$("#grid");
   $("#colbtn").style.display=F.view==="list"?"":"none";
   if(F.view!=="list")$("#colmenu").classList.remove("on");

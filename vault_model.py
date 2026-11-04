@@ -1,9 +1,8 @@
-"""The scene model for Vault Pro: where it lives, what the newest one is, how it is fetched.
+"""The scene model: where it lives, what the newest one is, how it is fetched.
 
-Standard library only. The key server (KEY_SERVER) publishes the newest model build; a Pro key
-sent along with the download request is checked there, and the answer is a redirect to a
-short-lived download URL. Nothing about the user travels but the key, which holds its tier, its
-last valid day and a random id.
+Standard library only. Models are release assets of the public GitHub repository MODEL_REPO
+(one release per build, tag ``vault-r<N>``, one ``vault-r<N>.zip``). Vault asks GitHub for the
+newest release and downloads the zip from it; nothing about the user travels.
 
 The model lands in ``user_models_dir()/vault-r<N>/``, a per-user folder that vault-scene-tagger
 looks in as well, so a downloaded model is picked up by the tagger with no further setup.
@@ -18,11 +17,12 @@ import time
 import zipfile
 from urllib.request import Request, urlopen
 
-KEY_SERVER = (os.environ.get("VAULT_KEY_SERVER") or "https://vault-key.vaultkey.workers.dev").rstrip("/")
+MODEL_REPO = os.environ.get("VAULT_MODEL_REPO") or "fc2vault/models"
+RELEASES_URL = "https://api.github.com/repos/%s/releases/latest" % MODEL_REPO
 _ROUND_RE = re.compile(r"^vault-r(\d+)$")
 USER_AGENT = "vault-model"
 
-# One download at a time; the License tab polls this.
+# One download at a time; the Scene model tab polls this.
 PROGRESS = {"running": False, "state": "", "done": 0, "total": 0, "error": "", "name": ""}
 _LOCK = threading.Lock()
 _LATEST = {"at": 0.0, "info": None}
@@ -55,18 +55,29 @@ def installed(models_dir=None):
     return max(rounds)[1] if rounds else None
 
 
+def _parse_release(rel):
+    """GitHub's release JSON -> {name, file, size, published, notes, url}, or {error}."""
+    asset = next((a for a in rel.get("assets") or [] if (a.get("name") or "").endswith(".zip")), None)
+    if not asset:
+        return {"error": "the newest release has no model zip"}
+    return {"name": rel.get("tag_name") or "", "file": asset.get("name") or "model.zip",
+            "size": int(asset.get("size") or 0), "published": rel.get("published_at") or "",
+            "notes": (rel.get("body") or "").strip(), "url": asset.get("browser_download_url") or ""}
+
+
 def latest(timeout=8, max_age=600, opener=urlopen):
-    """What the key server publishes: {name, file, size, published, notes} or {error}.
+    """The newest release: {name, file, size, published, notes, url} or {error}.
     Cached for max_age seconds so opening Settings repeatedly doesn't hit the network."""
     now = time.time()
     if _LATEST["info"] is not None and now - _LATEST["at"] < max_age:
         return _LATEST["info"]
     try:
-        with opener(Request(KEY_SERVER + "/model", headers={"User-Agent": USER_AGENT}),
+        with opener(Request(RELEASES_URL, headers={"User-Agent": USER_AGENT,
+                                                   "Accept": "application/vnd.github+json"}),
                     timeout=timeout) as r:
-            info = json.loads(r.read().decode("utf-8"))
+            info = _parse_release(json.loads(r.read().decode("utf-8")))
     except Exception as e:   # offline, DNS, 404 before the first model is published, ...
-        info = {"error": "could not reach the model server (%s)" % _short(e)}
+        info = {"error": "could not reach GitHub for the model (%s)" % _short(e)}
     if "error" not in info:
         _LATEST.update(at=now, info=info)
     return info
@@ -107,8 +118,8 @@ def install_zip(zip_path, models_dir):
     return top
 
 
-def download(key, models_dir=None, opener=urlopen, timeout=30):
-    """Fetch the newest model with a Pro key and install it. Blocks; run in a thread.
+def download(models_dir=None, opener=urlopen, timeout=30):
+    """Fetch the newest model release and install it. Blocks; run in a thread.
     Returns the installed model name, raises on failure. PROGRESS tracks it either way."""
     models_dir = models_dir or user_models_dir()
     with _LOCK:
@@ -119,20 +130,16 @@ def download(key, models_dir=None, opener=urlopen, timeout=30):
         info = latest(opener=opener)
         if "error" in info:
             raise RuntimeError(info["error"])
+        if not info.get("url"):
+            raise RuntimeError("the release has no download link")
         PROGRESS.update(name=info.get("name") or "", total=int(info.get("size") or 0))
         os.makedirs(models_dir, exist_ok=True)
         zpath = os.path.join(models_dir, (info.get("file") or "model.zip") + ".part")
-        req = Request(KEY_SERVER + "/model/download?key=" + "".join(key.split()),
-                      headers={"User-Agent": USER_AGENT})
+        req = Request(info["url"], headers={"User-Agent": USER_AGENT})
         try:
             r = opener(req, timeout=timeout)
         except Exception as e:
-            body = ""
-            try:
-                body = json.loads(e.read().decode("utf-8")).get("error", "")   # HTTPError
-            except Exception:
-                pass
-            raise RuntimeError(body or "download refused (%s)" % _short(e))
+            raise RuntimeError("download refused (%s)" % _short(e))
         with r, open(zpath, "wb") as f:
             PROGRESS["state"] = "downloading"
             total = int(r.headers.get("Content-Length") or PROGRESS["total"] or 0)

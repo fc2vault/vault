@@ -13,7 +13,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 ## Contents
 
 - [Features](#features)
-- [Free and Pro](#free-and-pro)
+- [Free, and the scene model](#free-and-the-scene-model)
 - [Requirements](#requirements)
   - [Optional: FlareSolverr](#optional-flaresolverr)
 - [Install](#install)
@@ -63,36 +63,22 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 - **Scan metadata** from the web (English/Japanese titles, covers, dates, tags) across your library
 - **Enrich from web** per actress: body info, JP name, aliases — **verified by FC2‑code overlap** so you don’t attach the wrong same‑name person, and it fills her **wishlist** from her filmography
 
-## Free and Pro
+## Free, and the scene model
 
-Vault is free for libraries of up to **250 movies**. A bigger library shows the 250 movies Vault
-saw first, and the count at the top says how many there are in all.
+Vault is **freeware**: the whole app, every source, the catalog and the scene model, with no
+movie limit, no key and no account. The terms are in [LICENSE.md](LICENSE.md).
 
-**Vault Pro** (a yearly key for supporters) unlocks:
-
-- **your whole library**, with no movie limit
-- **fc2ppv‑db** lookups: actress, face, aliases, filmographies
-- **Enrich from web** for actresses (javdatabase + jav.guru, verified by code overlap)
-- the trained **scene model** for automatic markers, and every improved model after it
-
-Everything else (player, filters, scene markers, tags, organizing, importing) is the same in
-both. Paste the key in **Settings → License**. It is checked on your machine: Vault never
-contacts a license server, and a key holds no name or email address, only its expiry date and a
-random id.
-
-**Getting a key:** support the project on [Patreon](https://www.patreon.com/FC2vault),
-then open the [key page](https://vault-key.vaultkey.workers.dev/) and log in with Patreon: the key
-appears on the spot, nothing is stored and no e-mail is sent. The project
-[website](https://fc2vault.vaultkey.workers.dev/) has the details.
-
-**The scene model** arrives the same way: with a key active, Settings → License shows the newest
-model build and a **Download** button. Vault sends the key to the key server, which answers with
-a short-lived download link, and unpacks the model into a per-user folder that
-[vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) finds on its own. See
+**The scene model** is the trained video classifier that places markers (blowjob, doggy,
+cowgirl, missionary, creampie …) on the seek bar. It is a ~450 MB download from the project's
+[GitHub releases](https://github.com/fc2vault/models/releases): open **Settings → Scene model**
+and press **Download**. Vault unpacks it into a per-user folder that
+[vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) finds on its own, and every
+improved build shows up in the same tab as an **Update**. See
 [Generating markers](#generating-markers-with-vault-scene-tagger).
 
-The terms are in [LICENSE.md](LICENSE.md): the free version never expires, the source may be
-read and modified for your own use, and a build that removes the Pro check may not be published.
+**Support:** Vault is developed in the open and stays free. If it earns a place in your setup, a
+contribution on [Patreon](https://www.patreon.com/FC2vault) helps cover the tools and the hours
+that go into the next release. Thank you.
 
 ## Requirements
 
@@ -328,7 +314,7 @@ pip install "git+https://github.com/fc2vault/vault-scene-tagger"
 pip install torch transformers numpy        # the model engine; see pytorch.org for a CUDA build
 ```
 
-Then download the scene model in **Settings → License** (Pro) and run the tagger; it finds the
+Then download the scene model in **Settings → Scene model** and run the tagger; it finds the
 downloaded model on its own:
 
 ```bash
@@ -340,8 +326,8 @@ vault-scene-tagger "/path/to/library" --engine phar --log-file tagger.log
 It's resumable: re-runs skip videos whose sidecar is current, and Ctrl+C is safe. On an M1 Mac
 it runs at about 3.5× realtime; a CUDA GPU is several times faster. Nothing else to do on the
 Vault side: freshly tagged movies show up under **To review** by themselves, and a movie's
-sidecar is synced into the markers cache the next time you open it. Without the model (free
-version) the tagger can still write shot cuts (`--phase a`) or use skier233's AI server
+sidecar is synced into the markers cache the next time you open it. Without the model the
+tagger can still write shot cuts (`--phase a`) or use skier233's AI server
 (`--engine ai-server`); its README explains both.
 
 ## Project layout
@@ -414,7 +400,7 @@ Watched state, favorites (movies **and** actresses) and ratings never enter this
 
 ## Privacy & safety
 
-- **No cloud, no telemetry.** Vault talks to the internet only when *you* press a scrape/enrich button. It has no accounts and phones home to nothing. A Pro key is checked offline.
+- **No cloud, no telemetry.** Vault talks to the internet only when *you* press a scrape/enrich button. It has no accounts and phones home to nothing; the only other request is the one you start in Settings → Scene model, which asks GitHub for the newest model.
 - **It is not access‑controlled.** The server binds `0.0.0.0`, so anyone who can reach the port gets the whole library — there is **no login and no TLS**. Two endpoints act on the host machine rather than just returning data:
   - `POST /api/open` — opens a file in your desktop video player
   - `POST /api/reveal` — reveals it in Finder

@@ -222,23 +222,19 @@ The key idea is **verification**: it checks whether any code in her online filmo
 
 Open **Settings** from the top bar. Five tabs:
 
-### License (Free and Pro)
+### Scene model
 
-![Settings — License](images/settings_license.png)
+![Settings — Scene model](images/settings_model.png)
 
-- **Status:** the free version shows up to **250 movies**, the ones Vault saw first; the count at
-  the top of the main window reads *Free: 250 of N* for a bigger library and opens this tab.
-- **Vault Pro:** paste your key and press **Activate**. The whole library appears at once, and
-  fc2ppv‑db lookups and *Enrich from web* switch on. The key is checked on your machine with a
-  signature; Vault never contacts a license server. **Remove key** goes back to the free view.
-  Keys come from the [key page](https://vault-key.vaultkey.workers.dev/) after a Patreon login.
-- **Scene model** (Pro): shows the installed model and the newest build on the key server, with
-  one button to **Download** or **Update**. The model lands in a per‑user folder
+- Shows the installed model and the newest build on GitHub, with one button to **Download** or
+  **Update** (about 450 MB). The model lands in a per‑user folder
   (`~/Library/Application Support/Vault/models` on macOS, `%LOCALAPPDATA%\Vault\models` on
   Windows, `~/.local/share/vault/models` on Linux) where
   [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) finds it by itself. The
   tagger is a separate command‑line tool; the README's *Generating markers* section has the three
   commands.
+- **Support:** Vault is free. The tab links to the project's Patreon for anyone who wants to help
+  cover the tools and the work behind the next release.
 
 ### Library & cache
 

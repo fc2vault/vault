@@ -1,29 +1,25 @@
 # License
 
-Vault is **shareware**: the source is open to read, build and run, the free version has no time
-limit, and the Pro features are unlocked with a key sold to supporters.
+Vault is **freeware**: free to download, run and share, with the source open to read and modify.
+There is no trial, no limit and no key, and nothing in it expires.
 
 ## You may
 
-- download, run and modify Vault for your own use, on as many of your own machines as you like;
-- read and learn from the source, and send fixes and improvements back;
-- keep using the free version forever: it is not a trial and it does not expire.
+- download, run and copy Vault, on as many machines as you like, for personal and non-commercial use;
+- read and learn from the source, modify it for your own use, and send fixes and improvements back;
+- pass the unmodified release on to others, as long as you say where it comes from.
 
 ## You may not
 
-- sell Vault, bundle it into a product you sell, or charge for access to it;
-- publish a modified build that removes, bypasses or re-keys the Pro check, or share Pro keys or
-  scene-model files with people who did not get them from the project;
-- use the name "Vault" or the project's website for a fork in a way that suggests it is the
-  original.
+- sell Vault or the scene model, bundle either into a product you sell, or charge for access to them;
+- use the name "Vault" or the project's website for a fork in a way that suggests it is the original.
 
-## Vault Pro
+## The scene model
 
-A Pro key is personal to the supporter who received it. It carries no name or e-mail, only its
-tier, its last valid day and a random id, and it is checked on your machine. The scene model
-(`vault-r<N>`) that Pro users download is licensed for use with Vault and vault-scene-tagger on
-their own libraries; redistributing the weights is not allowed. The model is a fine-tune of
-P-HAR's TimeSformer (Apache-2.0), see `NOTICE.md` in the model folder.
+The scene model (`vault-r<N>`, published at github.com/fc2vault/models) is a fine-tune of
+P-HAR's TimeSformer (Apache-2.0). It is free for use with Vault and vault-scene-tagger on your
+own library under the same terms as the app: run it, share the unmodified release, don't sell it.
+The reviewed footage it was trained on is not part of the project and is not distributed.
 
 ## Bundled data
 
