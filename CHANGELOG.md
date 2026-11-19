@@ -1,5 +1,142 @@
 # Changelog
 
+## 1.8.0 — Subtitles
+
+Highlights: **English subtitles from the Japanese audio**, made offline on your computer (Whisper +
+a small local translator), a **Tools** menu, imports that scan their own metadata, and scene
+markers with **ranges**. Player keys: `y` / `c` previous / next marker, `Shift+Y` / `Shift+C`
+previous / next subtitle line, `v` subtitles on/off.
+
+- **Better English: Whisper + a small local LLM (default).** Whisper's one-pass translation gets
+  the gist but guesses who is talking about whom and mixes up words that sound alike. Now Whisper
+  only writes the Japanese (kept as `<name>.ja.srt`), is unloaded, and a small instruction-tuned
+  model translates the lines 15 at a time with the conversation around them — with a glossary of
+  the usual vocabulary so explicit lines stay explicit. On Apple Silicon it runs with mlx-lm
+  (default `Qwen3-4B-Instruct-2507-4bit`, 2.3 GB, ~2.6 GB peak — fits an 8 GB Mac); elsewhere point
+  it at an Ollama / LM Studio server. Settings → Subtitles → Translation switches between
+  *Whisper + LLM* and *Whisper only*. Lines the model refuses keep the Japanese.
+  Measured on an 85-minute part: 3.8 min listening + 3.2 min translating, no refusals.
+- **Fewer invented lines.** A short sound right at the start of a 5-minute chunk (a moan cut at
+  the boundary — Whisper turned those into "thank you very much" at 30:00, 1:15:00…) is dropped,
+  chunks with under 1 s of speech are skipped, speech blips under 0.4 s are ignored, and runs of
+  one character ("ううう…") are cut to six.
+- **Quiet talk is no longer missed.** The speech detector doesn't hear whispering under moaning,
+  so a long movie could lose everything after the interview. Chunks where it hears nothing now get
+  a second, careful listen: only lines Whisper is fairly sure are speech, not stock phrases, not
+  looped, are kept. A 2 h 44 min test movie went from 106 lines ending at 1:40 to 161 lines up to
+  the last minute; that movie took ~20 min instead of ~6. `--no-quiet-pass` turns it off.
+- A translation that comes back as the Japanese again is retried line by line, then once more with
+  a plain prompt. Refusal detection no longer fires on ordinary dialogue ("I can't say that" was
+  taken for a refusal and the line left in Japanese). Glossary: 潮 (misheard 塩) = squirt, 乱交
+  (misheard 乱行) = orgy, 硬い = hard only of a cock.
+- **The speech detector no longer goes deaf.** It carried its state through each 5-minute chunk and,
+  after minutes of moaning, stopped hearing speech at all (a line at 1:13:19 was missed from 1:10
+  but found from 1:13). It now starts fresh every 30 s, and hears the voice band evened out in level
+  (highpass/lowpass + dynaudnorm), which also helps Whisper: 中に出す heard where raw audio gave
+  お金出す. Same test movie: 3.5× the speech found, 327 lines instead of 161, in ~12 min.
+  `--no-voice-filter` feeds the raw audio. The glossary knows 行く/行きそう, 外に出して, かき出す.
+- **Subtitles in sync.** Whisper times the speech-only audio, and a line's start usually sits on
+  the join between two stretches of speech; mapped back, it landed at the very end of the earlier
+  stretch, so a third of the lines came up early by the length of the pause (1-5 s) and ran on
+  into the next lines. Starts on a join now go to the stretch that follows, ends to the one before.
+  Test movie: lines starting in the gap before their speech 110 → 7, lines over 6 s 29 → 5.
+- **Words said while moaning.** The speech detector doesn't hear them at all ("気持ちいい",
+  "もう行く" — nothing between 55:33 and 57:01 of a test movie, even at its most sensitive), so a
+  climax had no subtitles. Every pause of 6 s or more is now cut into 6 s pieces; where the
+  detector's own confidence isn't near zero (90th percentile ≥ 0.15, fresh state per piece),
+  Whisper listens to that piece and only confident, non-stock lines are kept. Repeated words stay
+  (a line said a few times is real; the loop filter now only hits lines Whisper wasn't sure of).
+  Up to five pieces share one Whisper call (it pads every call to 30 s anyway): ~40% less
+  re-listen time than one call per piece and fuller conversations, though a word repeated in quick
+  succession may come out once (`--relisten pieces` keeps every repeat). The re-listen still costs
+  time — a 73-min talky movie took 34 min instead of 18 with one call per piece. `--no-quiet-pass`
+  turns it off.
+- **No moan subtitles.** Lines that are only moans, sighs or laughter (あ, ああああ, うっうっうっ, ふふふ,
+  "Ah", "Uuuu", "Huhuhu") are dropped by default, on both the Japanese and the English side. Short
+  answers (はい, いや, うん) and short questions (え?, ん?) stay — they are dialogue. About 1 line in 30
+  on the test movies. `--keep-moans` keeps them.
+- **Has subtitles** filter in the sidebar (with a count), next to *Uncensored only*.
+- **English subtitles from the Japanese audio (Whisper).** *Tools → 💬 Transcribe* lists the
+  movies (without subtitles / all, with a filter) to queue; the movie panel has a
+  **💬 Transcribe (JA → EN)** button for just that one. Whisper's translate task turns the Japanese
+  speech into English in one pass, offline; the result is written next to the video as
+  `<name>.en.srt`, which Plex, VLC, Infuse and mpv also pick up. One part at a time, in the
+  background, with progress (and *Stop all*) in the Tools menu. Stock hallucinations ("thank you
+  for watching", credits, loops of one line) are filtered out.
+  Engines, all the same Whisper model: **mlx-whisper** (Apple Silicon GPU), **faster-whisper**
+  (CPU, or an NVIDIA GPU) and **openai-whisper** (PyTorch); *auto* takes the fastest one installed.
+  Whisper lives in its own Python environment — *Settings → Subtitles → Set up* creates it and
+  installs the right engine, or point Vault at a Python that already has one. Model: large-v3
+  (best English), medium or small; large-v3-turbo is left out because it can't translate.
+  A speech detector (Silero VAD) keeps only the talking, so Whisper skips the rest of the movie:
+  faster, better timed, and far fewer invented lines. Memory is capped for small machines:
+  on Apple Silicon large-v3 is the 8-bit build (~1.6 GB), MLX stays under a third of the RAM
+  with a 256 MB buffer cache cleared after every 5-minute chunk, and the worker runs at low
+  priority (an 8 GB M1 measured 2.3 GB peak, ~3.6× faster than real time on a talky sample).
+- **CC button in the player** (or **v**) turns the subtitles on / off; remembered across movies,
+  hidden for parts without subtitles. New files `subtitles.py` (the job queue) and
+  `tools/transcribe.py` (the worker, runs with the Whisper Python).
+- **Tools menu.** Import, Scan library, Transcribe and Settings moved into one *☰ Tools* menu in
+  the top bar; its gear turns while any of them runs in the background.
+- **Import scans the new movies' metadata by itself.** When an import finishes (after the library
+  index is rebuilt, so the page reloads with the new movies), Vault runs the Scan library passes
+  (fc2ppv-db, fc2db.net, 123av / ffjav) over the movies the import added — only those, not the
+  whole library. If a scan is already running it says so in the import's result instead.
+- **Scan library shows the turning gear too** while a scan runs (with its count), and clicking it
+  reopens the scan's progress instead of being greyed out.
+- **Import in the background shows a turning cog.** After *Run in background* the Import button
+  shows a turning outlined gear while the import runs (also after a page reload); clicking it reopens the
+  progress instead of starting a new preview. The button turns back to 📥 when the import is done.
+- **One marker per action, with a range (2026-11-13).** A marker is now the *start* of an action,
+  and a reviewed marker may carry an `end`: the range the user vouches for. Set it in the marker
+  editor (new **End** row: ±1 s, ⤓ Playhead, ✕ = no range) or right-click a chip → **⇥ End here** /
+  **✕ Clear the range**. Ranges show as a translucent band on the seek bar. `/api/marker` `update`
+  takes `new_end` / `clear_end`, `add` takes `end`; moving a start past its end drops the end. An
+  AI marker's `end` (its detection window) is still dropped when it becomes manual; a manual
+  marker's range now survives moves and relabels (before, every edit deleted `end`).
+- **"Corrected manually" means finished.** It used to count every movie with any manual marker;
+  now only movies with no AI marker left and no part waiting under "To review" (`review_open`).
+- **Multi-part movies show which parts are still to review.** In training mode the parts list tags
+  each open part "to review", and marking a part reviewed says which parts are left (the movie stays
+  under "To review" until all are done).
+- **Right-click a marker → ⇤ Start here** moves its start to the playhead (next to ⇥ End here).
+- **Shift + A / D jumps 5 s** (fine steps for placing starts and ends); A / D alone stay 10 s, the
+  arrow keys keep 10 s / Shift 60 s.
+- **Range keys are Q (start here) and E (end here)**, next to A / S / D for the left hand; they
+  replace I / O. **Shift+Q / Shift+E** (Shift+R works too) jump to the start / end of the marker at
+  the playhead without changing it; with no end set yet, Shift+E says so.
+- **Fine drags for chips and range handles.** A chip drag used to need 5 px before it counted, and
+  on a long movie one pixel of the bar is many seconds (2 h 20 on a ~520 px bar: ~16 s, so 5 px =
+  ~80 s): a smaller move counted as a click and the chip snapped back. Now 3 px starts a drag,
+  chips and handles move by how far the mouse went (grabbing off-centre no longer jumps them), and
+  holding **Shift** while dragging moves them at 1/10 speed (~1.6 s per pixel in that movie).
+- **The selected marker stays selected while you scrub.** Scrubbing (seek bar, A / D, arrows) into
+  the segment just before it (an earlier start) or just after it (an end past the next marker's
+  start) keeps its range handles and Q / E on it, instead of switching to the neighbouring marker.
+  It moves on when playback runs into another marker, when you scrub further away, or when you click
+  another marker's chip or use ⏮ / ⏭.
+- **Ranges the editor way: in/out handles.** In training mode the marker at the playhead
+  shows its range on the seek bar with two draggable handles (start and end; the video follows the
+  drag). Without a range the end handle is dashed, at start + 20 s or the next marker; drag it to
+  set one. Keys: **E** = the marker at the playhead ends here; **Q** = start here (the next marker
+  if it begins within 30 s, so you can pull a late start back, else the current one).
+- **Re-review flag.** A sidecar with `review_open: true` counts as **To review** (with any part
+  still holding AI markers) until right-click → **✓ Reviewed — this part is done** (op `reviewed`,
+  sets `reviewed_at`; refused while AI markers remain). `/api/data` items gained `review_open`,
+  `/api/markers` returns `review_open` (part indexes). The list updates when the player closes.
+- **One marker per change of action outside training mode.** The scene model marks every few
+  seconds; the player now shows only the first marker of each change of action (after dropping brief
+  unsure blips), picked by a display-only heuristic (`final_tags.py`). Markers you made or confirmed
+  always stay, nothing is written, and training mode still shows every marker. In testing this cut
+  the edits needed per movie from about 15 to under 5.
+- **Creampie lead-in 10 s → 15 s.** Jumping to a creampie (chip, ⏮/⏭) outside training mode now
+  lands 15 s before the marker; 10 s still started too late for the build-up. Display only, as
+  before: the stored `t` stays at the pull-out, and training mode jumps exactly to the marker.
+- **Volume slider is back.** The speaker button had become a plain mute toggle; hovering it now
+  unfolds a slider, and the level plus mute state persist across movies (`vault_volume`,
+  `vault_muted`). Clicking the speaker at 0 brings the last level back. Hidden on phones, where
+  iOS ignores `video.volume` anyway.
+
 ## 1.7.0 — Freeware
 
 ### No more Free and Pro

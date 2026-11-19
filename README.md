@@ -22,6 +22,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 - [A quick tour](#a-quick-tour)
 - [User guide](#user-guide)
 - [How metadata works](#how-metadata-works)
+- [Subtitles (Whisper)](#subtitles-whisper)
 - [Project layout](#project-layout)
 - [Building a release](#building-a-release)
 - [Privacy & safety](#privacy--safety)
@@ -330,6 +331,56 @@ sidecar is synced into the markers cache the next time you open it. Without the 
 tagger can still write shot cuts (`--phase a`) or use skier233's AI server
 (`--engine ai-server`); its README explains both.
 
+## Subtitles (Whisper)
+
+**Tools → 💬 Transcribe** (or **💬 Transcribe (JA → EN)** in a movie's panel) writes English
+subtitles from the Japanese audio — offline, on your computer. Each part gets `<video name>.en.srt`
+(and the Japanese `<video name>.ja.srt`) next to the file, the names Plex, VLC, Infuse and mpv pick
+up on their own. Vault's player shows them with the **CC** button (or **v**); **Shift+Y / Shift+C**
+jump to the previous / next line, and the sidebar's **Has subtitles** filter finds the movies that
+have them. Jobs run one part at a time in the background; the Tools menu shows the progress.
+
+**How it works.**
+1. **Find the talking.** A speech detector (Silero VAD) marks where people speak, on the voice band
+   evened out in level so quiet talk under moaning counts too. It restarts every 30 s — over long
+   stretches of moaning it otherwise stops hearing speech at all.
+2. **Listen (Whisper).** Whisper hears only those stretches, glued together, and writes Japanese;
+   the times are mapped back onto the movie, so lines appear when they are spoken. Pauses of 6 s
+   or more where the detector wasn't sure get a second, careful listen in 6 s pieces (words said
+   while moaning, which the detector misses), keeping only lines Whisper is confident about.
+3. **Translate.** Whisper is unloaded and a small local LLM translates the Japanese 15 lines at a
+   time, with the conversation around them and a glossary of the usual vocabulary, so explicit
+   lines stay explicit. Apple Silicon: mlx-lm with `mlx-community/Qwen3-4B-Instruct-2507-4bit`
+   (2.3 GB). Windows / Linux: run Ollama or LM Studio and enter its address and model in
+   Settings → Subtitles. *Whisper only* (Settings) skips the LLM: faster, rougher English.
+4. **Clean up.** Invented lines ("thank you for watching", loops), lines that are only moans,
+   sighs or laughter, and anything not confidently speech are dropped; short answers (はい, いや,
+   うん) and questions stay.
+
+Expect roughly 15–30 minutes per hour of video on an 8 GB M1 Mac (the second listen costs the most on
+movies with long sex scenes). Memory stays capped — Whisper at a third of the RAM, the translator
+at 40 % — so the computer stays usable.
+
+Whisper runs in its own Python environment, so Vault itself stays on the plain system Python.
+**Settings → Subtitles → Set up** creates `<Vault data>/whisper-env` and installs what runs fastest
+on that machine (needs Python 3.10+; about 1 GB, the models download on first use):
+
+| Engine | Where | Notes |
+|---|---|---|
+| `mlx-whisper` | Apple Silicon | Metal GPU — the default on an M-series Mac (plus `mlx-lm` for the translator) |
+| `faster-whisper` | Windows / Linux / Intel Mac | CPU (int8), or an NVIDIA GPU via CUDA |
+| `openai-whisper` | anywhere PyTorch runs | the reference build |
+
+Or install one yourself and put that Python in the same Settings tab. `auto` uses the first of
+mlx → faster → openai that imports. Model: **large-v3** (best, ~1.6 GB as the 8-bit build on a Mac,
+downloads on first use), medium or small. `ffmpeg` must be on the PATH (it decodes the audio).
+
+The worker, `tools/transcribe.py`, also runs on its own:
+`python tools/transcribe.py movie.mp4 movie.en.srt --translator llm --ja-out movie.ja.srt`.
+Switches for special cases: `--keep-moans`, `--no-quiet-pass` (skip the second listen: much
+faster, misses words under moaning), `--relisten pieces` (one Whisper call per 6 s piece: slower,
+keeps every repeat of a short word), `--no-voice-filter` (raw audio).
+
 ## Project layout
 
 ```
@@ -337,6 +388,8 @@ serve.py         # the app + HTTP API (Python stdlib, single file)
 index.html       # the entire front‑end (vanilla JS, no build step)
 scan.py          # web scrapers + enrichment (123av, ffjav, javdatabase, jav.guru, fc2ppv‑db)
 organize.py      # preview‑then‑apply library tidy (never deletes/overwrites)
+subtitles.py     # Whisper transcription queue (Tools → Transcribe)
+tools/transcribe.py  # the Whisper worker (runs with the Whisper Python)
 dedupe.py        # find & merge duplicate actress records
 data/catalog.db  # preloaded catalog (SQLite): actresses, works, tags, aliases, links
 config.json      # your library path + port (gitignored)

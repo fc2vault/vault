@@ -18,7 +18,9 @@ A feature‑by‑feature walkthrough. For install & setup see the main **[README
     - [Tags & translations](#tags--translations)
     - [Actresses & de‑duplication](#actresses--de-duplication)
     - [Sources & fc2ppv‑db](#sources--fc2ppv-db)
+    - [Subtitles](#subtitles)
 11. [Using Vault on your phone](#11-using-vault-on-your-phone)
+12. [Subtitles (Japanese → English)](#12-subtitles-japanese--english)
 
 ---
 
@@ -26,7 +28,9 @@ A feature‑by‑feature walkthrough. For install & setup see the main **[README
 
 ![Grid view](images/grid.png)
 
-- **Top bar:** search, the **Grid / By actress / List** view switcher, a sort dropdown, a shuffle die, **Reset** filters, **Scan library**, **Organize**, and **Settings**. The right side shows how many titles match and the total library size.
+- **Top bar:** search, the **Grid / By actress / List** view switcher, a sort dropdown, a shuffle die, **Reset** filters, and the **☰ Tools** menu with **📥 Import**, **Scan library**, **💬 Transcribe** and **Settings**. The Tools button's gear turns while any of them runs in the background; open the menu to see the progress. The right side shows how many titles match and the total library size.
+
+![Tools menu](images/tools_menu.png)
 - **Left sidebar:** all your filters (see below).
 - **Main area:** poster cards. Each shows the actress (or code if unidentified), the FC2 code + Japanese name, tags, and pills for size · age · cup. Along the **bottom** of each thumbnail, badges mark multi‑part (`2×`), resolution, duration, and a red **CENSORED** flag (in that order).
 - Hover a card for its **top‑left** controls, left→right: a **select** box (for multi‑select), the **✓ played** toggle, and the **♥ favorite** toggle.
@@ -38,7 +42,7 @@ Switch to **By actress** to group the wall under each performer (with her portra
 Everything in the left sidebar narrows the view live:
 
 - **Library:** all / identified / amateur‑unknown / **favorite movies** / **favorite actresses**
-- **Watched state, HD only, uncensored only**
+- **Watched state, HD only, uncensored only, has subtitles**
 - **Actress** and **Studio** type‑ahead boxes (actress matches aliases and Japanese names too)
 - **Resolution, Duration, Cup size, Age** ranges
 
@@ -72,7 +76,11 @@ Click any owned card to open the detail/player view.
   - **Scenes on the seek bar:** the player uses a custom control bar with the scenes drawn on the scrubber — **clickable pictogram chips** above the bar (click to jump), **⏮ / ⏭** to step to the previous/next scene, colored **ticks** on the bar at each scene's start, a hover **label + time** tooltip, and a **"▶ now"** badge for the current scene. Markers are view‑only by default; with **training mode** on (Settings → Library) **＋** adds a marker **at the playhead**, **drag** a chip to move it, and **right‑click** a marker to change its label or delete it. Markers come from a `<video>.scenes.json` sidecar produced by the optional scene‑tagger; your manual ones are saved alongside the movie and survive re‑tagging.
   - **Confirmed vs. suggested:** a marker the AI proposed and nobody has checked wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. (Amber, not red — an unreviewed guess is not a wrong one.) Right‑click it and pick **✓ Confirm** if it's right; the ring disappears. The chip's bottom edge keeps its label colour either way, so you can still read *what* it is at a glance.
 
-**Keyboard:** `space` or `s` play‑pause · `a` / `d` seek ∓10s (hold `shift` for ±60s; `←`/`→` work too) · `↑`/`↓` volume · `m` mute · `f` fullscreen · `t` theater · `0–9` jump to % · `<`/`>` speed.
+  - **Ranges:** a marker is the *start* of an action, and a reviewed one can carry an *end* — the range shows as a translucent band on the bar. In training mode the marker at the playhead gets two handles on the bar (drag them; hold **Shift** for 1/10 speed), `q` / `e` set its start / end at the playhead, and right‑click a chip for **⇤ Start here** / **⇥ End here** / **✕ Clear the range**. Outside training mode the player shows one marker per change of action, so the bar stays readable.
+  - **Subtitles:** a movie with subtitles shows a **CC** button in the control bar (or press `v`); `shift`+`y` / `shift`+`c` jump to the previous / next line. The right panel's **💬 Transcribe (JA → EN)** makes them for this movie — see [§12](#12-subtitles-japanese--english).
+  - **Volume:** hover the speaker icon and a slider unfolds next to it; the level and mute state are remembered across movies. Clicking the speaker mutes, clicking it again brings the previous level back.
+
+**Keyboard:** `space` or `s` play‑pause · `a` / `d` seek ∓10s (`shift`: ∓5s) · `←`/`→` seek ∓10s (`shift`: ∓60s) · `y` / `c` previous / next scene marker · `shift`+`y` / `shift`+`c` previous / next subtitle line · `v` subtitles on/off · `↑`/`↓` volume · `m` mute · `f` fullscreen · `t` theater · `0–9` jump to % · `<`/`>` speed. In marker‑editing mode: `q` / `e` set the marker's start / end at the playhead, `shift`+`q` / `shift`+`e` jump to them.
 
 > `a` `s` `d` sit under the left hand so the right one can stay on the mouse.
 
@@ -137,12 +145,13 @@ Type an actress name (autocompletes) and hit **Assign actress** to attach her to
 
 ## 7. Import from your download folder
 
-Point Vault at a **download folder** (Settings → Library), then hit **📥 Import** (top bar). It previews the whole pipeline first, then: renames & cleans the downloads (strips source prefixes, removes junk/spam clips), and moves each release into the library — **adding** new ones and **replacing** older copies with better versions.
+Point Vault at a **download folder** (Settings → Library), then pick **📥 Import** in the **☰ Tools** menu. It previews the whole pipeline first, then: renames & cleans the downloads (strips source prefixes, removes junk/spam clips), and moves each release into the library — **adding** new ones and **replacing** older copies with better versions.
 
 ![Import from download folder](images/import.png)
 
 - Library deletes (replacing an older copy) are gated behind a **confirmation checkbox** — leave it unticked to only add + clean. Nothing in the library is removed without it.
-- The move runs in the background (large cross‑drive copies can take a while).
+- The move runs in the background (large cross‑drive copies can take a while). After *Run in background* the Tools button's gear turns; click **📥 Import** again to bring the progress back.
+- When the import finishes, Vault **scans the new movies' metadata by itself** (the same passes as Scan library, only for the movies just added).
 
 **Organize** (Settings → Library → *Organize library…*) tidies files already in the library — junk to `_vault_trash/`, duplicates to `_Duplicates/` (largest kept), names normalized to `…/<CODE>/<CODE>.ext`. It previews first and never deletes or overwrites. Rarely needed now that Import handles new files.
 
@@ -154,7 +163,7 @@ Point Vault at a **download folder** (Settings → Library), then hit **📥 Imp
 
 ## 8. Scan metadata from the web
 
-**Scan library** checks your sources in **priority order**, and each one only fills what the ones
+**Scan library** (☰ Tools) checks your sources in **priority order**, and each one only fills what the ones
 before it left empty:
 
 1. **fc2ppv‑db** — the primary source: cast, Japanese title, date, cover, tags.
@@ -171,7 +180,7 @@ The first two each have a checkbox and a "not read yet" count that follows the r
   selected movies it would visit. That pass is the slow part — roughly 3 s each — so the count
   is the honest cost estimate. Untick it for a quick titles‑only pass. If fc2ppv‑db is not
   connected the box is disabled and says why; the titles pass runs either way.
-- **Scan N selected** runs in the background — progress shows on the toolbar button, labelled
+- **Scan N selected** runs in the background — progress shows in the Tools menu, labelled
   by pass (`Titles · 12/40`, then `fc2ppv-db · 3/9`). You can “Run in background” and keep
   browsing.
 
@@ -220,7 +229,7 @@ The key idea is **verification**: it checks whether any code in her online filmo
 
 ## 10. Settings
 
-Open **Settings** from the top bar. Five tabs:
+Open **Settings** from the **☰ Tools** menu. Six tabs:
 
 ### Scene model
 
@@ -242,7 +251,7 @@ Open **Settings** from the top bar. Five tabs:
 
 - **Display:** switch measurements between **Metric (cm)** and **Imperial (in)**.
 - **Library source folder:** change where Vault scans (triggers a full re‑scan).
-- **Download / import folder:** where **📥 Import** (top bar) picks up new downloads.
+- **Download / import folder:** where **📥 Import** (Tools menu) picks up new downloads.
 - **Library maintenance:** **🧹 Organize library…** normalizes names / quarantines junk / flags duplicates; **📁 Organize by actress…** folds movies into `…/<Actress>/<CODE>/` to match the catalog (see [§7](#7-import-from-your-download-folder)). Both preview first and never delete a movie.
 - **Cache:** see and clear the scan index, video probes, and thumbnails (all safe to clear — they regenerate). **Rebuild index now** re‑reads the catalog.
 
@@ -290,6 +299,21 @@ titles → fc2ppv‑db → fc2db.net. **Scan missing** skips pages each site has
 **Scan library** and the player's **Scan metadata** — no scan button checks fewer sources than
 another.
 
+### Subtitles
+
+![Settings — Subtitles](images/settings_subtitles.png)
+
+- **Status** shows which Whisper engines the subtitle environment can run and whether the
+  translator is installed. **Set up** creates that environment for you (a separate Python, about
+  1 GB, so Vault itself stays on the plain system Python); the models download the first time you
+  transcribe (Whisper ~1.6 GB, the translator ~2.3 GB on a Mac). Or point **Python** at one you
+  installed yourself.
+- **Engine:** *auto* picks the fastest installed (mlx on an Apple Silicon Mac, faster‑whisper
+  elsewhere). **Model:** large‑v3 (best), medium or small.
+- **Translation:** *Whisper + LLM* (default — Whisper writes the Japanese, a small local model
+  translates it with the conversation as context) or *Whisper only* (faster, rougher). On Windows /
+  Linux, run Ollama or LM Studio and enter its **server address** and **model** here.
+
 ---
 
 ## 11. Using Vault on your phone
@@ -319,3 +343,32 @@ It's driven by window width, not by device detection, so a narrow window on a de
 **Adding it to your home screen (iOS):** Share → *Add to Home Screen*. It opens full‑screen like an app.
 
 **Performance.** The grid renders in batches of 120 as you scroll rather than building every card up front — that is what keeps a multi‑thousand‑item library inside mobile Safari's per‑tab memory limit. Scrolling all the way through a very large unfiltered library still accumulates cards; filtering or searching first is both faster and lighter.
+
+## 12. Subtitles (Japanese → English)
+
+Vault can write English subtitles for a movie from its Japanese audio — offline, on your own
+computer. Nothing is uploaded anywhere.
+
+![Transcribe](images/transcribe.png)
+
+- **☰ Tools → 💬 Transcribe** lists your movies (*without subtitles* or *all*, with a filter); tick
+  the ones you want and start. Or open a movie and press **💬 Transcribe (JA → EN)** in its panel.
+- It runs in the background, one part at a time; the Tools menu shows the progress and can stop it.
+  Expect roughly 15–30 minutes per hour of video on an 8 GB M1 Mac — less on a faster Mac or with an
+  NVIDIA GPU.
+- Each part gets `<video>.en.srt` (and the Japanese `<video>.ja.srt`) next to the file. Plex, VLC,
+  Infuse and mpv pick them up on their own.
+- In the player: **CC** (or `v`) turns them on/off, `shift`+`y` / `shift`+`c` jump between lines.
+  The sidebar's **Has subtitles** filter finds the movies that have them.
+
+![Player with subtitles](images/player_subtitles.png)
+
+**What to expect.** The Japanese transcript is usually accurate; the English is good for following
+the conversation, with roughly one line in eight to ten off — mostly where the speech was misheard,
+or where a word means something different in a sexual context. Lines that are only moans, sighs or
+laughter are left out; short answers and questions (はい, いや, え?) stay. Words said while moaning
+are caught by a second, careful listen to the quiet stretches.
+
+**First time:** Settings → Subtitles → **Set up** (see [Settings](#subtitles)). It needs Python 3.10
+or newer and `ffmpeg`.
+

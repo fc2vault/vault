@@ -148,5 +148,116 @@ class MoveTest(unittest.TestCase):
         self.assertFalse(os.path.exists(src))
 
 
+class SameCodeInBatchTest(unittest.TestCase):
+    """Two download folders with one code (a re-download, or a step-1 rename collision whose
+    loser kept its raw name) both used to get MOVE: the library index is built before the
+    batch is read, so the second copy landed in the library under its raw name."""
+
+    RAW = "(無修正) FC2 PPV 1234567 11月限定【モ無し】テスト"
+    CODE = "FC2-PPV-1234567"
+
+    def setUp(self):
+        self.tmp = helpers.mkdtemp()
+        self.src = os.path.join(self.tmp, "downloads")
+        self.lib = os.path.join(self.tmp, "library")
+        os.makedirs(self.src)
+        os.makedirs(self.lib)
+        self.saved = (migrate.COMPLETED_SPARE, migrate.FC2_PPV, os.environ.get("VAULT_DB"))
+        migrate.COMPLETED_SPARE, migrate.FC2_PPV = self.src, self.lib
+        os.environ["VAULT_DB"] = os.path.join(self.tmp, "no-catalog.db")   # never the real one
+        migrate.AMBIGUOUS.clear()
+
+    def tearDown(self):
+        migrate.COMPLETED_SPARE, migrate.FC2_PPV, db = self.saved
+        if db is None:
+            os.environ.pop("VAULT_DB", None)
+        else:
+            os.environ["VAULT_DB"] = db
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def run_migrate(self, apply=True):
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            migrate.migrate(apply, 1.0, 0, False)
+        return out.getvalue()
+
+    def test_identical_copies_land_once_under_the_clean_name(self):
+        helpers.movie(self.src, self.CODE, name=self.RAW, size=4000)
+        helpers.movie(self.src, self.CODE, size=4000)
+        out = self.run_migrate()
+        self.assertEqual(sorted(os.listdir(self.lib)), [self.CODE], out)
+        self.assertEqual(os.listdir(self.src), [], "the duplicate download must be removed")
+        self.assertIn("same code as %s in this batch" % self.CODE, out)
+
+    def test_a_different_rip_is_left_for_a_human(self):
+        helpers.movie(self.src, self.CODE, name=self.RAW, size=4000)
+        helpers.movie(self.src, self.CODE, size=2000)
+        out = self.run_migrate()
+        self.assertEqual(len(os.listdir(self.lib)), 1, out)
+        self.assertEqual(len(os.listdir(self.src)), 1, "the other rip must stay in downloads")
+        self.assertIn("different size", out)
+
+    def test_dry_run_changes_nothing(self):
+        helpers.movie(self.src, self.CODE, name=self.RAW, size=4000)
+        helpers.movie(self.src, self.CODE, size=4000)
+        out = self.run_migrate(apply=False)
+        self.assertEqual(os.listdir(self.lib), [])
+        self.assertEqual(len(os.listdir(self.src)), 2)
+        self.assertIn("MOVE", out)
+        self.assertIn("same code as %s in this batch" % self.CODE, out)
+
+    def test_keeper_choice(self):
+        c = self.CODE
+        # within tolerance: the clean name wins even when the raw copy is a few bytes bigger
+        keep, dups, skips = migrate.pick_keepers([(c, self.RAW, 1005), (c, c, 1000)], 1.0)
+        self.assertEqual([k[1] for k in keep], [c])
+        self.assertEqual(dups, {self.RAW: c})
+        self.assertEqual(skips, [])
+        # an unreadable size: nothing of that code is moved or deleted
+        keep, dups, skips = migrate.pick_keepers([(c, self.RAW, None), (c, c, 1000)], 1.0)
+        self.assertEqual((keep, dups), ([], {}))
+        self.assertEqual(len(skips), 2)
+        # a single folder per code is untouched
+        keep, dups, skips = migrate.pick_keepers([(c, c, 1000)], 1.0)
+        self.assertEqual(([k[1] for k in keep], dups, skips), ([c], {}, []))
+
+    def test_an_existing_library_copy_still_wins(self):
+        helpers.movie(self.lib, self.CODE, size=4000)
+        helpers.movie(self.src, self.CODE, name=self.RAW, size=4000)
+        helpers.movie(self.src, self.CODE, size=4000)
+        out = self.run_migrate()
+        self.assertEqual(os.listdir(self.lib), [self.CODE], out)
+        self.assertEqual(os.listdir(self.src), [], out)
+
+
+class TrashIsNotLibraryTest(unittest.TestCase):
+    """The library index walked into _vault_trash as if it were an actress folder: a movie
+    deleted in Vault still counted as 'already in the library', so downloading it again got
+    DELETE SOURCE, and a trashed copy beside a live one made the code AMBIGUOUS."""
+
+    CODE = "FC2-PPV-7654321"
+    setUp = SameCodeInBatchTest.setUp
+    tearDown = SameCodeInBatchTest.tearDown
+    run_migrate = SameCodeInBatchTest.run_migrate
+
+    def test_a_movie_only_in_the_trash_is_imported_again(self):
+        trashed = helpers.movie(os.path.join(self.lib, "_vault_trash"), self.CODE, size=4000)
+        helpers.movie(self.src, self.CODE, size=4000)
+        out = self.run_migrate()
+        self.assertTrue(os.path.isdir(os.path.join(self.lib, self.CODE)), out)
+        self.assertTrue(os.path.isdir(trashed), "the trash must be left alone")
+        self.assertEqual(os.listdir(self.src), [], out)
+
+    def test_a_trashed_copy_does_not_make_the_live_one_ambiguous(self):
+        helpers.movie(os.path.join(self.lib, "Some Actress"), self.CODE, size=4000)
+        helpers.movie(os.path.join(self.lib, "_Vault_Trash"), self.CODE, size=4000)
+        helpers.movie(os.path.join(self.lib, "_duplicates"), self.CODE, size=4000)
+        index = migrate.build_index(self.lib)
+        self.assertEqual(index, {self.CODE: os.path.join(self.lib, "Some Actress", self.CODE)})
+        self.assertNotIn(self.CODE, migrate.AMBIGUOUS)
+
+
 if __name__ == "__main__":
     unittest.main()

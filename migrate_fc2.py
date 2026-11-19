@@ -24,6 +24,14 @@ PER-RELEASE DECISION  (source = completed/spare, target = 1_FC2 PPV library)
   - source BIGGER than library -> REPLACE TARGET (delete library copy, move
                                   source in)  ** deletes in the library **
 
+SAME CODE TWICE IN ONE BATCH  (a re-download, or a step-1 rename collision whose
+loser folder kept its raw name): one keeper per code is picked — the biggest,
+but the folder named exactly <CODE> wins when it is within tolerance of the
+biggest. Only the keeper is compared with the library as above. Every other
+folder of that code: within tolerance of the keeper -> DELETE SOURCE (after the
+keeper's own action succeeded); different size -> SKIP, left for a human (a
+different rip); unreadable size -> the whole code is skipped.
+
 HARD RULE: any delete inside `1_FC2 PPV` (i.e. every REPLACE TARGET) requires
 explicit operator confirmation. Without --confirm-lib-deletes those rows are
 DEFERRED (source left in place) and listed. The Mover also refuses, at the
@@ -110,6 +118,18 @@ def is_orphan(path):
 
 AMBIGUOUS = set()          # codes found in more than one library folder
 
+# Folders inside the library that are NOT library: Vault's trash, the dedupe pen, staging.
+# Same list as webui/serve.py FOLD_RESERVED (copied, not imported: serve.py is a whole web
+# server). Without this the index walked into _vault_trash as if it were an actress folder,
+# so a movie deleted in Vault still counted as "already in the library" — a re-download of it
+# got DELETE SOURCE — and a trashed copy beside a live one made the code AMBIGUOUS.
+RESERVED_DIRS = {"_vault_trash", "_duplicates", "_unsorted", "_vault", "@eadir",
+                 "_needs_review"}
+
+
+def _reserved(name):
+    return name.lower() in RESERVED_DIRS or name.startswith(".")
+
 
 def build_index(root):
     """Map canonical code -> actual folder path. Handles both a flat library
@@ -128,7 +148,7 @@ def build_index(root):
 
     for entry in sorted(os.listdir(root)):
         path = os.path.join(root, entry)
-        if not os.path.isdir(path):
+        if _reserved(entry) or not os.path.isdir(path):
             continue
         code = identify(entry)
         if code:
@@ -195,6 +215,42 @@ def sweep_orphans(root, apply, label="SWEEP"):
 # Step 2 — direct migrate completed/spare -> 1_FC2 PPV
 # ---------------------------------------------------------------------------
 
+def pick_keepers(entries, tol):
+    """Split download folders that share a code. `entries` is [(code, entry, size)].
+
+    Returns (keepers, dups, skips): keepers = the entries compared with the library;
+    dups = {entry: keeper entry} for same-code folders within tolerance of their keeper;
+    skips = [(entry, why)]. The library index is built before the batch is read, so
+    without this every folder of a code new to the library got MOVE and all of them
+    landed there — the second under its raw download name."""
+    groups = {}
+    for e in entries:
+        groups.setdefault(e[0], []).append(e)
+    keepers, dups, skips = [], {}, []
+    for code, group in groups.items():
+        if len(group) == 1:
+            keepers.extend(group)
+            continue
+        names = ", ".join(e[1] for e in group)
+        if any(e[2] is None for e in group):
+            for e in group:
+                skips.append((e[1], "same code as %s in this batch, size unreadable" % names))
+            continue
+        big = max(e[2] for e in group)
+        near = [e for e in group if within_tol(e[2], big, tol)]
+        keeper = next((e for e in near if e[1] == code), max(group, key=lambda e: e[2]))
+        keepers.append(keeper)
+        for e in group:
+            if e is keeper:
+                continue
+            if within_tol(e[2], keeper[2], tol):
+                dups[e[1]] = keeper[1]
+            else:
+                skips.append((e[1], "same code as %s in this batch, different size — "
+                                    "check by hand" % keeper[1]))
+    return keepers, dups, skips
+
+
 def migrate(apply, tol, limit, confirm_lib):
     print(f"STEP 2  MIGRATE  {COMPLETED_SPARE}  ->  {FC2_PPV}")
     print(f"Mode : {'APPLY' if apply else 'DRY RUN'}   (bigger wins; "
@@ -215,6 +271,7 @@ def migrate(apply, tol, limit, confirm_lib):
     counts = {"MOVE": 0, "DELETE SOURCE": 0, "REPLACE TARGET": 0}
     b_move = b_del_src = b_replace = 0
     skipped = []
+    entries = []
     for entry in sorted(os.listdir(COMPLETED_SPARE)):
         src = os.path.join(COMPLETED_SPARE, entry)
         if not os.path.isdir(src):
@@ -223,7 +280,20 @@ def migrate(apply, tol, limit, confirm_lib):
         if code is None:
             skipped.append(entry)
             continue
-        ssize = folder_size(src)
+        entries.append((code, entry, folder_size(src)))
+    keepers, dups, same_code_skips = pick_keepers(entries, tol)
+    for entry, why in same_code_skips:
+        print(color(f"  !! SKIP {entry}: {why}", YELLOW))
+        skipped.append(f"{entry} ({why})")
+    sizes = {e[1]: e[2] for e in entries}
+    dup_rows = []
+    for code, entry, ssize in entries:
+        if entry in dups:
+            keeper = dups[entry]
+            counts["DELETE SOURCE"] += 1
+            b_del_src += ssize
+            dup_rows.append((code, entry, ssize, sizes[keeper], keeper, "DELETE DUPLICATE"))
+    for code, entry, ssize in keepers:
         match = lib.get(code)
         if match is None:
             action, tsize = "MOVE", None
@@ -247,6 +317,8 @@ def migrate(apply, tol, limit, confirm_lib):
                 b_replace += ssize
         counts[action] += 1
         rows.append((code, entry, ssize, tsize, match, action))
+    rows.sort(key=lambda r: r[1])
+    rows.extend(sorted(dup_rows, key=lambda r: r[1]))     # after every keeper has run
 
     # Table
     print(f"{'CODE':<22}  {'SRC SIZE':>11}  {'LIB SIZE':>11}  ACTION")
@@ -257,6 +329,8 @@ def migrate(apply, tol, limit, confirm_lib):
             acol = color("MOVE (add)", DIM)
         elif action == "DELETE SOURCE":
             acol = color("DELETE SOURCE", RED)
+        elif action == "DELETE DUPLICATE":
+            acol = color("DELETE SOURCE", RED) + f"  (same code as {_m} in this batch)"
         else:
             note = "" if confirm_lib else color("  [needs --confirm]", YELLOW)
             acol = color("REPLACE TARGET", GREEN) + note
@@ -284,10 +358,19 @@ def migrate(apply, tol, limit, confirm_lib):
     print("\n--- executing ---")
     failures, deferred = [], []
     in_library = []        # codes that end up present in the library, for the catalog
+    failed_codes = set()
     for code, entry, ssize, tsize, match, action in rows:
         src = os.path.join(COMPLETED_SPARE, entry)
         dst = os.path.join(FC2_PPV, entry)
         try:
+            if action == "DELETE DUPLICATE":
+                if code in failed_codes:
+                    print(color(f"      KEEP {entry}/ — {match} failed, so this copy stays",
+                                YELLOW))
+                    continue
+                print(f"      DELETE {entry}/  (same code as {match} in this batch)")
+                _remove_dir(src)
+                continue
             if action == "MOVE":
                 _move(src, dst)
                 in_library.append(code)
@@ -327,6 +410,7 @@ def migrate(apply, tol, limit, confirm_lib):
         except Exception as e:
             print(color(f"      !! FAILED {entry}: {e}", RED))
             failures.append((entry, str(e)))
+            failed_codes.add(code)
 
     mark_available(in_library)      # only codes whose action actually succeeded
 

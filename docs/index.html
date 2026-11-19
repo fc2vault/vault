@@ -214,9 +214,9 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
 <header class="hero" id="top">
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">Free &amp; self‑hosted · v1.7.0 · macOS · Windows · Linux</p>
+      <p class="eyebrow">Free &amp; self‑hosted · v1.8.0 · macOS · Windows · Linux</p>
       <h1>Your library,<br>finally <span>browsable.</span></h1>
-      <p class="lede">Vault turns a folder of FC2 / JAV movies into a fast, private web app: a poster wall, a streaming player with scene markers on the seek bar, and an actress catalog. <strong>One Python file. No cloud, no accounts, no telemetry. Free, the whole thing.</strong></p>
+      <p class="lede">Vault turns a folder of FC2 / JAV movies into a fast, private web app: a poster wall, a streaming player with scene markers on the seek bar and English subtitles made on your own computer, and an actress catalog. <strong>One Python file. No cloud, no accounts, no telemetry. Free, the whole thing.</strong></p>
       <div class="cta">
         <a class="btn primary" href="https://github.com/fc2vault/vault/releases/latest">Download Vault — free</a>
         <a class="btn" href="#support">Support the project</a>
@@ -240,7 +240,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
   <div class="wrap">
     <div class="sec-head">
       <p class="eyebrow">What it does</p>
-      <h2>A wall, a player,<br>a catalog.</h2>
+      <h2>A wall, a player,<br>subtitles, a catalog.</h2>
       <p class="lede">Everything a tube site does for its own videos, done for the files on your disk. The filesystem is the source of truth; Vault never moves a file without a preview and never deletes one without asking.</p>
     </div>
     <div class="feat">
@@ -274,14 +274,29 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
         <span class="k">Anywhere</span><h3>One page, phone to desktop</h3>
         <p>The same page adapts to a phone over your LAN or VPN: two‑column wall, a filter drawer, a stacked player. No separate app and nothing to install on the phone.</p>
       </article>
+      <article>
+        <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 12h4"/><path d="M12 12h6"/><path d="M6 15.5h8"/><path d="M16 15.5h2"/></svg>
+        <span class="k">Subtitles</span><h3>English subtitles from the Japanese audio</h3>
+        <p>Whisper writes down what is said, a small local model translates it with the conversation as context, and the lines land as <code>.en.srt</code> next to the movie. Runs offline on your machine; moans are left out, quiet words under them are not.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+        <span class="k">Import</span><h3>From the download folder in one step</h3>
+        <p>Renames and cleans new downloads, moves them into the library, replaces older copies with better ones — after a preview — and then fetches the new movies' metadata by itself.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <span class="k">Metadata</span><h3>Titles, casts and covers, filled in</h3>
+        <p>fc2ppv‑db, fc2db.net, 123av and ffjav in priority order, each only filling what the ones before it left empty. Your own edits are never overwritten.</p>
+      </article>
     </div>
 
     <div class="gallery">
       <div class="two">
         <div>
-          <figure class="shot"><img src="img/player.webp" width="2000" height="1250" alt="The Vault player: a movie playing with scene chips above the seek bar, the current scene's label in the corner, and the movie's tags, metadata and actions on the right." loading="lazy"></figure>
+          <figure class="shot"><img src="img/player.webp" width="2000" height="1250" alt="The Vault player: a movie playing with an English subtitle line, scene chips and ranges above the seek bar, and the movie's tags, metadata and actions on the right." loading="lazy"></figure>
           <h3>The player</h3>
-          <p>Scene chips above the seek bar, the current scene named in the corner, tags and metadata beside the picture. Filmography of the performer on the left, so the next title is one click away.</p>
+          <p>Scene chips and their ranges above the seek bar, English subtitles on the picture (CC, or <code>v</code>; <code>Shift+Y</code> / <code>Shift+C</code> jump between lines), tags and metadata beside it. Filmography of the performer on the left, so the next title is one click away.</p>
         </div>
         <div>
           <figure class="shot"><img src="img/actress.webp" width="2000" height="1250" alt="An actress page in Vault: portrait, Japanese name, age, cup size, height and measurements, aliases, and a grid of the 82 titles owned." loading="lazy"></figure>
@@ -394,7 +409,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     </div>
     <div class="priv">
       <div><b>No cloud</b><p>A single Python process serves a single HTML page from your machine. Your library index, posters and catalog live in a folder next to it.</p></div>
-      <div><b>No account</b><p>Nothing to register. The only outbound traffic is the metadata scan you start yourself, and the model download you press the button for.</p></div>
+      <div><b>No account</b><p>Nothing to register. The only outbound traffic is the metadata scan you start yourself and the model downloads you ask for (the scene model, and the speech and translation models the first time you transcribe). Audio and subtitles never leave your machine.</p></div>
       <div><b>No telemetry</b><p>No analytics, no update pings, no crash reports. The source is open; read the whole server in one sitting.</p></div>
       <div><b>LAN only</b><p>Vault has no login and no HTTPS on purpose. Use it on a trusted home network or over a VPN, and don't port‑forward it.</p></div>
     </div>
@@ -414,6 +429,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
       <div><b>ffmpeg / ffprobe</b><p>Required. Makes posters and reads duration, resolution and codec. <code>brew install ffmpeg</code>, <code>winget install ffmpeg</code>, or <code>apt install ffmpeg</code>.</p></div>
       <div><b>FlareSolverr</b><p>Optional. fc2ppv‑db sits behind a Cloudflare check; FlareSolverr clears it for you. A separate third‑party program, usually run in Docker. Without it you can paste a browser session instead.</p></div>
       <div><b>Scene model</b><p>Optional. A ~450 MB download from Settings → Scene model. Tagging needs Apple Silicon or an NVIDIA GPU; viewing and editing markers needs nothing special.</p></div>
+      <div><b>Subtitles</b><p>Optional. Settings → Subtitles → <em>Set up</em> installs Whisper and the translator into their own Python 3.10+ environment (~1 GB); the models (~4 GB) download on first use. Fastest on Apple Silicon or an NVIDIA GPU; on Windows / Linux the translator runs in Ollama or LM Studio.</p></div>
     </div>
 
     <div class="os-tabs" role="tablist" aria-label="Operating system">
@@ -473,6 +489,7 @@ python3 serve.py --library "/srv/movies"</pre></div></div>
       <details><summary>How does the scene model get onto my machine?</summary><p>Settings → Scene model shows the newest build and a Download button. Vault fetches it from the project's GitHub releases into a per‑user folder, and vault‑scene‑tagger finds it there on its own. When a new round ships, the same tab offers the update.</p></details>
       <details><summary>Does the scene model need a GPU?</summary><p>Tagging runs on Apple Silicon (MPS) at roughly 3× realtime, or much faster on any NVIDIA GPU. Reviewing markers in the player needs nothing special. The model runs entirely on your machine.</p></details>
       <details><summary>Which sources does it use for metadata?</summary><p>fc2db.net, 123av and ffjav work out of the box. fc2ppv‑db, which supplies the cast and faces, sits behind a Cloudflare check, so it needs a pasted browser session or a FlareSolverr instance on your LAN.</p></details>
+      <details><summary>How good are the subtitles?</summary><p>Good enough to follow the conversation. The Japanese transcript is usually accurate; in the English roughly one line in eight to ten is off, mostly where a word was misheard or means something else in a sexual context. Expect about 15–30 minutes per hour of video on an 8 GB M1 Mac, less on a faster machine. Everything runs locally: no audio and no text is sent anywhere.</p></details>
       <details><summary>Is this affiliated with FC2?</summary><p>No. Vault is an independent, open‑source media manager for files you already own. It hosts nothing, links to no content, and includes no videos or images.</p></details>
     </div>
   </div>
