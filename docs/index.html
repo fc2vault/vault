@@ -204,7 +204,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     <ul>
       <li><a href="#features">Features</a></li>
       <li><a href="#model">Scene model</a></li>
-      <li><a href="#free">Free</a></li>
+      <li><a href="#free">Support</a></li>
       <li><a href="#install">Install</a></li>
       <li class="keep"><a class="btn small" href="https://github.com/fc2vault/vault">GitHub</a></li>
     </ul>
@@ -214,12 +214,12 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
 <header class="hero" id="top">
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">Free &amp; self‑hosted · v1.8.1 · macOS · Windows · Linux</p>
+      <p class="eyebrow">Free &amp; self‑hosted · v1.8.2 · macOS · Windows · Linux</p>
       <h1>Your library,<br>finally <span>browsable.</span></h1>
       <p class="lede">Vault turns a folder of FC2 / JAV movies into a fast, private web app: a poster wall, a streaming player with scene markers on the seek bar and English subtitles made on your own computer, and an actress catalog. <strong>One Python file. No cloud, no accounts, no telemetry. Free, the whole thing.</strong></p>
       <div class="cta">
         <a class="btn primary" href="https://github.com/fc2vault/vault/releases/latest">Download Vault — free</a>
-        <a class="btn" href="https://github.com/fc2vault/vault">Source on GitHub</a>
+        <a class="btn" href="#free">Support the project</a>
         <span class="note">No limit, no key, no sign‑up. The scene model is a free download inside the app.</span>
       </div>
       <div class="strip">
@@ -367,11 +367,11 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
 <section id="free">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">Free</p>
-      <h2>Everything is free.</h2>
-      <p class="lede">Vault is a hobby project, developed in the open and given away whole: the app, every source, the catalog, the scene model and the subtitles. There is no paid tier and nothing held back.</p>
+      <p class="eyebrow">Free, and supported by you</p>
+      <h2>Everything is free.<br>Contributions keep it moving.</h2>
+      <p class="lede">Vault is a hobby project, developed in the open and given away whole: the app, every source, the catalog, the scene model and the subtitles. There is no paid tier and nothing held back. If it earns a place in your setup, a contribution helps cover the tools, the GPU hours and the work that go into the next release.</p>
     </div>
-    <div class="support" style="grid-template-columns:1fr">
+    <div class="support">
       <div class="card-free">
         <div><p class="eyebrow">Vault</p><p class="price">$0<small>for everyone, forever</small></p></div>
         <ul>
@@ -387,6 +387,15 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
         </ul>
         <div><a class="btn" href="https://github.com/fc2vault/vault/releases/latest">Download on GitHub</a></div>
         <p class="fine">No sign‑up, no key. The source is on GitHub; the terms are in LICENSE.md.</p>
+      </div>
+      <div class="card-sup">
+        <div><p class="eyebrow">Say thanks</p><p class="price">Patreon<small>any amount, cancel any time</small></p></div>
+        <p><strong>Thank you</strong> to everyone who contributes. Vault keeps being developed either way, but your support is what pays for the parts that are not free to make: the GPU time that trains each model round, the tooling, the metadata sources, and the evenings that go into every release.</p>
+        <div class="sup">
+          <a class="btn primary" href="https://www.patreon.com/FC2vault" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 2.5a6.2 6.2 0 1 1 0 12.4 6.2 6.2 0 0 1 0-12.4zM2.5 2.5h3.1v19H2.5z"/></svg>Support on Patreon</a>
+          <a class="btn" href="https://github.com/fc2vault/vault/issues">Request a feature</a>
+        </div>
+        <p class="fine">Nothing on Patreon is required to use Vault, the scene model or the subtitles.</p>
       </div>
     </div>
   </div>
@@ -476,6 +485,7 @@ python3 serve.py --library "/srv/movies"</pre></div></div>
     </div>
     <div class="faq">
       <details><summary>Is it really all free?</summary><p>Yes. The app, every metadata source, the bundled catalog and the scene model, with no movie limit and no key. The terms are in <code>LICENSE.md</code>: use it, share it, don't sell it.</p></details>
+      <details><summary>What do I get for supporting on Patreon?</summary><p>The same Vault as everyone else, and my thanks. Contributions pay for the GPU time that trains each model round, the tooling and the hours behind every release. Nothing is held back from people who don't contribute.</p></details>
       <details><summary>How does the scene model get onto my machine?</summary><p>Settings → Scene model shows the newest build and a Download button. Vault fetches it from the project's GitHub releases into a per‑user folder, and vault‑scene‑tagger finds it there on its own. When a new round ships, the same tab offers the update.</p></details>
       <details><summary>Does the scene model need a GPU?</summary><p>Tagging runs on Apple Silicon (MPS) at roughly 3× realtime, or much faster on any NVIDIA GPU. Viewing markers in the player needs nothing special. The model runs entirely on your machine.</p></details>
       <details><summary>Which sources does it use for metadata?</summary><p>fc2db.net, 123av and ffjav work out of the box. fc2ppv‑db, which supplies the cast and faces, sits behind a Cloudflare check, so it needs a pasted browser session or a FlareSolverr instance on your LAN.</p></details>
@@ -493,6 +503,7 @@ python3 serve.py --library "/srv/movies"</pre></div></div>
       <li><a href="https://github.com/fc2vault/vault/blob/main/README.md">README</a></li>
       <li><a href="https://github.com/fc2vault/vault/blob/main/CHANGELOG.md">Changelog</a></li>
       <li><a href="https://github.com/fc2vault/vault/issues">Issues</a></li>
+      <li><a href="https://www.patreon.com/FC2vault" rel="noopener">Patreon</a></li>
     </ul>
     <small>Vault runs on your machine and talks only to the metadata sources you enable. Screenshots show a real library with all imagery pixelated. Not affiliated with FC2, Inc. or any studio.</small>
   </div>

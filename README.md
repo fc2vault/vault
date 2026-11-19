@@ -77,6 +77,10 @@ and press **Download**. Vault unpacks it into a per-user folder that
 improved build shows up in the same tab as an **Update**. See
 [Generating markers](#generating-markers-with-vault-scene-tagger).
 
+**Support:** Vault is developed in the open and stays free. If it earns a place in your setup, a
+contribution on [Patreon](https://www.patreon.com/FC2vault) helps cover the tools and the hours
+that go into the next release. Nothing is required, and nothing is held back. Thank you.
+
 ## Requirements
 
 - **Python 3.8+** (standard library only — no `pip install`)
