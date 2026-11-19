@@ -71,7 +71,11 @@ import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.8.0"
+VAULT_VERSION = "1.8.1"
+# Training mode (editing scene markers to make training data) is the author's own workflow, not part
+# of the public package: make_release.sh --public sets this to False, which hides the switch and
+# refuses marker/label edits. Viewing markers is unaffected.
+TRAINING_AVAILABLE = False
 DATA_DIR = os.environ.get("VAULT_DATA") or HERE
 try:
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -2550,6 +2554,7 @@ class Handler(BaseHTTPRequestHandler):
         return self._json({"ok": True, "library": STATE["library"],
                            "download": STATE.get("download", ""),
                            "training_mode": bool(STATE.get("training")),
+                           "training_available": TRAINING_AVAILABLE,
                            "custom_labels": list(STATE.get("custom_labels") or []),
                            "tags": tags, "actresses": actresses,
                            "sources": _load_sources(), "cache": cache,
@@ -2726,6 +2731,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _set_training(self, on):
         """Settings -> Library -> training mode: allow editing scene markers in the player."""
+        if not TRAINING_AVAILABLE:
+            return self._json({"error": "Training mode is not part of this build"}, 403)
         if not isinstance(on, bool):
             return self._json({"error": "on must be true or false"}, 400)
         STATE["training"] = on
@@ -4470,7 +4477,7 @@ def main():
     # remember the choice for next launch (merge — don't clobber 'download' etc.)
     save_config(library=library, port=port)
     STATE["library"] = library
-    STATE["training"] = bool(cfg.get("training_mode", False))   # scene-marker editing; off by default
+    STATE["training"] = TRAINING_AVAILABLE and bool(cfg.get("training_mode", False))   # scene-marker editing; off by default
     STATE["custom_labels"] = sorted({l for l in (cfg.get("custom_labels") or [])
                                      if isinstance(l, str) and _SCENE_LABEL_RE.match(l) and l not in SCENE_LABELS})
     STATE["download"] = cfg.get("download", "")

@@ -73,14 +73,14 @@ Click any owned card to open the detail/player view.
 - **Right panel:** actress name in a fixed order — **English → Japanese → code** — then, for a multi‑actress title, a **co‑stars** row (each clickable to open that performer's overview), her stats as pills (age · cup · height · B·W·H), technical **metadata**, favorite / played / **censored toggle**, external‑player & Finder buttons, **Scan metadata**, your star rating, editable **tags**, and a **🗑 Delete movie** button. A movie's cast is a **many‑to‑many** relationship — one lead (**main**) plus any number of **co‑stars** — so a title shows up under every performer in it.
   - **Click her name** (the **›** caret) to fold out her full **overview** — portrait, bio, and everything owned + missing — without leaving the movie.
   - **⇄** (next to the ✎ edit button) **reassigns just this movie** to another actress — see [§5](#5-editing-a-movie).
-  - **Scenes on the seek bar:** the player uses a custom control bar with the scenes drawn on the scrubber — **clickable pictogram chips** above the bar (click to jump), **⏮ / ⏭** to step to the previous/next scene, colored **ticks** on the bar at each scene's start, a hover **label + time** tooltip, and a **"▶ now"** badge for the current scene. Markers are view‑only by default; with **training mode** on (Settings → Library) **＋** adds a marker **at the playhead**, **drag** a chip to move it, and **right‑click** a marker to change its label or delete it. Markers come from a `<video>.scenes.json` sidecar produced by the optional scene‑tagger; your manual ones are saved alongside the movie and survive re‑tagging.
-  - **Confirmed vs. suggested:** a marker the AI proposed and nobody has checked wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. (Amber, not red — an unreviewed guess is not a wrong one.) Right‑click it and pick **✓ Confirm** if it's right; the ring disappears. The chip's bottom edge keeps its label colour either way, so you can still read *what* it is at a glance.
+  - **Scenes on the seek bar:** the player uses a custom control bar with the scenes drawn on the scrubber — **clickable pictogram chips** above the bar (click to jump), **⏮ / ⏭** to step to the previous/next scene, colored **ticks** on the bar at each scene's start, a hover **label + time** tooltip, and a **"▶ now"** badge for the current scene. Markers come from a `<video>.scenes.json` sidecar next to the movie, written by [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) with the scene model (Settings → Scene model).
+  - **Confirmed vs. suggested:** a marker the AI proposed and nobody has checked wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. (Amber, not red — an unreviewed guess is not a wrong one.) The chip's bottom edge keeps its label colour either way, so you can still read *what* it is at a glance.
 
-  - **Ranges:** a marker is the *start* of an action, and a reviewed one can carry an *end* — the range shows as a translucent band on the bar. In training mode the marker at the playhead gets two handles on the bar (drag them; hold **Shift** for 1/10 speed), `q` / `e` set its start / end at the playhead, and right‑click a chip for **⇤ Start here** / **⇥ End here** / **✕ Clear the range**. Outside training mode the player shows one marker per change of action, so the bar stays readable.
+  - **Ranges:** a marker is the *start* of an action and can carry an *end* — the range shows as a translucent band on the bar. The player shows one marker per change of action, so the bar stays readable.
   - **Subtitles:** a movie with subtitles shows a **CC** button in the control bar (or press `v`); `shift`+`y` / `shift`+`c` jump to the previous / next line. The right panel's **💬 Transcribe (JA → EN)** makes them for this movie — see [§12](#12-subtitles-japanese--english).
   - **Volume:** hover the speaker icon and a slider unfolds next to it; the level and mute state are remembered across movies. Clicking the speaker mutes, clicking it again brings the previous level back.
 
-**Keyboard:** `space` or `s` play‑pause · `a` / `d` seek ∓10s (`shift`: ∓5s) · `←`/`→` seek ∓10s (`shift`: ∓60s) · `y` / `c` previous / next scene marker · `shift`+`y` / `shift`+`c` previous / next subtitle line · `v` subtitles on/off · `↑`/`↓` volume · `m` mute · `f` fullscreen · `t` theater · `0–9` jump to % · `<`/`>` speed. In marker‑editing mode: `q` / `e` set the marker's start / end at the playhead, `shift`+`q` / `shift`+`e` jump to them.
+**Keyboard:** `space` or `s` play‑pause · `a` / `d` seek ∓10s (`shift`: ∓5s) · `←`/`→` seek ∓10s (`shift`: ∓60s) · `y` / `c` previous / next scene marker · `shift`+`y` / `shift`+`c` previous / next subtitle line · `v` subtitles on/off · `↑`/`↓` volume · `m` mute · `f` fullscreen · `t` theater · `0–9` jump to % · `<`/`>` speed.
 
 > `a` `s` `d` sit under the left hand so the right one can stay on the mouse.
 
@@ -242,8 +242,6 @@ Open **Settings** from the **☰ Tools** menu. Six tabs:
   [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) finds it by itself. The
   tagger is a separate command‑line tool; the README's *Generating markers* section has the three
   commands.
-- **Support:** Vault is free. The tab links to the project's Patreon for anyone who wants to help
-  cover the tools and the work behind the next release.
 
 ### Library & cache
 
