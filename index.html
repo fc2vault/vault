@@ -25,6 +25,11 @@ body{background:var(--bg);color:var(--txt);
   overflow:hidden}
 a{color:inherit;text-decoration:none}
 button{font:inherit;color:inherit;cursor:pointer;background:none;border:none}
+/* import running in the background: a turning cog on the Import button */
+@keyframes vspin{to{transform:rotate(360deg)}}
+.spincog{display:inline-block;width:1.05em;height:1.05em;vertical-align:-.17em;
+  transform-origin:50% 50%;transform-box:fill-box;animation:vspin 1.6s linear infinite}
+@media (prefers-reduced-motion:reduce){.spincog{animation-duration:4s}}
 ::-webkit-scrollbar{width:11px;height:11px}
 ::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:6px;border:2px solid var(--bg)}
 ::-webkit-scrollbar-track{background:transparent}
@@ -264,6 +269,27 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 #colmenu{display:none;position:absolute;right:0;top:38px;background:var(--panel2);border:1px solid var(--line);
   border-radius:10px;padding:8px;z-index:40;box-shadow:0 12px 30px rgba(0,0,0,.5);min-width:150px}
 #colmenu.on{display:block}
+/* Tools menu (Import / Scan library / Transcribe / Settings) */
+.tmenu{position:relative}
+.tmenu-pop{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel2);border:1px solid var(--line);
+  border-radius:10px;padding:6px;z-index:60;box-shadow:0 12px 30px rgba(0,0,0,.5);min-width:200px;
+  display:flex;flex-direction:column;gap:2px}
+.tmenu-pop[hidden]{display:none}
+.tmi{display:flex;align-items:center;gap:6px;width:100%;text-align:left;padding:7px 10px;border-radius:7px;
+  font-size:13px;white-space:nowrap}
+.tmi:hover,.tmi:focus-visible{background:var(--panel);outline:none}
+.tmsep{height:1px;background:var(--line);margin:4px 2px}
+/* Transcribe dialog */
+.trrow .trdur{margin-left:auto;color:var(--dim2);font-variant-numeric:tabular-nums;flex:none}
+.trrow .trhas{flex:none;font-size:11px;color:var(--good)}
+.trq{font-family:ui-monospace,monospace;font-size:12px;color:var(--dim);max-height:160px;overflow:auto;margin:6px 0}
+/* subtitles in the player */
+#pvwrap video::cue{background:rgba(0,0,0,.62);color:#fff;font-size:clamp(14px,2.4vw,26px);line-height:1.35}
+.pv-btn.cc{font:700 11px/1 system-ui,sans-serif;letter-spacing:.5px}
+.pv-btn.cc span{border:1.6px solid currentColor;border-radius:3px;padding:2px 3px}
+.pv-btn.cc.on span{background:currentColor}
+.pv-btn.cc.on span b{color:#111}
+.pv-btn.cc[hidden]{display:none}
 #colmenu label{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:6px;font-size:13px;color:var(--dim);cursor:pointer}
 #colmenu label:hover{background:var(--panel)}
 .sentinel{grid-column:1/-1;height:1px}
@@ -305,6 +331,7 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .prt .rt{min-width:0;flex:1}
 .prt .rc{font-size:12px;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prt .rd{font-size:10px;color:var(--dim2);margin-top:2px}
+.prt .ptodo{font-size:10px;font-weight:600;color:var(--warn);margin-left:6px}   /* training: part still to review */
 .mainlbl{font-size:9px;color:var(--accent2);border:1px solid var(--accent2);border-radius:4px;padding:0 4px;margin-left:4px}
 .reldiv{border-top:1px solid var(--line);margin:6px 2px 8px}
 .p-stage{flex:1;min-width:0;background:#000;display:flex;align-items:center;justify-content:center}
@@ -365,6 +392,17 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .pv-btn{background:none;border:none;color:#fff;font-size:17px;cursor:pointer;line-height:1;padding:2px 4px;flex:none;opacity:.92}
 .pv-btn:hover{opacity:1;transform:scale(1.08)}
 .pv-btn svg{width:22px;height:22px;display:block;fill:currentColor}
+/* volume: the slider unfolds next to the speaker on hover / focus (YouTube-style) */
+.pv-vol{display:flex;align-items:center;flex:none;gap:0}
+.pv-vol input[type=range]{-webkit-appearance:none;appearance:none;width:0;height:18px;margin:0;padding:0;
+  background:none;accent-color:#fff;opacity:0;transition:width .18s,opacity .18s,margin .18s;cursor:pointer;touch-action:none}
+.pv-vol:hover input[type=range],.pv-vol:focus-within input[type=range],.pv-vol.open input[type=range]{width:76px;opacity:1;margin-left:4px}
+.pv-vol input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+  background:linear-gradient(to right,#fff var(--pct,100%),rgba(255,255,255,.32) var(--pct,100%))}
+.pv-vol input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;margin-top:-4px;border:none}
+.pv-vol input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.32)}
+.pv-vol input[type=range]::-moz-range-progress{height:4px;border-radius:2px;background:#fff}
+.pv-vol input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#fff;border:none}
 /* double-click / double-tap seek (YouTube-style): left half -10 s, right half +30 s */
 .pv-wrap{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .pv-skip{position:absolute;top:50%;transform:translateY(-50%);z-index:5;pointer-events:none;display:flex;
@@ -418,6 +456,7 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .pv-ed button.pri{background:var(--accent);border-color:var(--accent)}
 .pv-ed button.danger{color:#fca5a5;border-color:rgba(248,113,113,.5)}
 .pv-ed .ed-t{min-width:52px;text-align:center;font-variant-numeric:tabular-nums}
+.pv-ed .ed-lbl{font-size:11px;color:#bfc4d6;min-width:26px}
 /* An AI suggestion nobody has confirmed yet. Amber = "needs a look"; red is reserved for
    destructive things here, and a red ring on every pre-tag teaches you to ignore red. The
    bottom edge keeps its inline label colour, so the chip still says WHAT it thinks it is. */
@@ -426,6 +465,19 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .pv-chip.ai:hover{background:#1a1200}
 .pv-chip.ai .pv-chip-ic{opacity:.85}        /* confirmed markers read a touch brighter */
 .pv-mk.tick.ai{box-shadow:0 0 0 1px var(--warn)}
+/* a reviewed marker's range (start -> end), drawn as a translucent band under its tick */
+.pv-mk.band{opacity:.45;top:-2px;height:9px;border-radius:2px;pointer-events:none}
+.pv-seek:hover .pv-mk.band{height:9px}
+/* training mode: the range of the marker at the playhead, with draggable in/out handles (like a
+   clip on an editor timeline). A dashed end = no range yet, drag it (or press E) to set one. */
+.pv-rng{position:absolute;left:0;right:0;top:0;height:5px;pointer-events:none;z-index:5}
+.pv-rng .rb{position:absolute;top:-4px;height:13px;border-radius:2px;opacity:.3;pointer-events:none}
+.pv-rng .rb.ghost{opacity:.12}
+.pv-rng .rh{position:absolute;top:-8px;width:9px;height:21px;margin-left:-4.5px;border-radius:3px;cursor:ew-resize;
+  pointer-events:auto;box-shadow:0 0 0 1.5px #000,0 1px 6px rgba(0,0,0,.6);touch-action:none}
+.pv-rng .rh::after{content:"";position:absolute;left:3.5px;top:5px;width:2px;height:11px;background:rgba(0,0,0,.55);border-radius:1px}
+.pv-rng .rh.ghost{opacity:.55;outline:1.5px dashed #fff;outline-offset:-1.5px}
+.pv-rng .rh:hover,.pv-rng .rh.dragging{transform:scaleY(1.15)}
 .pv-ed .ed-src.ai{color:var(--warn)}
 .setcard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--panel)}
 .sethd{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -592,6 +644,7 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
   .pv-ctrl{flex-wrap:wrap;gap:4px 10px;padding:18px 10px 8px}
   .pv-seek{order:-1;flex:1 0 100%;height:26px}
   .pv-ctrl #pvtheater,.pv-ctrl #pvclose{display:none}
+  .pv-vol input[type=range]{display:none}   /* phones: hardware buttons, iOS ignores video.volume anyway */
   .pv-ctrl .pv-btn{font-size:20px;padding:4px 6px}
   .pv-ctrl .pv-btn svg{width:26px;height:26px}
   .pv-chips{bottom:30px}
@@ -678,10 +731,17 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
       </select>
       <button class="btn" id="shuffbtn" title="Reshuffle">🎲</button>
       <button class="btn" id="resetbtn" title="Clear all filters">⟲ Reset</button>
-      <button class="btn" id="scanlibbtn" title="Fetch missing titles/covers/tags for the whole library from web sources">⟳ Scan library</button>
-      <button class="btn" id="importbtn" title="Import from your download folder: rename, clean, then move into the library — replacing older copies with better ones (preview first)">📥 Import</button>
       <button class="btn" id="themebtn" title="Toggle light / dark">🌙</button>
-      <button class="btn" id="setbtn" title="Settings — manage actresses, tags, library folder, sources">⚙ Settings</button>
+      <div class="tmenu" id="tmenu">
+        <button class="btn" id="toolsbtn" aria-haspopup="menu" aria-expanded="false" title="Import, scan, subtitles and settings">☰ Tools ▾</button>
+        <div class="tmenu-pop" id="toolspop" role="menu" hidden>
+          <button class="tmi" role="menuitem" id="importbtn" title="Import from your download folder: rename, clean, then move into the library — replacing older copies with better ones (preview first)">📥 Import</button>
+          <button class="tmi" role="menuitem" id="scanlibbtn" title="Fetch missing titles/covers/tags for the whole library from web sources">⟳ Scan library</button>
+          <button class="tmi" role="menuitem" id="transbtn" title="English subtitles from the Japanese audio (Whisper)">💬 Transcribe</button>
+          <div class="tmsep"></div>
+          <button class="tmi" role="menuitem" id="setbtn" title="Settings — manage actresses, tags, library folder, sources">⚙ Settings</button>
+        </div>
+      </div>
       <div class="stat" id="stat"></div>
     </div>
   </header>
@@ -702,6 +762,7 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 <div class="modal" id="setmodal"><div class="orgbox setbox" id="setbox"></div></div>
 <div class="modal" id="amodal"><div class="orgbox abox" id="abox"></div></div>
 <div class="modal" id="impmodal"><div class="orgbox" id="impbox"></div></div>
+<div class="modal" id="trmodal"><div class="orgbox" id="trbox"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -748,7 +809,8 @@ let DATA={items:[],actresses:[],facets:{}};
 // stayed reachable (Safari keeps the decoder alive).
 const PVSESS={ro:null,ac:null};
 function pvCleanup(){if(PVSESS.ro){try{PVSESS.ro.disconnect();}catch(_){}PVSESS.ro=null;}
-  if(PVSESS.ac){try{PVSESS.ac.abort();}catch(_){}PVSESS.ac=null;}}
+  if(PVSESS.ac){try{PVSESS.ac.abort();}catch(_){}PVSESS.ac=null;}
+  PVSESS.rangeKey=null;}   // (toggleSubs / subsChanged: replaced by every new player, and they check it is still up)
 let META={};                       // code -> {duration,width,height}
 let ACTBYID={},ACTBYNAME={};
 let BYCODE=new Map();   // code -> item (avoids O(n) DATA.items.find on hot paths)
@@ -866,8 +928,11 @@ function toggleSeen(code,btn){
 }
 const F={q:"",ident:"all",showMissing:false,fmt:"all",actress:"all",cups:new Set(),res:new Set(),
          tags:new Set(),ageMin:0,ageMax:99,durMin:0,durMax:999,sort:"mtime",view:"grid",hd:false,parts:false,
-         watch:"all",favonly:false,afavonly:false,uncensOnly:false,
-         aiTagged:false,manualTagged:false,noTags:false,toReview:false};
+         watch:"all",favonly:false,afavonly:false,uncensOnly:false,subsOnly:false,
+         manualTagged:false,noTags:false,toReview:false};
+// "Corrected manually" = finished: has your markers, no AI marker left and no part sent back for
+// another pass (review_open). A movie moves here from "To review" once its last part is done.
+const reviewDone=it=>!!it.manual_tags&&!it.ai_tags&&!it.review_open&&!it.missing;
 const TAG_MIN=3;   // sidebar shows tags used on >= this many movies by default (search reaches all)
 const resBucket=h=>!h?"":h>=1800?"4K":h>=1000?"1080p":h>=700?"720p":"SD";
 const COLS=[
@@ -927,13 +992,13 @@ function buildSidebar(){
    ${frow('watch','seen','Watched only')}
    ${DATA.training?`
    <h4>Scene tagging</h4>
-   <label class="frow" style="cursor:pointer"><input type="checkbox" id="revchk" ${F.toReview?'checked':''}> To review<span class="c">${DATA.items.filter(i=>i.ai_tags&&!i.missing).length}</span></label>
-   <label class="frow" style="cursor:pointer"><input type="checkbox" id="aichk" ${F.aiTagged?'checked':''}> Not started<span class="c">${DATA.items.filter(i=>i.to_review&&!i.missing).length}</span></label>
-   <label class="frow" style="cursor:pointer"><input type="checkbox" id="manchk" ${F.manualTagged?'checked':''}> Corrected manually<span class="c">${DATA.items.filter(i=>i.manual_tags).length}</span></label>
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="revchk" ${F.toReview?'checked':''}> To review<span class="c">${DATA.items.filter(i=>(i.ai_tags||i.review_open)&&!i.missing).length}</span></label>
+   <label class="frow" style="cursor:pointer"><input type="checkbox" id="manchk" ${F.manualTagged?'checked':''}> Corrected manually<span class="c">${DATA.items.filter(reviewDone).length}</span></label>
    <label class="frow" style="cursor:pointer"><input type="checkbox" id="notagchk" ${F.noTags?'checked':''}> No markers yet<span class="c">${DATA.items.filter(i=>!i.ai_tags&&!i.manual_tags&&!i.missing).length}</span></label>
    `:''}
    <label class="frow" style="cursor:pointer"><input type="checkbox" id="hdchk"> HD only (≥720p)</label>
    <label class="frow" style="cursor:pointer"><input type="checkbox" id="censchk"> Uncensored only</label>
+   <label class="frow" style="cursor:pointer" title="English subtitles (.en.srt) for at least one part"><input type="checkbox" id="subschk" ${F.subsOnly?'checked':''}> Has subtitles<span class="c" id="subscnt">${DATA.items.filter(i=>i.subs&&!i.missing).length}</span></label>
 
    <h4>Actress</h4>
    <input class="side-input" id="actressInput" list="actressList" placeholder="type a name…" autocomplete="off">
@@ -980,10 +1045,12 @@ function buildSidebar(){
   $("#partschk").onchange=e=>{F.parts=e.target.checked;render();};
   $("#wishchk").onchange=e=>{F.showMissing=e.target.checked;render();};
   $("#censchk").onchange=e=>{F.uncensOnly=e.target.checked;render();};
-  {const ai=$("#aichk");if(ai)ai.onchange=e=>{F.aiTagged=e.target.checked;render();};
+  $("#subschk").onchange=e=>{F.subsOnly=e.target.checked;render();};
+  {
    const mn=$("#manchk");if(mn)mn.onchange=e=>{F.manualTagged=e.target.checked;render();};
    const nt=$("#notagchk");if(nt)nt.onchange=e=>{F.noTags=e.target.checked;render();};
- const rv=$("#revchk");if(rv)rv.onchange=e=>{F.toReview=e.target.checked;render();};}
+ const rv=$("#revchk");if(rv)rv.onchange=e=>{F.toReview=e.target.checked;render();};
+}
   $("#favrow").onclick=()=>{F.favonly=!F.favonly;$("#favrow").classList.toggle('on',F.favonly);render();};
   $("#afavrow").onclick=()=>{F.afavonly=!F.afavonly;$("#afavrow").classList.toggle('on',F.afavonly);render();};
   $$('#cupchips .chip').forEach(c=>c.onclick=()=>{tog(F.cups,c.dataset.cup);c.classList.toggle('on');render();});
@@ -1026,7 +1093,24 @@ function tagTokenAC(inp){
 }
 /* ---------------- Import pipeline (download folder -> library) ---------------- */
 let IMPORT_RUNNING=false, importPollTimer=null;
+// While an import or a library scan runs (also in the background) its button shows a turning gear;
+// clicking it then reopens the progress instead of starting a new preview.
+// Outlined gear (Lucide "settings", ISC), drawn round the centre of its 24×24 box so it turns in place.
+const GEAR_SVG='<svg class="spincog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    +'<path d=""M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>'
+    +'<circle cx="12" cy="12" r="3"/></svg>';
+// The Tools button turns its gear while anything in it runs (import, scan, transcription).
+function updToolsBtn(){const b=$("#toolsbtn");if(!b)return;
+  const busy=IMPORT_RUNNING||(typeof SCAN_RUNNING!=="undefined"&&SCAN_RUNNING)||(typeof TR_RUNNING!=="undefined"&&TR_RUNNING);
+  b.innerHTML=busy?GEAR_SVG+' Tools ▾':'☰ Tools ▾';
+  b.title=busy?'Something is running — open the menu to see it':'Import, scan, subtitles and settings';}
+function setImportBtn(on){const b=$("#importbtn");if(!b)return;updToolsBtn();
+  b.innerHTML=on?GEAR_SVG+' Import':'📥 Import';
+  b.title=on?'Import is running — click to show its progress'
+    :'Import from your download folder: rename, clean, then move into the library — replacing older copies with better ones (preview first)';}
+function showImportProgress(){$("#impmodal").classList.add("on");renderImportProgress();pollImportProgress();}
 function startImport(){
+  if(IMPORT_RUNNING){showImportProgress();return;}
   const m=$("#impmodal"),b=$("#impbox");m.classList.add("on");
   b.innerHTML='<div class="orghd">Import — analyzing…</div><div class="orgsub">Previewing rename &amp; migration from your download folder…</div>';
   fetch("/api/import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({preview:true})})
@@ -1070,7 +1154,7 @@ function renderImportPlan(j){
   };
 }
 function renderImportProgress(){
-  IMPORT_RUNNING=true;
+  IMPORT_RUNNING=true;setImportBtn(true);
   $("#impbox").innerHTML=`
     <div class="orghd">Importing…</div>
     <div class="orgsub" id="impPhase">Starting…</div>
@@ -1080,26 +1164,160 @@ function renderImportProgress(){
     <div class="pactions"><button class="btn" id="impHide">Run in background</button></div>`;
   $("#impHide").onclick=()=>$("#impmodal").classList.remove("on");
 }
+let importPollSeq=0;
 function pollImportProgress(){
   clearTimeout(importPollTimer);
+  const seq=++importPollSeq;   // a newer poll (reopened progress) takes over: one polling chain only
   fetch("/api/importprogress").then(r=>r.json()).then(p=>{
+    if(seq!==importPollSeq)return;
     const ph=$("#impPhase"),ln=$("#impLine"),fill=$("#impFill");
     if(p.running){
-      IMPORT_RUNNING=true;
+      IMPORT_RUNNING=true;setImportBtn(true);
       if(ph)ph.textContent=p.phase||"Working…";
       if(ln)ln.textContent=p.line||"";
       if(fill)fill.style.width=((p.phase||"").indexOf("Migrating")>=0?65:30)+"%";
       importPollTimer=setTimeout(pollImportProgress,1000);
     }else{
-      IMPORT_RUNNING=false;
+      IMPORT_RUNNING=false;setImportBtn(false);
       if(fill)fill.style.width="100%";
       if($("#impmodal").classList.contains("on")&&$("#impPhase")){
         $("#impbox").innerHTML=`<div class="orghd">Import complete 🎉</div><div class="orgsub">${esc(p.line||"All done.")}</div><div class="pactions"><button class="btn pri" id="impDone">Close</button></div>`;
         $("#impDone").onclick=()=>$("#impmodal").classList.remove("on");
       }
       toast("Import complete");reloadData&&reloadData();
+      // the server scans the new movies' metadata next: follow it on the Scan library button
+      fetch("/api/scanprogress").then(r=>r.json()).then(q=>{if(q&&q.running)pollScanProgress();}).catch(()=>{});
     }
-  }).catch(()=>{importPollTimer=setTimeout(pollImportProgress,2000);});
+  }).catch(()=>{if(seq===importPollSeq)importPollTimer=setTimeout(pollImportProgress,2000);});
+}
+/* ---------------- Subtitles: Whisper transcription (Japanese speech -> English .en.srt) ---------------- */
+let TR_RUNNING=false,TR_PROG=null,trPollTimer=null,trPollSeq=0,TR_SCOPE="without",TR_SEL=new Set(),TR_Q="";
+const trHours=s=>{s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.round(s%3600/60);return h?`${h} h ${m} min`:`${m} min`;};
+function trItems(){return (DATA.items||[]).filter(i=>!i.missing);}
+function trHas(i){return (i.subs||0)>=Math.max(1,i.nparts||1);}
+function setTransBtn(){const b=$("#transbtn");if(!b)return;updToolsBtn();
+  if(TR_RUNNING&&TR_PROG){const c=TR_PROG.current,n=(TR_PROG.queue||[]).length;
+    b.innerHTML=GEAR_SVG+' '+esc(`Transcribing ${Math.round(100*(TR_PROG.progress||0))}%${n?` · ${n} queued`:''}`);
+    b.title='Transcription is running'+(c?' — '+c.label:'')+' · click to show it';}
+  else{b.textContent='💬 Transcribe';b.title='English subtitles from the Japanese audio (Whisper)';}}
+// the side panel's 💬 button for the movie open in the player
+function paintPlayerTrans(){
+  const b=document.querySelector("#player #ptrans");if(!b||!$("#modal").classList.contains("on"))return;
+  const ref=$("#modal").dataset.uid,it=BYUID.get(ref)||BYCODE.get($("#modal").dataset.code);if(!it)return;
+  const p=TR_PROG||{},mine=x=>x&&(x.code===ref||x.code===it.code);
+  const cur=p.running&&mine(p.current),q=(p.queue||[]).filter(mine).length;
+  b.dataset.state=cur?"run":q?"queued":trHas(it)?"has":"none";
+  b.innerHTML=cur?GEAR_SVG+' '+esc(`Transcribing${p.current.part&&it.nparts>1?' part '+(p.current.part+1):''} · ${Math.round(100*(p.progress||0))}%`)
+    :q?'💬 Queued for subtitles':trHas(it)?'💬 Subtitles ✓ — redo':(it.subs?`💬 Transcribe the rest (${it.subs}/${it.nparts} done)`:'💬 Transcribe (JA → EN)');
+  b.title=cur||q?'Show the transcription progress':trHas(it)?'This movie has English subtitles (CC in the player). Click to transcribe it again.'
+    :'Write English subtitles from the Japanese audio (Whisper) — runs in the background';
+}
+function openTranscribe(){
+  const m=$("#trmodal");m.classList.add("on");
+  if(TR_RUNNING){renderTrProgress();pollTranscribe();return;}
+  $("#trbox").innerHTML='<div class="orghd">Transcribe — Japanese → English</div><div class="orgsub">Checking the Whisper setup…</div>';
+  fetch("/api/whisper").then(r=>r.json()).then(w=>renderTrPick(w)).catch(()=>renderTrPick({check:{error:"Vault could not be reached"}}));
+}
+function renderTrPick(w){
+  const b=$("#trbox"),m=$("#trmodal"),close=()=>m.classList.remove("on");
+  const ok=!(w.check&&w.check.error);
+  const all=trItems().sort((a,b)=>(b.added||b.mtime||0)-(a.added||a.mtime||0));
+  const without=all.filter(i=>!trHas(i));
+  const scoped=TR_SCOPE==="all"?all:without;
+  const q=TR_Q.trim().toLowerCase();
+  const hit=i=>!q||[i.code,i.actress,i.actress_en,i.actress_jp,i.title_en].some(x=>(x||"").toLowerCase().includes(q));
+  const list=scoped.filter(hit),shown=list.slice(0,400);
+  const row=i=>`<label class="orgrow trrow"><input type="checkbox" class="trchk" data-code="${esc(i.uid||i.code)}" ${TR_SEL.has(i.uid||i.code)?'checked':''}>`
+    +`<span class="ot file">${esc(i.code)}</span><span class="of">${esc(i.actress||i.title_en||'')}${(i.nparts||1)>1?` <span style="color:var(--dim2)">· ${i.nparts} parts</span>`:''}</span>`
+    +(trHas(i)?'<span class="trhas">✓ subtitles</span>':'')+`<span class="trdur">${i.dur?fmtTC(i.dur):''}</span></label>`;
+  const eng=ok?`${esc((w.check.engines||[]).join(', '))} · model <b>${esc(w.model)}</b>`:'';
+  b.innerHTML=`
+    <div class="orghd">Transcribe — Japanese → English subtitles</div>
+    <div class="orgsub">${ok?`Whisper (${eng}) listens to the Japanese audio, a small local model translates it, and English subtitles land next to each video as <code>&lt;name&gt;.en.srt</code> — the player shows them with the <b>CC</b> button (or <b>v</b>), and Plex / VLC / Infuse pick them up too. Runs in the background, one part at a time.`
+      :`<span style="color:var(--warn)">${esc((w.check&&w.check.error)||'Not set up')}</span> — set it up in <a href="#" id="trSet">Settings → Subtitles</a>.`}</div>
+    <div class="seg" id="trSeg" style="margin:10px 0 4px;width:max-content;flex:none">
+      <button data-scope="without" class="${TR_SCOPE==='without'?'on':''}">Without subtitles (${without.length})</button>
+      <button data-scope="all" class="${TR_SCOPE==='all'?'on':''}">All movies (${all.length})</button>
+    </div>
+    <input class="side-input" id="trQ" placeholder="Filter by code, actress or title…" value="${esc(TR_Q)}" style="margin:6px 0">
+    <div class="orglist" id="trList">${shown.map(row).join("")||'<div class="orgrow" style="color:var(--dim2)">Nothing here 🎉</div>'}
+      ${list.length>shown.length?`<div class="orgrow" style="color:var(--dim2)">…${list.length-shown.length} more — narrow it down with the filter</div>`:''}</div>
+    <div class="orgsub" id="trSum"></div>
+    <div class="pactions">
+      <button class="btn pri" id="trGo" ${ok?'':'disabled'}>Transcribe <span id="trN">0</span> selected</button>
+      <button class="btn" id="trNone">Clear selection</button>
+      <button class="btn" id="trCancel">Close</button>
+    </div>`;
+  const byRef=new Map(all.map(i=>[i.uid||i.code,i]));
+  const upd=()=>{const sel=[...TR_SEL].map(r=>byRef.get(r)).filter(Boolean);
+    $("#trN").textContent=sel.length;
+    const secs=sel.reduce((a,i)=>a+(i.dur||0),0);
+    $("#trSum").textContent=sel.length?`${trHours(secs)} of video selected${sel.some(trHas)?' · ones that already have subtitles are done again':''}.`:'Tick the movies to transcribe.';};
+  b.querySelectorAll(".trchk").forEach(x=>x.onchange=()=>{x.checked?TR_SEL.add(x.dataset.code):TR_SEL.delete(x.dataset.code);upd();});
+  upd();
+  $("#trSeg").querySelectorAll("button").forEach(bt=>bt.onclick=()=>{TR_SCOPE=bt.dataset.scope;renderTrPick(w);});
+  const qi=$("#trQ");qi.oninput=()=>{TR_Q=qi.value;clearTimeout(qi._t);qi._t=setTimeout(()=>{renderTrPick(w);const n=$("#trQ");n.focus();n.setSelectionRange(n.value.length,n.value.length);},250);};
+  $("#trNone").onclick=()=>{TR_SEL.clear();renderTrPick(w);};
+  $("#trCancel").onclick=close;
+  const st=$("#trSet");if(st)st.onclick=e=>{e.preventDefault();close();SETTAB="subs";openSettings();};
+  $("#trGo").onclick=()=>{const codes=[...TR_SEL];if(!codes.length){toast("Nothing selected");return;}
+    startTranscribe(codes,true);};
+}
+function startTranscribe(codes,force,quiet){
+  return fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codes,force:!!force})})
+   .then(r=>r.json()).then(j=>{if(j.error){toast(j.error);return j;}
+     TR_SEL.clear();TR_PROG=j.progress;TR_RUNNING=!!(j.progress&&j.progress.running);setTransBtn();
+     if(!quiet){$("#trmodal").classList.add("on");renderTrProgress();}
+     toast(j.queued?`Queued ${j.queued} part${j.queued>1?'s':''} for subtitles`:(j.skipped?'Already has subtitles':'Already queued'));
+     pollTranscribe();return j;})
+   .catch(()=>{toast("Could not start the transcription");});
+}
+function renderTrProgress(){
+  $("#trbox").innerHTML=`
+    <div class="orghd">Transcribing — Japanese → English</div>
+    <div class="orgsub" id="trCur">Starting…</div>
+    <div class="scbar"><div class="scbarfill" id="trFill" style="width:0%"></div></div>
+    <div class="orgsub" id="trLine" style="font-family:ui-monospace,monospace"></div>
+    <div class="trq" id="trQueue"></div>
+    <div class="orgsub" id="trErr" style="color:var(--warn)"></div>
+    <div class="orgsub" style="color:var(--dim2)">Each part takes a while (roughly a quarter to half its running time on an M1). Safe to run in the background — the subtitles appear in the player as each part finishes.</div>
+    <div class="pactions"><button class="btn" id="trHide">Run in background</button><button class="btn pbtn-danger" id="trStop">Stop all</button></div>`;
+  $("#trHide").onclick=()=>$("#trmodal").classList.remove("on");
+  $("#trStop").onclick=()=>{if(!confirm("Stop the transcription and drop everything still queued? (Subtitles already written stay.)"))return;
+    fetch("/api/transcribe/cancel",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(()=>pollTranscribe());};
+  paintTr();
+}
+function paintTr(){
+  const p=TR_PROG||{},cur=$("#trCur");if(!cur)return;
+  const c=p.current,n=(p.queue||[]).length,tot=p.total||0,done=p.done||0;
+  cur.innerHTML=p.running&&c?`<b>${esc(c.label)}</b> — ${done+1} of ${tot}${p.engine?` · ${esc(p.engine)}`:''}`
+    :`Finished ${done} of ${tot}`;
+  const f=$("#trFill");if(f)f.style.width=(p.running?100*(p.progress||0):100)+"%";
+  const l=$("#trLine");if(l)l.textContent=p.line||"";
+  const qq=$("#trQueue");if(qq)qq.innerHTML=n?'Next: '+(p.queue||[]).map(j=>esc(j.label)).join(' · '):'';
+  const e=$("#trErr");if(e)e.innerHTML=(p.errors||[]).map(x=>`✗ ${esc(x.code)}${x.part?' · part '+(x.part+1):''}: ${esc(x.error)}`).join('<br>');
+  if(!p.running){const pa=$("#trbox").querySelector(".pactions");if(pa)pa.innerHTML='<button class="btn pri" id="trDone">Close</button>';
+    const d=$("#trDone");if(d)d.onclick=()=>$("#trmodal").classList.remove("on");}
+}
+function pollTranscribe(){
+  clearTimeout(trPollTimer);
+  const seq=++trPollSeq;
+  fetch("/api/transcribe/progress").then(r=>r.json()).then(p=>{
+    if(seq!==trPollSeq)return;
+    const before=new Set(((TR_PROG||{}).finished||[]).map(f=>f.code+'#'+f.part));
+    TR_PROG=p;const was=TR_RUNNING;TR_RUNNING=!!p.running;setTransBtn();paintTr();
+    // parts that just got subtitles: flag them in the grid data and in an open player
+    for(const f of (p.finished||[])){if(before.has(f.code+'#'+f.part))continue;
+      const it=(DATA.items||[]).find(i=>(i.uid||i.code)===f.code||i.code===f.code);
+      if(it){if((it.parts||[]).length>1){if(it.parts[f.part])it.parts[f.part].subs=true;it.subs=it.parts.filter(x=>x.subs).length;}
+        else it.subs=1;}
+      if(PVSESS.subsChanged)PVSESS.subsChanged(f.code,f.part);
+      const sc=$("#subscnt");if(sc)sc.textContent=DATA.items.filter(i=>i.subs&&!i.missing).length;
+      if(F.subsOnly)renderSoon();}
+    paintPlayerTrans();
+    if(p.running)trPollTimer=setTimeout(pollTranscribe,2000);
+    else if(was){toast((p.errors||[]).length?`Transcription finished with ${(p.errors||[]).length} error(s)`:'Subtitles ready');}
+  }).catch(()=>{if(seq===trPollSeq)trPollTimer=setTimeout(pollTranscribe,4000);});
 }
 let ORGPLAN="";          // fingerprint of the plan currently on screen
 function organizeLibrary(){
@@ -1200,8 +1418,9 @@ function foldByActress(){
      };
    }).catch(()=>{b.innerHTML='<div class="orghd">Could not plan foldering</div><div class="pactions"><button class="btn" id="foCancel">Close</button></div>';const x=$("#foCancel");if(x)x.onclick=close;});
 }
-let scanPollTimer=null,SCANCANDS=[],SCANSCOPE="missing";
+let scanPollTimer=null,SCANCANDS=[],SCANSCOPE="missing",SCAN_RUNNING=false;
 function startLibraryScan(){
+  if(SCAN_RUNNING){$("#scanmodal").classList.add("on");renderScanProgress(0,"Scan library — running…");pollScanProgress();return;}
   const m=$("#scanmodal"),b=$("#scanbox");m.classList.add("on");
   b.innerHTML='<div class="orghd">Scan library — metadata</div><div class="orgsub">Re-indexing files & checking what\'s missing…</div>';
   // one preview (re-indexes to catch new drops); we filter missing/all client-side
@@ -1297,18 +1516,24 @@ function renderScanProgress(n,label){
     <div class="pactions"><button class="btn" id="scHide">Run in background</button></div>`;
   $("#scHide").onclick=()=>$("#scanmodal").classList.remove("on");
 }
+let scanPollSeq=0;
 function pollScanProgress(){
   clearTimeout(scanPollTimer);
+  const seq=++scanPollSeq;     // one polling chain only, however often the progress is reopened
   fetch("/api/scanprogress").then(r=>r.json()).then(p=>{
+    if(seq!==scanPollSeq)return;
     const b=$("#scanlibbtn"),open=$("#scanmodal").classList.contains("on");
     if(p.running){
-      b.textContent=p.total?`⟳ ${p.phase==="fc2ppv-db"?"db ":""}${p.done}/${p.total} (${p.hits}✓)`:`⟳ ${p.code||'working…'}`;b.disabled=true;
+      SCAN_RUNNING=true;updToolsBtn();
+      b.innerHTML=GEAR_SVG+' '+esc(p.total?`${p.phase==="fc2ppv-db"?"db ":""}${p.done}/${p.total} (${p.hits}✓)`:(p.code||'working…'));
+      b.title='A library scan is running — click to show its progress';
       const st=$("#scStat"),fill=$("#scFill"),now=$("#scNow");
       if(st&&p.total){st.textContent=`${p.phase==="fc2ppv-db"?"1 · fc2ppv-db · ":p.phase==="fc2db.net"?"2 · fc2db.net · ":p.phase==="titles"?"3 · 123av / ffjav · ":""}${p.done} / ${p.total} · ${p.hits} updated${p.absent?` · ${p.absent} not found`:""}${p.failed?` · ${p.failed} failed`:""}`;fill.style.width=(100*p.done/p.total)+"%";now.textContent=p.code||"";}
       else if(st){st.textContent=p.code||"working…";}
       scanPollTimer=setTimeout(pollScanProgress,1200);
     }else{
-      b.disabled=false;b.textContent="⟳ Scan library";
+      SCAN_RUNNING=false;updToolsBtn();b.disabled=false;b.textContent="⟳ Scan library";
+      b.title="Fetch missing titles/covers/tags for the whole library from web sources";
       if(p.error) toast(p.error);
       const st=$("#scStat");
       if(st){st.textContent=(p.error?p.error
@@ -1339,7 +1564,7 @@ function refreshSettings(tab){if(tab)SETTAB=tab;
   fetch("/api/settings").then(r=>r.json()).then(j=>{SET=j;renderSettings();reloadData&&reloadData();});}
 function renderSettings(){
   const b=$("#setbox"),close=()=>$("#setmodal").classList.remove("on");
-  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["model","Scene model"]];
+  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["model","Scene model"],["subs","Subtitles"]];
   b.innerHTML=`<div class="orghd">Settings</div>
     <div class="settabs">${tabs.map(([t,l])=>`<div class="settab${SETTAB===t?' on':''}" data-t="${t}">${l}</div>`).join("")}</div>
     <div class="setpane" id="setpane"></div>
@@ -1347,7 +1572,60 @@ function renderSettings(){
   b.querySelectorAll(".settab").forEach(t=>t.onclick=()=>{SETTAB=t.dataset.t;renderSettings();});
   $("#setClose").onclick=close;
   const pane=$("#setpane");
-  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,model:renderSetModel}[SETTAB]||renderSetLibrary)(pane);
+  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,model:renderSetModel,subs:renderSetSubs}[SETTAB]||renderSetLibrary)(pane);
+}
+function renderSetSubs(pane){
+  pane.innerHTML='<div class="setnote">Checking the Whisper setup…</div>';
+  const show=w=>{
+    const c=w.check||{},ok=!c.error,st=w.setup||{};
+    const opt=(arr,cur,lab)=>arr.map(v=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(lab?lab(v):v)}</option>`).join("");
+    const engLab=v=>({auto:"Auto — the fastest one installed",mlx:"mlx-whisper (Apple Silicon, GPU)",faster:"faster-whisper (CPU / NVIDIA)",openai:"openai-whisper (PyTorch)"}[v]||v);
+    const modLab=v=>({"large-v3":"large-v3 — most accurate (~1.6 GB on a Mac, ~3 GB elsewhere)","medium":"medium — faster, rougher (~1.5 GB)","small":"small — quick drafts (~0.5 GB)"}[v]||v);
+    pane.innerHTML=`
+      <div class="setsec">English subtitles from the Japanese audio</div>
+      <div class="setnote"><b>💬 Transcribe</b> (Tools menu, or the movie panel) runs <b>Whisper</b> over a movie's audio and writes English subtitles next to the video as <code>&lt;name&gt;.en.srt</code>. The player's <b>CC</b> button (or <b>v</b>) shows them, <b>Shift+Y / Shift+C</b> jump between lines; Plex, VLC, Infuse and mpv find the file on their own. Everything runs offline, on this computer: a speech detector finds the talking, Whisper writes it down in Japanese, a small local model translates it, and lines that are only moans are left out.</div>
+      <div class="setsec">Status</div>
+      <div class="setnote">${ok?`<span style="color:var(--good)">✓ Ready</span> — engine${(c.engines||[]).length>1?'s':''}: <b>${esc((c.engines||[]).join(', '))}</b> · Python ${esc(c.python||'')} · ${esc(c.platform||'')}${c.ffmpeg?'':' · <span style="color:var(--warn)">ffmpeg not found — install it</span>'}`
+        :`<span style="color:var(--warn)">${esc(c.error||'Not set up')}</span>`}<br><span style="color:var(--dim2)">${esc(w.python||'')}</span></div>
+      <div class="setsec">Set up</div>
+      <div class="setnote">Vault keeps Whisper in its own Python environment (<code>${esc(w.env_dir)}</code>), so it never touches your system Python. <b>Set up</b> creates it and installs <b>${esc(w.setup_package)}</b>, the engine that runs fastest on this computer (needs Python 3.10+ and about 1 GB; the model itself downloads on the first transcription). Or point Vault at a Python where a Whisper engine is already installed.</div>
+      <div style="display:flex;gap:8px;align-items:center"><button class="setbtn" id="wSetup"${st.running?' disabled':''}>${ok?'Re-install':'Set up'} ${esc(w.setup_package)}</button><span class="setnote" id="wSetupLine" style="margin:0">${esc(st.line||'')}</span></div>
+      <div style="display:flex;gap:8px;margin-top:8px"><input class="setin" id="wPy" style="flex:1" value="${esc(w.configured||'')}" placeholder="Python with Whisper (empty = the one Vault set up)"><button class="setbtn" id="wPySave">Save</button></div>
+      <div class="setsec">Engine &amp; model</div>
+      <div class="setnote">The same Whisper model in different engines. <b>Auto</b> picks mlx-whisper on Apple Silicon, else faster-whisper (which uses an NVIDIA GPU when there is one). <b>large-v3</b> hears the Japanese best; the "turbo" model is left out on purpose — it can't translate and, writing Japanese only, it mishears more.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="wEng">${opt(w.engines||[],w.engine,engLab)}</select>
+        <select id="wMod">${opt(w.models||[],w.model,modLab)}</select>
+        <button class="setbtn" id="wSave">Save</button>
+      </div>
+      <div class="setsec">Translation</div>
+      <div class="setnote"><b>Whisper + LLM</b> (recommended): Whisper writes down the Japanese — which it does very accurately — and a small local language model translates it, a batch of lines at a time with the conversation around them. That fixes most of Whisper's own mistakes (who is talking about whom, words that sound alike) and reads more naturally; it adds a few minutes per movie and also keeps the Japanese as <code>&lt;name&gt;.ja.srt</code>. <b>Whisper only</b> translates in one pass: faster, rougher. ${(c.llm||[]).length||w.llm_url?'':'<span style="color:var(--warn)">No LLM runtime installed yet — Set up adds mlx-lm on Apple Silicon; elsewhere, point Vault at an Ollama / LM Studio server below.</span>'}</div>
+      <div class="seg" id="wTr" style="width:max-content;flex:none;margin-bottom:8px">
+        <button data-tr="llm" class="${w.translator==='llm'?'on':''}">Whisper + LLM</button>
+        <button data-tr="whisper" class="${w.translator==='whisper'?'on':''}">Whisper only</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input class="setin" id="wLlm" list="wLlmList" style="flex:1;min-width:260px" value="${esc(w.llm||'')}" placeholder="LLM model">
+        <datalist id="wLlmList">${(w.llm_models||[]).map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
+        <button class="setbtn" id="wLlmSave">Save</button>
+      </div>
+      <div class="setnote" style="margin-top:6px">Apple Silicon: an <code>mlx-community/…</code> model, downloaded on first use (Qwen3-4B ≈ 2.3 GB fits an 8 GB Mac; Qwen2.5-7B ≈ 4.3 GB translates a little better on 16 GB+). Windows / Linux: run <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> or LM Studio, put its address here and its model name above (e.g. <code>qwen3:4b</code>).</div>
+      <div style="display:flex;gap:8px;margin-top:6px"><input class="setin" id="wUrl" style="flex:1" value="${esc(w.llm_url||'')}" placeholder="LLM server (optional), e.g. http://localhost:11434"><button class="setbtn" id="wUrlSave">Save</button></div>`;
+    const save=body=>post2("/api/whisper/save",body,j=>{if(j.error){toast(j.error);return;}toast("Saved");show(j);});
+    $("#wPySave").onclick=()=>save({python:$("#wPy").value});
+    $("#wSave").onclick=()=>save({engine:$("#wEng").value,model:$("#wMod").value});
+    $("#wTr").querySelectorAll("button").forEach(bt=>bt.onclick=()=>save({translator:bt.dataset.tr}));
+    $("#wLlmSave").onclick=()=>save({llm:$("#wLlm").value});
+    $("#wUrlSave").onclick=()=>save({llm_url:$("#wUrl").value});
+    $("#wSetup").onclick=()=>post2("/api/whisper/setup",{},j=>{if(!j.ok){toast("Setup is already running");}
+      const poll=()=>fetch("/api/whisper").then(r=>r.json()).then(w2=>{
+        if(!$("#wSetupLine"))return;
+        $("#wSetupLine").textContent=(w2.setup||{}).line||"";
+        if((w2.setup||{}).running)setTimeout(poll,2500);
+        else fetch("/api/whisper?fresh=1").then(r=>r.json()).then(show);});
+      $("#wSetup").disabled=true;poll();});
+  };
+  fetch("/api/whisper?fresh=1").then(r=>r.json()).then(show).catch(()=>{pane.innerHTML='<div class="setnote">Vault could not be reached.</div>';});
 }
 function applyUnits(u){setUnits(u);render();
   if($("#modal").classList.contains("on")){const o=itemOf($("#modal"));if(o)openPlayer(o);}}
@@ -1373,7 +1651,7 @@ function renderSetLibrary(pane){
     <div class="setnote">The folder Vault scans for your movies. Changing it triggers a full re-scan.</div>
     <div style="display:flex;gap:8px"><input class="setin" id="libPath" style="flex:1" value="${esc(SET.library||'')}"><button class="setbtn" id="libSave">Save &amp; rescan</button></div>
     <div class="setsec">Download / import folder</div>
-    <div class="setnote">Where new downloads land. The <b>📥 Import</b> button (top bar) renames &amp; cleans this folder, then moves releases into the library — adding new ones and replacing older copies with better versions. Nothing in the library is deleted without your confirmation.</div>
+    <div class="setnote">Where new downloads land. <b>📥 Import</b> (in the <b>Tools</b> menu) renames &amp; cleans this folder, then moves releases into the library — adding new ones and replacing older copies with better versions. Nothing in the library is deleted without your confirmation.</div>
     <div style="display:flex;gap:8px"><input class="setin" id="dlPath" style="flex:1" value="${esc(SET.download||'')}" placeholder="/path/to/downloads"><button class="setbtn" id="dlSave">Save</button></div>
     <div class="setsec">Library maintenance</div>
     <div class="setnote"><b>Organize library</b> tidies the folder itself: normalize names to <code>&lt;CODE&gt;</code>, quarantine junk, flag duplicates. <b>Organize by actress</b> moves each movie under its catalog actress (<code>&lt;Actress&gt;/&lt;CODE&gt;/</code>) — run it after reassigning titles to make the folders on disk match. Both preview first and never delete a movie.</div>
@@ -1643,8 +1921,8 @@ function reloadData(done){
 }
 function resetFilters(){
   F.q="";F.ident="all";F.showMissing=false;F.actress="";F.studio="";F.cups.clear();F.res.clear();F.tags.clear();
-  F.ageMin=0;F.ageMax=99;F.durMin=0;F.durMax=999;F.hd=false;F.parts=false;F.watch="all";F.favonly=false;F.afavonly=false;F.uncensOnly=false;
-  F.aiTagged=false;F.manualTagged=false;F.noTags=false;F.toReview=false;
+  F.ageMin=0;F.ageMax=99;F.durMin=0;F.durMax=999;F.hd=false;F.parts=false;F.watch="all";F.favonly=false;F.afavonly=false;F.uncensOnly=false;F.subsOnly=false;
+  F.manualTagged=false;F.noTags=false;F.toReview=false;
   F.sort="mtime";
   $("#q").value="";$("#sort").value="mtime";
   buildSidebar();
@@ -1657,6 +1935,7 @@ function filtered(){
   return DATA.items.filter(it=>{
     if(!F.showMissing&&it.missing)return false;   // global wishlist toggle
     if(F.uncensOnly&&it.uncensored!==true)return false;   // uncensored-only
+    if(F.subsOnly&&!it.subs)return false;                  // has English subtitles
     if(F.ident==="yes"&&!it.identified)return false;
     if(F.ident==="no"&&it.identified)return false;
     if(F.actress&&F.actress!=="all"){const a=F.actress.toLowerCase();
@@ -1672,10 +1951,9 @@ function filtered(){
     if(F.afavonly&&!isActressFav(it))return false;
     if(F.watch==="un"&&STORE.seen.has(it.code))return false;
     if(F.watch==="seen"&&!STORE.seen.has(it.code))return false;
-    if(F.aiTagged&&!it.to_review)return false;           // a PART nobody has opened yet
-    if(F.manualTagged&&!it.manual_tags)return false;     // has markers you made/confirmed
+    if(F.manualTagged&&!reviewDone(it))return false;     // reviewed and finished
     if(F.noTags&&(it.ai_tags||it.manual_tags))return false;
-    if(F.toReview&&!it.ai_tags)return false;    // any AI marker left anywhere = work outstanding
+    if(F.toReview&&!(it.ai_tags||it.review_open))return false;   // AI markers left, or a part sent back for another pass
     if(F.fmt!=="all"&&it.ext!==F.fmt)return false;
     if(F.cups.size&&!F.cups.has(it.cup))return false;
     if(F.parts&&it.nparts<2)return false;
@@ -2299,13 +2577,17 @@ function openPlayer(it){
           <div class="pv-seek" id="pvseek">
             <div class="pv-chips" id="pvchips"></div>
             <div class="pv-track"></div><div class="pv-buf" id="pvbuf"></div>
-            <div class="pv-fill" id="pvfill"></div><div class="pv-mklayer" id="pvmk"></div>
+            <div class="pv-fill" id="pvfill"></div><div class="pv-mklayer" id="pvmk"></div><div class="pv-rng" id="pvrng"></div>
             <div class="pv-handle" id="pvhandle"></div>
             <div class="pv-thumb" id="pvthumb"></div><div class="pv-tip" id="pvtip"></div>
           </div>
           <span class="pv-time" id="pvdur">0:00</span>
           <button class="pv-btn" id="pvadd" title="Add a scene marker at the playhead">${PV_ICON.plus}</button>
-          <button class="pv-btn" id="pvmute" title="Mute (m)">${PV_ICON.volume}</button>
+          <div class="pv-vol" id="pvvolbox">
+            <button class="pv-btn" id="pvmute" title="Mute (m)">${PV_ICON.volume}</button>
+            <input type="range" id="pvvol" min="0" max="1" step="0.02" value="1" title="Volume (↑ / ↓)" aria-label="Volume">
+          </div>
+          <button class="pv-btn cc" id="pvcc" title="Subtitles on / off (v) · Shift+Y / Shift+C: previous / next line" hidden><span><b>CC</b></span></button>
           <button class="pv-btn" id="pvtheater" title="Theater mode — widen the video (t)">${PV_ICON.theater}</button>
           <button class="pv-btn" id="pvfs" title="Fullscreen (f)">${PV_ICON.fullscreen}</button>
           <button class="pv-btn" id="pvclose" title="Close (Esc)">${PV_ICON.close}</button>
@@ -2347,7 +2629,8 @@ function openPlayer(it){
         <button class="btn${it.uncensored!==false?' unc':''}" id="pcensor" title="Toggle censored / uncensored">${it.uncensored!==false?'🔓 Uncensored':'🔒 Censored'}</button>
       </div>
       ${playActions}
-      <div class="pactions"><button class="btn" id="pscan" title="Fetch title / cover / tags from web sources">⟳ Scan metadata</button></div>
+      <div class="pactions"><button class="btn" id="pscan" title="Fetch title / cover / tags from web sources">⟳ Scan metadata</button>
+        ${it.missing?'':'<button class="btn" id="ptrans">💬 Transcribe (JA → EN)</button>'}</div>
       <h4 class="sec">Your rating</h4>
       <div class="prate">${starsHTML(it.code)}</div>
       <div class="pactions"><button class="btn pbtn-danger" id="pdelete" title="${it.missing?'Remove this wishlist entry':'Move files to Trash and remove from catalog'}">🗑 ${it.missing?'Remove from wishlist':'Delete movie'}</button></div>
@@ -2379,6 +2662,12 @@ function openPlayer(it){
         toast(now?'Marked uncensored':'Marked censored');
       }).catch(()=>toast("Failed"));
   };
+  {const tb=p.querySelector("#ptrans");
+   if(tb){paintPlayerTrans();
+     tb.onclick=()=>{const st=tb.dataset.state;
+       if(st==="run"||st==="queued"){openTranscribe();return;}
+       if(st==="has"&&!confirm("This movie already has English subtitles. Transcribe it again (replaces them)?"))return;
+       startTranscribe([it.uid||it.code],st==="has",true).then(()=>paintPlayerTrans());};}}
   p.querySelector("#pscan").onclick=e=>{
     const b=e.currentTarget;b.textContent="⟳ Scanning…";b.disabled=true;
     fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -2581,18 +2870,38 @@ function setupScenes(p,it){
   // which part of a multi-part movie is playing (the parts list swaps the video's ?part=N)
   const partOf=()=>{try{return +(new URL(vid.currentSrc||vid.src,location.href).searchParams.get('part')||0);}catch(_){return 0;}};
   let loadedPart=-1,training=false;   // training mode comes with /api/markers
+  let reviewOpen=false;   // this part was sent back for another review pass (sidecar review_open)
   const D=()=>(vid.duration&&isFinite(vid.duration))?vid.duration:(SCN.length?SCN[SCN.length-1].t*1.05:0);
   const seekToT=t=>{vid.currentTime=Math.max(0,t);if(vid.play)vid.play().catch(()=>{});show();};
   // Lead-in: jumping to a marker starts this many seconds earlier, so you see the build-up. Display
   // only: the stored t stays where the event is visible (creampie = the pull-out), which is what the
   // training clips are cut from. Off in training mode: when reviewing you want to land exactly
   // where the marker (or the model) put it.
-  const LEAD_IN={creampie:10};
+  const LEAD_IN={creampie:15};
   const jumpT=m=>training?m.t:Math.max(0,m.t-(LEAD_IN[m.label]||0));
   const nearest=(t,win)=>{let best=null,bd=1e9;for(const m of SCN){const dd=Math.abs(m.t-t);if(dd<bd){bd=dd;best=m;}}
     return best&&bd<=win?best:null;};
   const currentAt=ct=>{let c=null;for(const m of SCN){if(m.t<=ct+0.05)c=m;else break;}return c;};
+  // The selected marker (training mode: range handles, Q / E). It is the one at the playhead, but it
+  // sticks while you scrub (seek bar, A / D, arrows) into the segment just before it (looking for an
+  // earlier start) or just after it (an end past the next marker's start). It moves on when playback
+  // runs into another marker, when you scrub further away, or when you pick a marker.
+  let selKey=null;
+  const keyOf=m=>m.label+'@'+m.t;
+  const pick=m=>{selKey=m?keyOf(m):null;};
+  // Dragging a chip or range handle moves it by how far the mouse went (not to the mouse's spot, so
+  // grabbing it a little off-centre doesn't jump it). On a long movie one pixel of the bar is many
+  // seconds (2 h 20 on a 520 px bar: ~16 s), so hold Shift for fine moves: 1/10 speed.
+  const FINE=0.1;
+  const dragT=()=>{let ax=0,at=0,fine=false;
+    return {start(x,t,sh){ax=x;at=t;fine=!!sh;},
+      to(x,sh,cur){if(!!sh!==fine){ax=x;at=cur;fine=!!sh;}   // Shift pressed / released mid-drag: re-anchor
+        const w=seek.getBoundingClientRect().width||1,d=D()||0;
+        return Math.max(0,Math.min(d,at+(x-ax)/w*d*(fine?FINE:1)));}};};
   const srcText=m=>m.source==='manual'?'manual':('AI'+(m.confidence!=null?' '+Math.round(m.confidence*100)+'%':''));
+  // A reviewed marker may carry a range: start (t) to end, the footage the user vouches for.
+  // An AI marker's `end` is only its detection window, so it never counts as a range.
+  const hasRange=m=>m.source==='manual'&&m.end!=null&&m.end>m.t;
   // clickable scene chips ABOVE the bar
   function layoutChips(){
     if(!chips)return;
@@ -2618,37 +2927,36 @@ function setupScenes(p,it){
     const rows=lay.rows;
     chips.innerHTML=SCN.map((m,i)=>{const cx=(m.t/d)*bw,col=labelColor(m.label),r=rows[i];
       return `<button class="pv-chip${m.source==='manual'?'':' ai'}${sm?' sm':''}" data-i="${i}" data-cx="${Math.round(cx)}" `
-        +`title="${esc(m.label)} · ${fmtTC(m.t)} · ${esc(srcText(m))}${training?' — click: jump · drag: move (video follows) · right-click: edit':''}" `
+        +`title="${esc(m.label)} · ${fmtTC(m.t)}${hasRange(m)?' – '+fmtTC(m.end):''} · ${esc(srcText(m))}${training?' — click: jump · drag: move (video follows; hold Shift for fine moves) · right-click: edit':''}" `
         +`style="left:${Math.round(cx)}px;bottom:${r*ROW}px;--stem:${18+r*ROW}px;border-bottom-color:${col}">`
         +`<span class="pv-chip-ic" style="color:${col}">${markerIcon(m.label)}</span></button>`;}).join("");
     chips.querySelectorAll('.pv-chip').forEach(el=>{
       const m=SCN[+el.dataset.i];
-      let down=false,moved=false,sx=0;
+      let down=false,moved=false,sx=0,cur=m.t;const drg=dragT();
       const tipAt=(x,t)=>{if(!tip)return;tip.style.left=x+'px';
         tip.innerHTML=`<span class="tl" style="color:${labelColor(m.label)}">${esc(m.label)}</span><span class="tt">${fmtTC(t)}</span>`;
         tip.classList.add('on');};
       let pendingT=null,raf=0;
       const scrub=()=>{raf=0;if(pendingT!=null){vid.currentTime=pendingT;pendingT=null;tick();}};
       el.addEventListener('pointerdown',e=>{e.stopPropagation();if(e.button!==0)return;
-        down=true;moved=false;sx=e.clientX;try{el.setPointerCapture(e.pointerId);}catch(_){}});
+        down=true;moved=false;sx=e.clientX;cur=m.t;drg.start(sx,m.t,e.shiftKey);try{el.setPointerCapture(e.pointerId);}catch(_){}});
       el.addEventListener('pointermove',e=>{if(!down||!training)return;
-        if(!moved&&Math.abs(e.clientX-sx)<5)return;
+        if(!moved&&Math.abs(e.clientX-sx)<3)return;
         if(!moved){moved=true;el.classList.add('dragging');vid.pause();}   // scrub, don't play on
-        const r=seek.getBoundingClientRect(),x=Math.max(0,Math.min(r.width,e.clientX-r.left));
-        el.style.left=x+'px';
-        const t=x/r.width*D();
+        const t=drg.to(e.clientX,e.shiftKey,cur),x=t/(D()||1)*seek.getBoundingClientRect().width;
+        cur=t;el.style.left=x+'px';
         tipAt(x,t);
         pendingT=t;if(!raf)raf=requestAnimationFrame(scrub);   // the video follows the marker
       });
       el.addEventListener('pointerup',e=>{if(!down)return;down=false;el.classList.remove('dragging');
         if(tip)tip.classList.remove('on');
-        if(!moved){seekToT(jumpT(m));return;}
-        const r=seek.getBoundingClientRect(),nt=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*D();
+        if(!moved){pick(m);seekToT(jumpT(m));return;}
+        const nt=cur;
         if(Math.abs(nt-m.t)>=0.5)updateMarker(m,{new_t:nt});else layoutChips();});
       el.addEventListener('pointercancel',()=>{down=false;moved=false;el.classList.remove('dragging');layoutChips();});
-      el.onclick=e=>{e.stopPropagation();if(e.detail===0)seekToT(jumpT(m));};   // keyboard activation
+      el.onclick=e=>{e.stopPropagation();if(e.detail===0){pick(m);seekToT(jumpT(m));}};   // keyboard activation
       el.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();
-        if(training)openMenu(e,markerItems(m).concat([[`＋ Add marker at playhead (${fmtTC(vid.currentTime||0)})`,()=>openEditor(null)]]));});
+        if(training)openMenu(e,markerItems(m).concat([[`＋ Add marker at playhead (${fmtTC(vid.currentTime||0)})`,()=>openEditor(null)]],reviewedItem()));});
       el.onmouseenter=()=>{if(!down)tipAt(+el.dataset.cx,m.t);};
       el.onmouseleave=()=>{if(!down&&tip)tip.classList.remove('on');};
     });
@@ -2694,9 +3002,70 @@ function setupScenes(p,it){
   playBtn.onclick=e=>{e.stopPropagation();toggle();};
   vid.addEventListener('play',()=>{playBtn.innerHTML=PV_ICON.pause;show();});
   vid.addEventListener('pause',()=>{playBtn.innerHTML=PV_ICON.play;wrap.classList.add('show');clearTimeout(hideT);});
-  muteBtn.onclick=()=>{vid.muted=!vid.muted;};
-  const muteIcon=()=>{muteBtn.innerHTML=(vid.muted||vid.volume===0)?PV_ICON.muted:PV_ICON.volume;};
-  vid.addEventListener('volumechange',muteIcon);   // also follows the m key / hardware volume
+  // volume: speaker toggles mute, the slider next to it sets the level; both persist across movies
+  const volEl=p.querySelector('#pvvol'),volBox=p.querySelector('#pvvolbox');
+  let lastVol=(()=>{try{const v=parseFloat(localStorage.getItem('vault_volume'));return isFinite(v)&&v>0?v:1;}catch(_){return 1;}})();
+  try{vid.volume=lastVol;vid.muted=localStorage.getItem('vault_muted')==='1';}catch(_){}
+  muteBtn.onclick=e=>{e.stopPropagation();
+    if(vid.muted||vid.volume===0){vid.muted=false;if(vid.volume===0)vid.volume=lastVol||0.5;}
+    else vid.muted=true;};
+  const syncVol=()=>{
+    const v=vid.muted?0:vid.volume;
+    muteBtn.innerHTML=v===0?PV_ICON.muted:PV_ICON.volume;
+    if(volEl){volEl.value=v;volEl.style.setProperty('--pct',Math.round(v*100)+'%');}
+    if(vid.volume>0)lastVol=vid.volume;
+    try{localStorage.setItem('vault_volume',String(lastVol));localStorage.setItem('vault_muted',vid.muted?'1':'');}catch(_){}
+  };
+  if(volEl){
+    volEl.oninput=()=>{const v=+volEl.value;vid.volume=v;vid.muted=v===0;show();};
+    // keep the slider unfolded while dragging, and don't let the drag reach the video's tap handlers
+    volEl.addEventListener('pointerdown',e=>{e.stopPropagation();volBox.classList.add('open');});
+    ['pointerup','pointercancel'].forEach(ev=>volEl.addEventListener(ev,()=>volBox.classList.remove('open')));
+    volEl.addEventListener('keydown',e=>e.stopPropagation());   // ← → on the slider, not the player
+    volEl.addEventListener('click',e=>e.stopPropagation());
+  }
+  vid.addEventListener('volumechange',syncVol);   // also follows the m key / ↑ ↓ / hardware volume
+  syncVol();
+  // ---- subtitles: <video>.en.srt next to the file, served as WebVTT. CC (or c) turns them on/off;
+  // the choice is remembered across movies (on by default). Hidden for a part without subtitles.
+  const ccBtn=p.querySelector('#pvcc');
+  const subsOn=()=>{try{return localStorage.getItem('vault_subs')!=='0';}catch(_){return true;}};
+  let subsPart=-2;
+  const partHasSubs=part=>{const ps=it.parts||[];return ps.length>1?!!(ps[part]&&ps[part].subs):(it.subs||0)>0;};
+  const applySubs=()=>{const tt=vid.textTracks&&vid.textTracks[0];if(tt)tt.mode=subsOn()?'showing':'hidden';
+    // lift the lines above the control bar (it overlays the bottom of the video)
+    if(tt&&tt.cues)for(const c of tt.cues){if(c.line!==-4)c.line=-4;}
+    if(ccBtn)ccBtn.classList.toggle('on',subsOn());};
+  function syncSubs(force){
+    const part=partOf();
+    if(!force&&part===subsPart)return;
+    subsPart=part;
+    vid.querySelectorAll('track').forEach(t=>t.remove());
+    const has=partHasSubs(part);
+    if(ccBtn)ccBtn.hidden=!has;
+    if(!has)return;
+    const tr=document.createElement('track');
+    tr.kind='subtitles';tr.srclang='en';tr.label='English';
+    tr.src='/subs/'+encodeURIComponent(it.uid||it.code)+'?part='+part+'&v='+Date.now();
+    tr.addEventListener('load',applySubs);
+    vid.appendChild(tr);applySubs();
+  }
+  PVSESS.toggleSubs=()=>{if(!ccBtn||ccBtn.hidden||!document.contains(vid))return false;
+    const on=!subsOn();try{localStorage.setItem('vault_subs',on?'1':'0');}catch(_){}
+    applySubs();toast(on?'Subtitles on':'Subtitles off');return true;};
+  if(ccBtn)ccBtn.onclick=e=>{e.stopPropagation();PVSESS.toggleSubs();};
+  // Shift+C / Shift+Y: next / previous subtitle line (works with subtitles hidden too). Back goes to
+  // the start of the line being spoken when more than ~1 s into it, else to the line before.
+  PVSESS.subLine=dir=>{if(!document.contains(vid))return false;
+    const tt=vid.textTracks&&vid.textTracks[0],cues=tt&&tt.cues?[...tt.cues]:[];
+    if(!cues.length){toast('No subtitles for this part');return true;}
+    const ct=vid.currentTime||0;
+    const c=dir>0?cues.find(x=>x.startTime>ct+0.05):cues.filter(x=>x.startTime<ct-0.9).pop();
+    if(!c){toast(dir>0?'Last subtitle line':'First subtitle line');return true;}
+    vid.currentTime=c.startTime+0.01;return true;};
+  PVSESS.subsChanged=(code,part)=>{if(document.contains(vid)&&((it.uid||it.code)===code||it.code===code)&&part===partOf())syncSubs(true);};
+  vid.addEventListener('loadedmetadata',()=>syncSubs());
+  syncSubs();
   fsBtn.onclick=()=>{const d=document;
     if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d);return;}
     const nativeFs=()=>{if(vid.webkitEnterFullscreen)vid.webkitEnterFullscreen();};   // iPhone: video-only fullscreen
@@ -2710,9 +3079,9 @@ function setupScenes(p,it){
   // before a nearby marker.
   // A movie without scenes: −10 s / +30 s.
   prevBtn.onclick=()=>{if(!SCN.length){skip(-1);return;}
-    const t=(vid.currentTime||0)-1.2,j=SCN.map(jumpT).filter(x=>x<t);seekToT(j.length?Math.max(...j):0);};
+    const t=(vid.currentTime||0)-1.2,j=SCN.map(jumpT).filter(x=>x<t);pick(null);seekToT(j.length?Math.max(...j):0);};
   nextBtn.onclick=()=>{if(!SCN.length){skip(1);return;}
-    const t=(vid.currentTime||0)+0.4,j=SCN.map(jumpT).filter(x=>x>t);if(j.length)seekToT(Math.min(...j));};
+    const t=(vid.currentTime||0)+0.4,j=SCN.map(jumpT).filter(x=>x>t);if(j.length){pick(null);seekToT(Math.min(...j));}};
   // theater mode (persisted) + close
   const pl=$('#player'),thBtn=p.querySelector('#pvtheater'),clBtn=p.querySelector('#pvclose');
   const applyTheater=on=>{pl.classList.toggle('theater',on);if(thBtn)thBtn.classList.toggle('on',on);
@@ -2726,17 +3095,91 @@ function setupScenes(p,it){
   PVSESS.ac=new AbortController();
   if(window.ResizeObserver){PVSESS.ro=new ResizeObserver(()=>layoutChips());PVSESS.ro.observe(seek);}
   document.addEventListener('fullscreenchange',layoutChips,{signal:PVSESS.ac.signal});
-  // ---- markers on the bar (start ticks only — no durations) ----
+  // ---- markers on the bar: start ticks, plus the range band of reviewed markers that have one ----
   function renderMarks(){
-    const d=D()||1;
-    mk.innerHTML=SCN.map(m=>`<div class="pv-mk tick${m.source==='manual'?'':' ai'}" style="left:${Math.max(0,Math.min(100,100*m.t/d))}%;background:${labelColor(m.label)}"></div>`).join("");
+    const d=D()||1,pc=v=>Math.max(0,Math.min(100,100*v/d));
+    mk.innerHTML=SCN.filter(hasRange).map(m=>`<div class="pv-mk band" style="left:${pc(m.t)}%;width:${pc(m.end)-pc(m.t)}%;background:${labelColor(m.label)}"></div>`).join("")
+      +SCN.map(m=>`<div class="pv-mk tick${m.source==='manual'?'':' ai'}" style="left:${pc(m.t)}%;background:${labelColor(m.label)}"></div>`).join("");
+    renderRange(true);
     layoutChips();
   }
+  // ---- range of the marker at the playhead: drag the in/out handles, or press Q (start) / E (end) ----
+  const rng=p.querySelector('#pvrng');
+  let rngKey=null,rngDrag=false;
+  const nextAfter=m=>SCN.find(x=>x.t>m.t+0.05&&x!==m);
+  const ghostEnd=m=>{const n=nextAfter(m);return Math.min(m.t+20,n?n.t:1e12,D()||m.t+20);};
+  let seeked=false,lastCKey=null;
+  vid.addEventListener('seeking',()=>{seeked=true;});
+  function activeMarker(){
+    if(!training)return null;
+    const c=currentAt(vid.currentTime||0),cKey=c?keyOf(c):null;
+    const playedInto=!seeked&&!vid.paused&&lastCKey!=null&&cKey!==lastCKey;   // playback crossed a marker
+    seeked=false;lastCKey=cKey;
+    let s=(!playedInto&&selKey)?SCN.find(m=>keyOf(m)===selKey):null;
+    if(s&&c!==s){const i=SCN.indexOf(s);   // only the segment just before or just after it
+      if(c!==(i>0?SCN[i-1]:null)&&c!==(SCN[i+1]||null))s=null;}
+    if(!s){s=c;selKey=cKey;}
+    return s;
+  }
+  function renderRange(force){
+    if(!rng||rngDrag)return;
+    const m=activeMarker(),key=m?m.label+'@'+m.t+'-'+(m.end||''):null;
+    if(!force&&key===rngKey)return;
+    rngKey=key;
+    if(!m||m.label==='scene'){rng.innerHTML='';return;}
+    const d=D()||1,pc=v=>Math.max(0,Math.min(100,100*v/d)),has=hasRange(m),e=has?m.end:ghostEnd(m),col=labelColor(m.label);
+    rng.innerHTML=`<div class="rb${has?'':' ghost'}" style="left:${pc(m.t)}%;width:${pc(e)-pc(m.t)}%;background:${col}"></div>`
+      +`<div class="rh" data-h="in" style="left:${pc(m.t)}%;background:${col}" title="Start of “${esc(m.label)}” ${fmtTC(m.t)} — drag (Shift: fine), or press Q at the playhead · Shift+Q jumps here"></div>`
+      +`<div class="rh${has?'':' ghost'}" data-h="out" style="left:${pc(e)}%;background:${col}" title="${has?'End '+fmtTC(e):'No range yet'} — drag (Shift: fine), or press E at the playhead${has?' · Shift+E jumps here':''}"></div>`;
+    rng.querySelectorAll('.rh').forEach(h=>{
+      const isIn=h.dataset.h==='in',band=rng.querySelector('.rb');
+      let down=false,moved=false,cur=isIn?m.t:e,pend=null,raf=0;const drg=dragT();
+      const scrub=()=>{raf=0;if(pend!=null){vid.currentTime=pend;pend=null;}};
+      h.addEventListener('pointerdown',ev=>{ev.stopPropagation();ev.preventDefault();if(ev.button!==0)return;
+        down=true;moved=false;rngDrag=true;vid.pause();cur=isIn?m.t:e;drg.start(ev.clientX,cur,ev.shiftKey);
+        try{h.setPointerCapture(ev.pointerId);}catch(_){}});
+      h.addEventListener('pointermove',ev=>{if(!down)return;moved=true;h.classList.add('dragging');
+        const r=seek.getBoundingClientRect();let t=drg.to(ev.clientX,ev.shiftKey,cur);
+        t=isIn?Math.min(t,(has?m.end:e)-1):Math.max(t,m.t+1);
+        cur=t;h.style.left=pc(t)+'%';
+        const a=isIn?t:m.t,b=isIn?(has?m.end:e):t;band.style.left=pc(a)+'%';band.style.width=(pc(b)-pc(a))+'%';
+        if(tip){tip.style.left=(pc(t)/100*r.width)+'px';
+          tip.innerHTML=`<span class="tl" style="color:${labelColor(m.label)}">${esc(m.label)} ${isIn?'start':'end'}</span><span class="tt">${fmtTC(t)}</span>`;tip.classList.add('on');}
+        pend=isIn?t:Math.max(m.t,t-0.1);if(!raf)raf=requestAnimationFrame(scrub);});
+      const up=()=>{if(!down)return;down=false;rngDrag=false;h.classList.remove('dragging');if(tip)tip.classList.remove('on');
+        if(!moved){renderRange(true);return;}
+        if(isIn){if(Math.abs(cur-m.t)>=0.3)updateMarker(m,{new_t:cur});else renderRange(true);}
+        else if(!has||Math.abs(cur-m.end)>=0.3)updateMarker(m,{new_end:cur});else renderRange(true);};
+      h.addEventListener('pointerup',up);
+      h.addEventListener('pointercancel',()=>{down=false;rngDrag=false;renderRange(true);});
+      h.addEventListener('click',ev=>ev.stopPropagation());
+    });
+  }
+  // Q = the marker at the playhead starts here, E = it ends here (left hand, next to A/S/D)
+  // Shift+Q / Shift+E (or Shift+R) = jump to that marker's start / end without changing anything
+  PVSESS.rangeKey=(k,shift)=>{if(!training)return false;
+    const ct=vid.currentTime||0,m=activeMarker();
+    if(shift){if(!m){toast('No marker before the playhead');return true;}
+      if(k==='q'){vid.currentTime=m.t;return true;}
+      if(!hasRange(m)){toast(`“${m.label}” has no end yet`);return true;}
+      vid.currentTime=Math.max(m.t,m.end-0.1);return true;}   // just inside the range, so the same marker stays active
+    if(k==='e'){if(!m){toast('No marker before the playhead');return true;}
+      if(ct<=m.t+0.5){toast('The end must come after the start');return true;}
+      markerApi({op:'update',t:m.t,label:m.label,new_end:r1(ct)},`“${m.label}” ends at ${fmtTC(ct)}`);return true;}
+    if(k==='q'){
+      // the marker at the playhead, or the next one if it starts within 30 s (pull a late start back)
+      // (the selected marker when the playhead is before it)
+      const nx=SCN.find(x=>x.t>ct);const tgt=(m&&ct<m.t)?m:((nx&&nx.t-ct<=30)?nx:m);
+      if(!tgt){toast('No marker near the playhead');return true;}
+      if(hasRange(tgt)&&ct>=tgt.end-0.5){toast('The start must come before the end');return true;}
+      markerApi({op:'update',t:tgt.t,label:tgt.label,new_t:r1(ct)},`“${tgt.label}” starts at ${fmtTC(ct)}`);return true;}
+    return false;};
   function tick(){
     const d=vid.duration||0,ct=vid.currentTime||0,pct=d?100*ct/d:0;
     fill.style.width=pct+'%';handle.style.left=pct+'%';
     if(curEl)curEl.textContent=fmtTC(ct);if(durEl&&d)durEl.textContent=fmtTC(d);
     const c=currentAt(ct);
+    renderRange();
     if(now)now.innerHTML=c?`▶ <b style="color:${labelColor(c.label)}">${esc(c.label)}</b>`
       +(c.source==='manual'?'':`<span class="nowai" title="AI suggestion — not confirmed yet${c.confidence!=null?' · model confidence':''}">AI${c.confidence!=null?' '+Math.round(c.confidence*100)+'%':''}</span>`):'';
   }
@@ -2766,7 +3209,7 @@ function setupScenes(p,it){
     if(!training)return;
     const d=vid.duration||0;if(!d)return;
     const t=fracAt(e)*d,m=nearest(t,d*0.02);
-    openMenu(e,(m?markerItems(m):[]).concat([[`＋ Add marker at playhead (${fmtTC(vid.currentTime||0)})`,()=>openEditor(null)]],confirmAllItem()));
+    openMenu(e,(m?markerItems(m):[]).concat([[`＋ Add marker at playhead (${fmtTC(vid.currentTime||0)})`,()=>openEditor(null)]],confirmAllItem(),reviewedItem()));
   });
   // ---- marker editor: single-choice label, move, delete ----
   function closeEditor(){if(!ed)return;ed.hidden=true;ed.innerHTML='';show();}
@@ -2786,33 +3229,49 @@ function setupScenes(p,it){
   }
   wrap.addEventListener('pointerdown',e=>{if(menu&&!menu.hidden&&!menu.contains(e.target))closeMenu();},true);
   const markerItems=m=>(m.source==='manual'?[]:[[`✓ Confirm “${esc(m.label)}”`,()=>confirmMarker(m)]])
-    .concat([[`✎ Edit “${esc(m.label)}”…`,()=>openEditor(m)],[`🗑 Delete “${esc(m.label)}”`,()=>deleteMarker(m)]]);
+    .concat(training?[[`⇤ Start “${esc(m.label)}” here (${fmtTC(vid.currentTime||0)})`,()=>setStart(m,vid.currentTime||0)],
+      [`⇥ End “${esc(m.label)}” here (${fmtTC(vid.currentTime||0)})`,()=>setEnd(m,vid.currentTime||0)]]:[],
+      hasRange(m)?[[`✕ Clear the range of “${esc(m.label)}”`,()=>updateMarker(m,{clear_end:true})]]:[],
+      [[`✎ Edit “${esc(m.label)}”…`,()=>openEditor(m)],[`🗑 Delete “${esc(m.label)}”`,()=>deleteMarker(m)]]);
+  let justReviewed=-1;   // part just marked reviewed: reload() says which parts are still open
+  const reviewedItem=()=>(training&&reviewOpen)?[[`✓ Reviewed — this part is done`,
+    ()=>{justReviewed=partOf();markerApi({op:'reviewed'},'Part marked as reviewed');}]]:[];
+  const setStart=(m,t)=>{if(hasRange(m)&&t>=m.end-0.5){toast('The start must come before the end');return;}
+    if(Math.abs(t-m.t)<0.05)return;updateMarker(m,{new_t:Math.round(t*10)/10});};
+  const setEnd=(m,t)=>{if(t<=m.t+0.5){toast('The end must come after the start');return;}updateMarker(m,{new_end:Math.round(t*10)/10});};
   const confirmAllItem=()=>{const n=SCN.filter(m=>m.source==='ml'||m.source==='heuristic').length;
     return n?[[`✓ Confirm all AI markers (${n})`,()=>confirmAll(n)]]:[];};
   vid.addEventListener('contextmenu',e=>{if(!training)return;const ct=vid.currentTime||0;
-    openMenu(e,[[`＋ Add marker at playhead (${fmtTC(ct)})`,()=>openEditor(null)]].concat(confirmAllItem()));});
+    openMenu(e,[[`＋ Add marker at playhead (${fmtTC(ct)})`,()=>openEditor(null)]].concat(confirmAllItem(),reviewedItem()));});
   function openEditor(m,tNew){
     if(!ed||!training)return;
     closeMenu();
     vid.pause&&vid.pause();
     const isNew=!m,t0=isNew?(tNew!=null?tNew:(vid.currentTime||0)):m.t,lbl=isNew?_scnLastLabel:m.label;
     const known=scnAllLabels().includes(lbl);
-    let edT=t0;
+    let edT=t0,edEnd=(!isNew&&hasRange(m))?m.end:null;
     ed.innerHTML=`<div class="ed-h"><span>${isNew?'New marker':'Edit marker'}${isNew?'':` <span class="ed-src${m.source==='manual'?'':' ai'}">${esc(srcText(m))}</span>`}</span>`
       +`<button data-a="close" title="Close (Esc)">✕</button></div>`
       +`<select id="pvedlabel" aria-label="Marker label">${known?'':`<option value="${esc(lbl)}" selected disabled>${esc(lbl)} (not in list)</option>`}${scnLabelOptions(known?lbl:'')}</select>`
       +`<div class="ed-row" id="pvednew" hidden><input class="ed-new" id="pvednewin" placeholder="new label, e.g. footjob" maxlength="32" autocomplete="off">`
       +`<button data-a="newok">Create</button><button data-a="newcancel" title="Cancel">✕</button></div>`
-      +`<div class="ed-row"><button data-a="nudge" data-d="-1" title="1 s earlier">−1s</button>`
+      +`<div class="ed-row"><span class="ed-lbl">Start</span><button data-a="nudge" data-d="-1" title="1 s earlier">−1s</button>`
       +`<span class="ed-t" id="pvedt">${fmtTC(t0)}</span>`
       +`<button data-a="nudge" data-d="1" title="1 s later">+1s</button>`
-      +`<button data-a="here" title="Set to the current playhead">⤓ Playhead</button></div>`
+      +`<button data-a="here" title="Set the start to the current playhead">⤓ Playhead</button></div>`
+      +`<div class="ed-row" title="Range end: where this action stops (optional)"><span class="ed-lbl">End</span><button data-a="enudge" data-d="-1" title="1 s earlier">−1s</button>`
+      +`<span class="ed-t" id="pvedend">${edEnd!=null?fmtTC(edEnd):'—'}</span>`
+      +`<button data-a="enudge" data-d="1" title="1 s later">+1s</button>`
+      +`<button data-a="ehere" title="Set the end to the current playhead">⤓ Playhead</button>`
+      +`<button data-a="eclear" title="No range">✕</button></div>`
       +`<div class="ed-row">${isNew?'<button class="pri" data-a="add">Add marker</button>'
         :(m.source==='manual'?'':'<button data-a="confirm" title="This AI suggestion is correct">✓ Confirm</button>')
           +'<button class="pri" data-a="save">Save</button><button class="danger" data-a="delete">🗑 Delete</button>'}</div>`;
     ed.hidden=false;wrap.classList.add('show');clearTimeout(hideT);
     const sel=ed.querySelector('#pvedlabel'),tEl=ed.querySelector('#pvedt');
     const setT=v=>{edT=Math.max(0,Math.min(D()||v,v));tEl.textContent=fmtTC(edT);};
+    const endEl=ed.querySelector('#pvedend');
+    const setEnd2=v=>{edEnd=v==null?null:Math.max(0,Math.min(D()||v,v));endEl.textContent=edEnd!=null?fmtTC(edEnd):'—';};
     const newRow=ed.querySelector('#pvednew'),newIn=ed.querySelector('#pvednewin');
     let prevLabel=sel.value;
     sel.onchange=()=>{if(sel.value==='__new__'){newRow.hidden=false;newIn.value='';newIn.focus();}
@@ -2837,12 +3296,20 @@ function setupScenes(p,it){
       else if(a==='newcancel')cancelNew();
       else if(a==='nudge')setT(edT+(+b.dataset.d));
       else if(a==='here')setT(vid.currentTime||0);
+      else if(a==='enudge')setEnd2((edEnd!=null?edEnd:edT)+(+b.dataset.d));
+      else if(a==='ehere')setEnd2(vid.currentTime||0);
+      else if(a==='eclear')setEnd2(null);
       else if(a==='add'){if(!scnAllLabels().includes(label)){toast('Pick a label');return;}
-        _scnLastLabel=label;closeEditor();addMarker(label,edT);}
+        if(edEnd!=null&&edEnd<=edT){toast('The end must come after the start');return;}
+        _scnLastLabel=label;closeEditor();addMarker(label,edT,edEnd);}
       else if(a==='save'){const ch={};
         if(label&&label!==m.label&&scnAllLabels().includes(label))ch.new_label=label;
         if(Math.abs(edT-m.t)>=0.05)ch.new_t=edT;
-        closeEditor();if(ch.new_label||ch.new_t!=null)updateMarker(m,ch);}
+        const oldEnd=hasRange(m)?m.end:null;
+        if(edEnd!=null&&edEnd<=edT){toast('The end must come after the start');return;}
+        if(edEnd==null&&oldEnd!=null)ch.clear_end=true;
+        else if(edEnd!=null&&(oldEnd==null||Math.abs(edEnd-oldEnd)>=0.05))ch.new_end=edEnd;
+        closeEditor();if(ch.new_label||ch.new_t!=null||ch.new_end!=null||ch.clear_end)updateMarker(m,ch);}
       else if(a==='delete'){closeEditor();deleteMarker(m);}
       else if(a==='confirm'){closeEditor();confirmMarker(m);}
     };
@@ -2853,13 +3320,34 @@ function setupScenes(p,it){
     try{const j=await (await fetch('/api/markers?code='+encodeURIComponent(it.uid||it.code))).json();
       training=!!j.training;
       if(Array.isArray(j.custom_labels))SCENE_CUSTOM=j.custom_labels;
-      SCN=(j.markers||[]).filter(m=>(m.part||0)===part).sort((a,b)=>a.t-b.t);}catch(e){SCN=[];}
+      SCN=(j.markers||[]).filter(m=>(m.part||0)===part).sort((a,b)=>a.t-b.t);
+      reviewOpen=training&&(j.review_open||[]).includes(part);
+      // keep the grid's flag in step, so "To review" drops a movie as soon as its last open part
+      // is marked reviewed (the grid is redrawn when the player closes)
+      if(training){const open=j.review_open||[],ro=open.length>0;
+        if(!!it.review_open!==ro){it.review_open=ro;REVIEW_DIRTY=true;}
+        // a multi-part movie stays in "To review" until every part is done: show which ones
+        document.querySelectorAll('#modal .prt').forEach(el=>{let b=el.querySelector('.ptodo');
+          const on=open.includes(+el.dataset.part);
+          if(on&&!b){b=document.createElement('span');b.className='ptodo';b.textContent='to review';
+            const rc=el.querySelector('.rc');if(rc)rc.appendChild(b);}
+          else if(!on&&b)b.remove();});
+        if(justReviewed>=0){
+          if(open.length)toast(`Part ${justReviewed+1} done — still to review: part ${open.map(i=>i+1).join(', ')}`);
+          else if((j.parts||[]).length>1)toast('All parts reviewed — the movie leaves “To review”');
+          justReviewed=-1;}}
+      // Outside training mode show only the final tags: the heuristic's pick (`auto`, server-side
+      // final_tags.py; reviewed markers are always kept). Training mode shows every marker.
+      if(!training){const auto=SCN.filter(m=>m.auto);if(auto.length)SCN=auto;}}catch(e){SCN=[];reviewOpen=false;}
     addBtn.hidden=!training;
     if(!training&&ed&&!ed.hidden)closeEditor();
     if(!training)closeMenu();
     renderMarks();tick();
   }
   async function markerApi(body,okMsg){
+    // an edited selected marker stays selected under its new start / label
+    if(body.op==='update'&&selKey===body.label+'@'+body.t)
+      selKey=(body.new_label||body.label)+'@'+(body.new_t!=null?body.new_t:body.t);
     try{const r=await fetch('/api/marker',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify(Object.assign({code:it.uid||it.code,part:partOf()},body))});
       const j=await r.json();
@@ -2868,10 +3356,12 @@ function setupScenes(p,it){
     reload();
   }
   const r1=v=>Math.round(v*10)/10;
-  const addMarker=(label,t)=>markerApi({op:'add',t:r1(t),label},`Added “${label}” at ${fmtTC(t)}`);
+  const addMarker=(label,t,end)=>markerApi(Object.assign({op:'add',t:r1(t),label},end!=null?{end:r1(end)}:{}),`Added “${label}” at ${fmtTC(t)}`);
   const updateMarker=(m,ch)=>markerApi(Object.assign({op:'update',t:m.t,label:m.label},
-    ch.new_t!=null?{new_t:r1(ch.new_t)}:{},ch.new_label?{new_label:ch.new_label}:{}),
-    ch.new_label?`Marker set to “${ch.new_label}”`:`Marker moved to ${fmtTC(ch.new_t)}`);
+    ch.new_t!=null?{new_t:r1(ch.new_t)}:{},ch.new_label?{new_label:ch.new_label}:{},
+    ch.new_end!=null?{new_end:r1(ch.new_end)}:{},ch.clear_end?{clear_end:true}:{}),
+    ch.new_label?`Marker set to “${ch.new_label}”`:ch.new_t!=null?`Marker moved to ${fmtTC(ch.new_t)}`
+      :ch.clear_end?'Range cleared':`Range ends at ${fmtTC(ch.new_end)}`);
   const deleteMarker=m=>markerApi({op:'delete',t:m.t,label:m.label},`Deleted “${m.label}”`);
   const confirmMarker=m=>markerApi({op:'confirm',t:m.t,label:m.label},`Confirmed “${m.label}”`);
   const confirmAll=n=>{if(confirm(`Confirm all ${n} AI marker${n>1?'s':''} of this video as correct?`))
@@ -3121,7 +3611,9 @@ function enrichFromWeb(it,btn){
      };
    }).catch(()=>{b.innerHTML='<div class="orghd">Lookup failed</div><div class="orgsub">Could not reach the metadata sites.</div><div class="pactions"><button class="btn" id="enClose">Close</button></div>';const x=$("#enClose");if(x)x.onclick=close;});
 }
-function closePlayer(){const m=$("#modal");const v=m.querySelector("video");if(v){v.pause();v.src="";}pvCleanup();m.classList.remove("on");}
+let REVIEW_DIRTY=false;   // a movie's review flag changed in the player -> redraw the list on close
+function closePlayer(){const m=$("#modal");const v=m.querySelector("video");if(v){v.pause();v.src="";}pvCleanup();m.classList.remove("on");
+  if(REVIEW_DIRTY){REVIEW_DIRTY=false;buildSidebar();render();}}
 // Esc closes ONE layer at a time, topmost first. It used to run closePlayer() AND clear #amodal
 // together, so opening the actress sheet from a movie and pressing Esc dumped you back on the
 // grid instead of back on the movie. Returns true when it consumed the key.
@@ -3136,7 +3628,7 @@ function escTop(){
   if(menu&&menu.classList.contains("on")){menu.classList.remove("on");return true;}
   const on=id=>{const m=$("#"+id);return m&&m.classList.contains("on")?m:null;};
   const a=on("amodal");if(a){a.classList.remove("on");return true;}
-  for(const id of ["setmodal","orgmodal","enrichmodal","scanmodal"]){
+  for(const id of ["setmodal","orgmodal","enrichmodal","scanmodal","trmodal"]){
     const m=on(id);if(m){m.classList.remove("on");return true;}}
   const im=on("impmodal");
   if(im){if(!IMPORT_RUNNING)im.classList.remove("on");return true;}   // never while it is writing
@@ -3167,6 +3659,19 @@ function bindUI(){
     const next=cur==="light"?"dark":"light";document.documentElement.dataset.theme=next;
     try{localStorage.setItem("vault_theme",next);}catch(e){}setThemeIcon();};
   $("#importbtn").onclick=startImport;
+  $("#transbtn").onclick=openTranscribe;
+  // Tools menu: open / close; picking an item closes it
+  {const tb=$("#toolsbtn"),pop=$("#toolspop");
+   const set=on=>{pop.hidden=!on;tb.setAttribute("aria-expanded",on?"true":"false");};
+   tb.onclick=e=>{e.stopPropagation();set(pop.hidden);};
+   pop.addEventListener("click",e=>{if(e.target.closest(".tmi"))set(false);});
+   document.addEventListener("click",e=>{if(!pop.hidden&&!e.target.closest("#tmenu"))set(false);});
+   document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!pop.hidden){set(false);e.stopPropagation();}},true);}
+  // a transcription running on the server (started earlier, or before a reload): follow it
+  fetch("/api/transcribe/progress").then(r=>r.json()).then(p=>{TR_PROG=p;if(p.running){TR_RUNNING=true;setTransBtn();pollTranscribe();}}).catch(()=>{});
+  // an import still running from before a page reload: show the cog and keep following it
+  fetch("/api/importprogress").then(r=>r.json()).then(p=>{if(p.running){IMPORT_RUNNING=true;setImportBtn(true);pollImportProgress();}}).catch(()=>{});
+  $("#trmodal").onclick=e=>{if(e.target.id==="trmodal")$("#trmodal").classList.remove("on");};
   $("#impmodal").onclick=e=>{if(e.target.id==="impmodal"&&!IMPORT_RUNNING)$("#impmodal").classList.remove("on");};
   $("#setbtn").onclick=openSettings;
   $("#orgmodal").onclick=e=>{if(e.target.id==="orgmodal")$("#orgmodal").classList.remove("on");};
@@ -3185,16 +3690,22 @@ function bindUI(){
     if(typing)return;
     const v=$("#modal").classList.contains("on")?$("#modal").querySelector("video"):null;
     if(!v)return;
-    const K=e.key.toLowerCase(),step=e.shiftKey?60:10;
+    const K=e.key.toLowerCase(),step=e.shiftKey?60:10,hand=e.shiftKey?5:10;   // arrows: 10 s / Shift 60 s; a/d: 10 s / Shift 5 s (fine steps)
     // a / s / d = back / pause / forward (left-hand, so the right hand stays on the mouse)
     if(K===" "||K==="s"){e.preventDefault();if(v.paused)v.play().catch(()=>{});else v.pause();}
-    else if(e.key==="ArrowRight"||K==="d"){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+step);}
-    else if(e.key==="ArrowLeft"||K==="a"){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-step);}
+    else if(e.key==="ArrowRight"||K==="d"){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+(K==="d"?hand:step));}
+    else if(e.key==="ArrowLeft"||K==="a"){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-(K==="a"?hand:step));}
     else if(e.key==="ArrowUp"){e.preventDefault();v.volume=Math.min(1,v.volume+0.1);}
     else if(e.key==="ArrowDown"){e.preventDefault();v.volume=Math.max(0,v.volume-0.1);}
     else if(K==="m"){v.muted=!v.muted;}
     else if(K==="f"){const w=v.closest('.pv-wrap')||v;if(document.fullscreenElement)document.exitFullscreen();else w.requestFullscreen&&w.requestFullscreen();}
     else if(K==="t"){const tb=$("#pvtheater");if(tb)tb.click();}
+    else if(K==="v"&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&PVSESS.toggleSubs){if(PVSESS.toggleSubs())e.preventDefault();}
+    // y / c = previous / next marker (like ⏮ / ⏭); Shift+y / Shift+c = previous / next subtitle line
+    else if((K==="y"||K==="c")&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();
+      if(e.shiftKey){if(PVSESS.subLine)PVSESS.subLine(K==="c"?1:-1);}
+      else{const b=$(K==="c"?"#pvnext":"#pvprev");if(b)b.click();}}
+    else if((K==="q"||K==="e"||(K==="r"&&e.shiftKey))&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&PVSESS.rangeKey&&PVSESS.rangeKey(K==="r"?"e":K,e.shiftKey)){e.preventDefault();}
     else if(K>="0"&&K<="9"){if(v.duration)v.currentTime=v.duration*(+K)/10;}
     else if(e.key===">"||e.key===".")  {v.playbackRate=Math.min(4,+(v.playbackRate+0.25).toFixed(2));toast("Speed "+v.playbackRate+"×");}
     else if(e.key==="<"||e.key===",")  {v.playbackRate=Math.max(0.25,+(v.playbackRate-0.25).toFixed(2));toast("Speed "+v.playbackRate+"×");}

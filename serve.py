@@ -32,6 +32,7 @@ import gzip
 import hashlib
 import json
 import socket
+import ssl
 import ipaddress
 import mimetypes
 import os
@@ -64,11 +65,13 @@ try:
 except Exception:
     dedupemod = None
 import vault_model
+import final_tags        # which markers count as final tags outside training mode
+import subtitles as subsmod   # Whisper transcription queue (Japanese speech -> .en.srt)
 import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.7.0"
+VAULT_VERSION = "1.8.0"
 DATA_DIR = os.environ.get("VAULT_DATA") or HERE
 try:
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -592,6 +595,7 @@ _POST_KEEPS_DATA = frozenset({
     "/api/solver/check", "/api/fc2dbnet/test",
     "/api/importprogress", "/api/dedupe", "/api/organize", "/api/foldactress",
     "/api/stash", "/api/sourcesave",
+    "/api/transcribe", "/api/transcribe/cancel", "/api/whisper/save", "/api/whisper/setup",
 })
 
 # progress for the Import pipeline (rename+clean -> migrate/dedupe into library)
@@ -674,7 +678,9 @@ def _largest_video(files, dirpath):
     # play order = natural filename order (part1, part2, part10, ...); Part 1 = main
     ordered = sorted(vids, key=lambda v: _nat_key(os.path.basename(v[1])))
     primary = ordered[0]                          # main = first part (poster/probe/mtime)
-    parts = [{"path": v[1], "name": os.path.basename(v[1]), "size": v[0]}
+    fset = set(files)
+    parts = [{"path": v[1], "name": os.path.basename(v[1]), "size": v[0],
+              "subs": os.path.splitext(os.path.basename(v[1]))[0] + subsmod.SUFFIX in fset}
              for v in ordered]
     return {"primary": primary[1], "ext": primary[2], "size": total,
             "nparts": len(vids), "parts": parts}
@@ -1091,6 +1097,11 @@ def _load_fs_index(lib):
         with open(INDEX_CACHE) as f:
             d = json.load(f)
         if d.get("library") == lib and isinstance(d.get("items"), list) and d["items"]:
+            # an index saved before parts carried the `subs` flag (subtitles) would hide every
+            # .en.srt until the next walk: treat it as stale, so startup walks the library again
+            first = (d["items"][0].get("parts") or [{}])[0]
+            if "subs" not in first:
+                return None
             return d["items"]
     except Exception:
         pass
@@ -1386,6 +1397,10 @@ def _ensure_markers_schema(con):
                 "code TEXT NOT NULL, part INTEGER NOT NULL DEFAULT 0, t REAL NOT NULL, "
                 "tend REAL, label TEXT NOT NULL, source TEXT DEFAULT 'manual', confidence REAL)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_markers_code ON markers(code)")
+    # The ★ final-tag layer (column `final`, 2026-11-12) was folded back into the markers on
+    # 2026-11-13: every marker is now the start of an action, with an optional range end.
+    if "final" in {r[1] for r in con.execute("PRAGMA table_info(markers)")}:
+        con.execute("ALTER TABLE markers DROP COLUMN final")
     con.execute("CREATE TABLE IF NOT EXISTS marker_src("
                 "code TEXT NOT NULL, part INTEGER NOT NULL, path TEXT, mtime INTEGER, "
                 "PRIMARY KEY(code, part))")
@@ -1512,16 +1527,22 @@ def _sidecar_signature():
     return h
 
 
+def _review_open(data):
+    """A reviewed part sent back for another pass (`review_open: true`, e.g. by the 2026-11-13
+    starts-and-ranges cleanup). It counts as "To review" until the user marks it reviewed."""
+    return isinstance(data, dict) and data.get("review_open") is True
+
+
 def _marker_flags(it):
-    """(has_ai, has_manual, has_untouched_part) for a movie, read from its sidecars.
+    """(has_ai, has_manual, has_untouched_part, review_open) for a movie, read from its sidecars.
 
     "AI pre-tagged" = at least one marker still has an analyzer source (ml/heuristic/cut);
     "manually corrected" = at least one marker the user made (source manual).
     The third flag is PER PART: a release whose part 1 is reviewed but whose part 2 was never
     opened still has work left, and release-level flags hide that (a 6-parter with 4 untouched
-    parts looked "corrected"). "To review" uses this one.
+    parts looked "corrected"). The fourth: some part was sent back for another review pass.
     """
-    ai = manual = todo = False
+    ai = manual = todo = reopen = False
     for pp in _item_parts(it):
         vp = pp.get("path")
         if not vp:
@@ -1538,12 +1559,14 @@ def _marker_flags(it):
             data = _read_scenes(sp) or {}
             markers = [m for m in (data.get("markers") or []) if isinstance(m, dict)]
             hit = (key, any(m.get("source") == "manual" for m in markers),
-                   any(m.get("source") not in (None, "manual") for m in markers))
+                   any(m.get("source") not in (None, "manual") for m in markers),
+                   _review_open(data))
             _FLAG_CACHE[sp] = hit
         manual = manual or hit[1]
         ai = ai or hit[2]
         todo = todo or (hit[2] and not hit[1])      # this part has AI markers and none of yours
-    return ai, manual, todo
+        reopen = reopen or hit[3]                   # sent back for another review pass
+    return ai, manual, todo, reopen
 
 
 # ----------------------------------------------- actress names carried in folders
@@ -1895,6 +1918,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(pr)
             if p == "/api/importprogress":
                 return self._json(dict(IMPORT_PROGRESS))
+            if p == "/api/transcribe/progress":
+                return self._json(subsmod.snapshot())
+            if p == "/api/whisper":
+                return self._whisper_status(q.get("fresh", [""])[0] == "1")
+            if p.startswith("/subs/"):
+                return self._subs(p[len("/subs/"):], q.get("part", [None])[0])
             if p == "/api/model":
                 return self._json(_model_info(fetch_latest=True))
             if p == "/api/modelprogress":
@@ -2016,6 +2045,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._download_model()
         if p == "/api/scenelabel":
             return self._scene_label(body)
+        if p == "/api/transcribe":
+            return self._transcribe(body)
+        if p == "/api/transcribe/cancel":
+            return self._json({"ok": True, "dropped": subsmod.cancel()})
+        if p == "/api/whisper/save":
+            return self._whisper_save(body)
+        if p == "/api/whisper/setup":
+            return self._json({"ok": subsmod.setup(WHISPER_ROOT, _whisper_ready),
+                               "setup": subsmod.setup_status()})
         if p == "/api/import":
             if body.get("preview"):
                 return self._import_preview()
@@ -2112,7 +2150,7 @@ class Handler(BaseHTTPRequestHandler):
         sig = _sidecar_signature()      # taken first: a sidecar written mid-build rebuilds next time
         out_items = []
         for it in STATE["items"]:
-            ai_tags, manual_tags, to_review = _marker_flags(it)
+            ai_tags, manual_tags, to_review, review_open = _marker_flags(it)
             out_items.append({
                 "code": it["code"],
                 "actress": it.get("actress") or "",
@@ -2131,9 +2169,11 @@ class Handler(BaseHTTPRequestHandler):
                 "size": it["size"],
                 "ext": it["ext"].lstrip("."),
                 "nparts": it["nparts"],
-                "parts": ([{"name": pp["name"], "size": pp["size"]}
+                "parts": ([{"name": pp["name"], "size": pp["size"], "subs": bool(pp.get("subs"))}
                            for pp in (it.get("parts") or [])]
                           if it.get("nparts", 0) > 1 else []),
+                # how many parts have English subtitles (<video>.en.srt next to the file)
+                "subs": sum(1 for pp in (it.get("parts") or []) if pp.get("subs")),
                 "dur": it.get("duration"),
                 "w": it.get("width"), "h": it.get("height_px"),
                 "vcodec": it.get("vcodec") or "",
@@ -2155,6 +2195,7 @@ class Handler(BaseHTTPRequestHandler):
                 "ai_tags": ai_tags,
                 "manual_tags": manual_tags,
                 "to_review": to_review,
+                "review_open": review_open,
             })
         body = json.dumps({
             "items": out_items,
@@ -2307,7 +2348,9 @@ class Handler(BaseHTTPRequestHandler):
             offset, remaining = start, length
             used_sendfile = False
             try:
-                while remaining > 0:
+                # Not over HTTPS: sendfile() writes the file straight into the socket, under
+                # the TLS layer, which corrupts the stream. The buffered copy below encrypts.
+                while remaining > 0 and not isinstance(sock, ssl.SSLSocket):
                     sent = os.sendfile(sock.fileno(), f.fileno(), offset,
                                        min(remaining, 8 * 1024 * 1024))
                     if sent == 0:
@@ -2741,6 +2784,101 @@ class Handler(BaseHTTPRequestHandler):
 
     _SIZE = r"[\d.]+[KMGT]?B|-"
 
+    # ------------------------------------------------- subtitles (Whisper)
+    def _part_path(self, it, part):
+        parts = _item_parts(it)
+        try:
+            idx = int(part or 0)
+        except (TypeError, ValueError):
+            idx = 0
+        return parts[idx].get("path") if 0 <= idx < len(parts) else None
+
+    def _subs(self, ref, part):
+        it = self._item_ref(ref.strip("/"))
+        if not it:
+            return self._send(404, "text/plain", "no code")
+        vp = self._part_path(it, part)
+        sp = subsmod.subs_path(vp) if vp else None
+        try:
+            with open(sp, encoding="utf-8", errors="replace") as f:
+                vtt = subsmod.srt_to_vtt(f.read())
+        except (OSError, TypeError):
+            return self._send(404, "text/plain", "no subtitles")
+        return self._send(200, "text/vtt; charset=utf-8", vtt)
+
+    def _transcribe(self, body):
+        """Queue movies (all their parts) for English subtitles. Parts that already have them
+        are skipped unless `force`."""
+        py = subsmod.resolve_python(load_config(), WHISPER_ROOT)
+        chk = subsmod.check(py)
+        if chk.get("error"):
+            return self._json({"error": "Transcription isn't set up: " + chk["error"]
+                               + " (Settings → Subtitles)"}, 400)
+        codes = body.get("codes") or []
+        if isinstance(codes, str):
+            codes = [codes]
+        force = bool(body.get("force"))
+        jobs, skipped = [], 0
+        for ref in codes:
+            it = self._item_ref(str(ref))
+            if not it or it.get("missing"):
+                continue
+            parts = _item_parts(it)
+            for i, pp in enumerate(parts):
+                vp = pp.get("path")
+                if not vp:
+                    continue
+                if not force and subsmod.has_subs(vp):
+                    skipped += 1
+                    continue
+                label = it["code"] + (" · part %d" % (i + 1) if len(parts) > 1 else "")
+                jobs.append({"code": it.get("uid") or it["code"], "part": i, "path": vp, "label": label})
+        n = subsmod.enqueue(jobs, py, subsmod.options(load_config(), chk), _subs_written)
+        return self._json({"ok": True, "queued": n, "skipped": skipped,
+                           "progress": subsmod.snapshot()})
+
+    def _whisper_status(self, fresh=False):
+        cfg = load_config()
+        py = subsmod.resolve_python(cfg, WHISPER_ROOT)
+        chk = subsmod.check(py, fresh=fresh)
+        opts = subsmod.options(cfg, chk)
+        return self._json({"python": py or "", "configured": cfg.get("whisper_python") or "",
+                           "engine": opts["engine"], "model": opts["model"],
+                           "translator": opts["translator"], "llm": opts["llm"], "llm_url": opts["llm_url"],
+                           "engines": list(subsmod.ENGINES), "models": list(subsmod.MODELS),
+                           "translators": list(subsmod.TRANSLATORS), "llm_models": list(subsmod.LLM_MODELS),
+                           "check": chk,
+                           "setup": subsmod.setup_status(),
+                           "setup_package": subsmod.default_engine_package(),
+                           "env_dir": subsmod.env_dir(WHISPER_ROOT)})
+
+    def _whisper_save(self, body):
+        cfg = load_config()
+        if "python" in body:
+            pth = os.path.expanduser(str(body.get("python") or "").strip())
+            if pth and not os.path.isfile(pth):
+                return self._json({"error": "No such file: " + pth}, 400)
+            cfg["whisper_python"] = pth
+        if body.get("engine") in subsmod.ENGINES:
+            cfg["whisper_engine"] = body["engine"]
+        if body.get("model") in subsmod.MODELS:
+            cfg["whisper_model"] = body["model"]
+        if body.get("translator") in subsmod.TRANSLATORS:
+            cfg["whisper_translator"] = body["translator"]
+        if isinstance(body.get("llm"), str) and body["llm"].strip():
+            cfg["llm_model"] = body["llm"].strip()[:200]
+        if "llm_url" in body:
+            u = str(body.get("llm_url") or "").strip()
+            if u and not re.match(r"^https?://", u):
+                return self._json({"error": "The server address must start with http:// or https://"}, 400)
+            cfg["llm_url"] = u
+        try:
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(cfg, f, indent=2)
+        except OSError as e:
+            return self._json({"error": str(e)}, 500)
+        return self._whisper_status(fresh=True)
+
     def _import_preview(self):
         dl = STATE.get("download")
         if not dl or not os.path.isdir(dl):
@@ -2816,6 +2954,7 @@ class Handler(BaseHTTPRequestHandler):
         def run():
             P = IMPORT_PROGRESS
             P.update(running=True, phase="Renaming & cleaning…", line="", done=0, total=0)
+            before = {it.get("code") for it in STATE["items"]}   # to tell which movies are new
             try:
                 self._stream_cmd([sys.executable, rn, dl, "--apply"], env, "Renaming & cleaning…")
                 margs = [sys.executable, mg, "--apply"]
@@ -2825,7 +2964,8 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 P.update(line="error: %s" % e)
             finally:
-                P.update(running=False, phase="Done")
+                # stays `running` until the index is rebuilt, so the page reloads WITH the new movies
+                P.update(phase="Indexing the library…")
                 try:
                     os.remove(INDEX_CACHE)
                 except OSError:
@@ -2834,8 +2974,36 @@ class Handler(BaseHTTPRequestHandler):
                     rebuild_index()
                 except Exception:
                     pass
+                n, why = self._scan_after_import(before)
+                if n or why:
+                    msg = ("Fetching metadata for %d new movie%s in the background." % (n, "" if n == 1 else "s")
+                           if n else "No metadata scan: " + why)
+                    P["line"] = ((P.get("line") or "").rstrip() + "  " + msg).strip()
+                P.update(running=False, phase="Done")
         threading.Thread(target=run, daemon=True).start()
         return self._json({"ok": True, "started": True})
+
+    def _scan_after_import(self, before):
+        """After an import, run the Scan library passes over the movies it added (codes that
+        were not in the index before), so they don't sit there untitled until someone thinks of
+        the button. Returns (count started, reason when none was started)."""
+        new = sorted({it.get("code") for it in STATE["items"]
+                      if it.get("code") and not it.get("missing")} - set(before))
+        if not new:
+            return 0, ""
+        if not scanmod:
+            return 0, "the scanner is unavailable"
+        if not claim_scan("(after import)"):
+            return 0, "a scan is already running — use Scan library for the new movies afterwards"
+        try:
+            fc2db_ready, why = self._fc2db_ready(fresh=True)
+            net_ready = "fc2db.net" in enabled_sources()
+            self._start_pipeline(titles=new, pool=new, fc2db_ready=fc2db_ready, net_ready=net_ready,
+                                 note="" if fc2db_ready else "fc2ppv-db pass skipped — " + why)
+        except Exception as e:
+            release_scan()
+            return 0, "could not start (%s)" % e
+        return len(new), ""
 
     def _clear_cache(self, targets):
         targets = set(targets) if targets else {"index", "probe", "thumbs"}
@@ -3848,19 +4016,41 @@ class Handler(BaseHTTPRequestHandler):
             rows = _markers_for_code(con, code)
         finally:
             con.close()
+        # Final tags for everyday viewing: the heuristic's pick per part (display only; the
+        # sidecar keeps the model's full output). Reviewed markers are always kept.
+        by_part = {}
+        for r in rows:
+            by_part.setdefault(r["part"], []).append(r)
+        for prows in by_part.values():
+            for r in prows:
+                r["auto"] = False
+            try:
+                for i in final_tags.pick(prows):
+                    prows[i]["auto"] = True
+            except Exception:
+                pass                           # a heuristic failure must never hide the markers
+        reopen = []
+        if not it.get("missing"):
+            for idx, pp in enumerate(_item_parts(it)):
+                if pp.get("path") and _review_open(_read_scenes(_scenes_path(pp["path"]))):
+                    reopen.append(idx)
         return self._json({"markers": rows, "parts": parts, "training": bool(STATE.get("training")),
-                           "custom_labels": list(STATE.get("custom_labels") or [])})
+                           "custom_labels": list(STATE.get("custom_labels") or []),
+                           "review_open": reopen})
 
     def _marker_edit(self, body):
         """Add, update (move / relabel), confirm or delete one marker of a movie part.
 
-        ``op: "confirm_all"`` confirms every AI marker of the part at once (no ``t`` needed).
+        ``op: "confirm_all"`` confirms every AI marker of the part at once (no ``t`` needed);
+        ``op: "reviewed"`` closes a part that was sent back for another pass (``review_open``).
 
         Written to the sidecar (source of truth), then the markers cache is re-synced.
         Existing markers are addressed by their current start ``t`` (nearest within 0.75 s,
-        preferring one whose ``label`` matches). Markers are start points: a marker the user
-        adds or changes is ``source: "manual"`` with no ``end``/``confidence``, so the analyzer
-        never overwrites it. For training, a changed AI marker keeps its original values under
+        preferring one whose ``label`` matches). A marker is the START of an action; a manual
+        marker may carry ``end``, the range the user vouches for (``new_end`` / ``clear_end`` on
+        update, ``end`` on add). A marker the user adds or changes is ``source: "manual"``
+        without ``confidence``, so the analyzer never overwrites it; an AI marker's ``end`` is
+        its detection window, not a range, and is dropped when it becomes manual. For training, a changed AI marker keeps its original values under
         ``was``, and a deleted AI marker is appended to the sidecar's top-level ``rejected``
         list (extras that readers ignore; the analyzer uses them to not re-suggest it).
         Only allowed in training mode (Settings -> Library); otherwise markers are view-only.
@@ -3899,18 +4089,35 @@ class Handler(BaseHTTPRequestHandler):
             v = str(body.get(key) or "").strip().lower()
             return v if (v in SCENE_LABELS or v in (STATE.get("custom_labels") or ())) else None
 
+        def _known(label):
+            # A marker outside the vocabulary (a `review` spot from training-data QC, say) must
+            # get a real label before it becomes manual — confirmed as-is it would train as a
+            # class of its own.
+            return label in SCENE_LABELS or label in (STATE.get("custom_labels") or ())
+
         def _to_manual(m):
             # A human has now vouched for this marker; keep the AI original for training.
-            if m.get("source") != "manual" and "was" not in m:
-                m["was"] = {k: m[k] for k in ("t", "end", "label", "source", "confidence") if k in m}
+            if m.get("source") != "manual":
+                if "was" not in m:
+                    m["was"] = {k: m[k] for k in ("t", "end", "label", "source", "confidence") if k in m}
+                m.pop("end", None)              # the AI's detection window, not a user range
+                m.pop("confidence", None)
             m["source"] = "manual"
-            m.pop("end", None)
-            m.pop("confidence", None)
 
-        if op == "confirm_all":
-            ai = [m for m in markers if m.get("source") in ("ml", "heuristic")]
+        if op == "reviewed":
+            if any(m.get("source") in ("ml", "heuristic") for m in markers):
+                return self._json({"error": "This part still has AI markers: confirm or delete them first"}, 400)
+            data.pop("review_open", None)
+            data["reviewed_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            t = None
+        elif op == "confirm_all":
+            # Spots sent back by training-data QC (`qc`) are each checked by hand, never in bulk.
+            ai = [m for m in markers if m.get("source") in ("ml", "heuristic") and _known(m.get("label"))
+                  and not m.get("qc")]
             if not ai:
-                return self._json({"error": "No AI markers to confirm"}, 400)
+                return self._json({"error": "No AI markers to confirm"
+                                   + (" — the remaining ones are QC spots: check each one by hand"
+                                      if any(m.get("source") in ("ml", "heuristic") for m in markers) else "")}, 400)
             for m in ai:
                 _to_manual(m)
             t = None
@@ -3940,13 +4147,17 @@ class Handler(BaseHTTPRequestHandler):
                     cands.append((m.get("label") != label, d, m))
             return min(cands, key=lambda c: (c[0], c[1]))[2] if cands else None
 
-        if op == "confirm_all":
+        if op in ("confirm_all", "reviewed"):
             pass
         elif op == "add":
             label = _label("label")
             if not label:
                 return self._json({"error": "Pick a label from the list"}, 400)
-            markers.append({"t": _clamp(t), "label": label, "source": "manual"})
+            nm = {"t": _clamp(t), "label": label, "source": "manual"}
+            end = _num("end")
+            if end is not None and _clamp(end) > nm["t"]:
+                nm["end"] = _clamp(end)
+            markers.append(nm)
         elif op in ("update", "delete", "confirm"):
             m = _find(t, body.get("label"))
             if m is None:
@@ -3958,21 +4169,35 @@ class Handler(BaseHTTPRequestHandler):
                     rejected.append(dict(m, rejected_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())))
                     data["rejected"] = rejected
             elif op == "confirm":
+                if not _known(m.get("label")):
+                    return self._json({"error": "This is a review spot: pick its real label, or delete it"}, 400)
                 _to_manual(m)
             else:
                 new_t = _num("new_t")
+                new_end = _num("new_end")
+                clear_end = bool(body.get("clear_end"))
                 new_label = None
                 if body.get("new_label") not in (None, ""):
                     new_label = _label("new_label")
                     if not new_label:
                         return self._json({"error": "Pick a label from the list"}, 400)
-                if new_t is None and new_label is None:
+                if new_t is None and new_label is None and new_end is None and not clear_end:
                     return self._json({"error": "nothing to change"}, 400)
+                if not new_label and not _known(m.get("label")):
+                    return self._json({"error": "This is a review spot: pick its real label before moving it"}, 400)
                 _to_manual(m)
                 if new_t is not None:
                     m["t"] = _clamp(new_t)
                 if new_label:
                     m["label"] = new_label
+                if clear_end:
+                    m.pop("end", None)
+                if new_end is not None:
+                    if _clamp(new_end) <= m["t"]:
+                        return self._json({"error": "The end must come after the start"}, 400)
+                    m["end"] = _clamp(new_end)
+                elif m.get("end") is not None and float(m["end"]) <= float(m["t"]):
+                    m.pop("end", None)          # start moved past the old end
         else:
             return self._json({"error": "bad op"}, 400)
         try:
@@ -4033,6 +4258,31 @@ class Handler(BaseHTTPRequestHandler):
 
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 
+# Subtitles: the Whisper environment Vault can set up lives next to the scene models
+WHISPER_ROOT = os.path.dirname(vault_model.user_models_dir())
+
+
+def _whisper_ready(py):
+    """Setup finished: use that environment unless the user configured another Python."""
+    cfg = load_config()
+    if not (cfg.get("whisper_python") and os.path.isfile(cfg["whisper_python"])):
+        cfg["whisper_python"] = py
+        try:
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(cfg, f, indent=2)
+        except OSError:
+            pass
+
+
+def _subs_written(job):
+    """A part got its .en.srt: flag it in the index, so the grid and player know without a rescan."""
+    for it in STATE["items"]:
+        if (it.get("uid") or it.get("code")) == job["code"] or it.get("code") == job["code"]:
+            for pp in it.get("parts") or []:
+                if pp.get("path") == job["path"]:
+                    pp["subs"] = True
+    STATE["data_json"] = None
+
 
 def load_config():
     try:
@@ -4067,6 +4317,112 @@ def save_config(library=None, port=None, download=None, training_mode=None, cust
         return False
 
 
+# ---- HTTPS ------------------------------------------------------------------------------------
+# Vault speaks HTTPS on its normal port as soon as TLS_DIR holds vault.crt + vault.key (a
+# developer makes them with webui/make_tls.sh; any cert/key pair works). One port serves both:
+# a connection that opens with a TLS handshake gets TLS; plain HTTP from this machine
+# (loopback) is served as before, so local scripts and the app launcher keep working; plain
+# HTTP from any other machine is redirected to https://. The public CA certificate
+# (TLS_DIR/vault-ca.crt, if present) is handed out at /vault-ca.crt over plain HTTP too, so a
+# phone can install and trust it before its first HTTPS visit. --no-tls turns all of it off.
+TLS_DIR = (os.environ.get("VAULT_TLS_DIR")
+           or os.path.join(os.path.dirname(vault_model.user_models_dir()), "tls"))
+
+
+def _tls_context():
+    cert, key = os.path.join(TLS_DIR, "vault.crt"), os.path.join(TLS_DIR, "vault.key")
+    if not (os.path.isfile(cert) and os.path.isfile(key)):
+        return None
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.load_cert_chain(cert, key)
+    return ctx
+
+
+def _is_loopback(addr):
+    try:
+        ip = ipaddress.ip_address(addr)
+        return ip.is_loopback or bool(getattr(ip, "ipv4_mapped", None) and ip.ipv4_mapped.is_loopback)
+    except ValueError:
+        return False
+
+
+class _PlainRedirect(BaseHTTPRequestHandler):
+    """Plain HTTP from another machine while HTTPS is on: point it at https://."""
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *a):
+        pass
+
+    def _answer(self):
+        if urlparse(self.path).path == "/vault-ca.crt":
+            try:
+                with open(os.path.join(TLS_DIR, "vault-ca.crt"), "rb") as f:
+                    body = f.read()
+            except OSError:
+                body = None
+            if body:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/x-x509-ca-cert")
+                self.send_header("Content-Disposition", 'attachment; filename="vault-ca.crt"')
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.wfile.write(body)
+                return
+        host = (self.headers.get("Host") or "").strip()
+        if not host or "/" in host or "@" in host:
+            host = "%s:%d" % (self.connection.getsockname()[0], self.server.server_address[1])
+        elif ":" not in host.rsplit("]", 1)[-1]:
+            host = "%s:%d" % (host, self.server.server_address[1])
+        body = b"Vault uses HTTPS.\n"
+        self.send_response(307)                    # temporary: --no-tls must not be stuck
+        self.send_header("Location", "https://%s%s" % (host, self.path))
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    do_GET = do_HEAD = do_POST = do_PUT = do_DELETE = do_OPTIONS = do_PATCH = _answer
+
+
+class VaultServer(ThreadingHTTPServer):
+    tls = None                                     # ssl.SSLContext when HTTPS is on
+
+    def finish_request(self, request, client_address):
+        if self.tls is None:
+            return super().finish_request(request, client_address)
+        # Runs in the connection's own thread, so a slow or silent client blocks nobody.
+        try:
+            request.settimeout(30)
+            first = request.recv(1, socket.MSG_PEEK)
+        except OSError:
+            return
+        if not first:
+            return
+        if first == b"\x16":                       # a TLS ClientHello
+            try:
+                conn = self.tls.wrap_socket(request, server_side=True)
+            except OSError:                         # cert not trusted, scanner, dropped
+                return
+            try:
+                conn.settimeout(None)
+                self.RequestHandlerClass(conn, client_address, self)
+            finally:
+                try:
+                    conn.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                conn.close()
+            return
+        request.settimeout(None)
+        if _is_loopback(client_address[0]):
+            return self.RequestHandlerClass(request, client_address, self)
+        _PlainRedirect(request, client_address, self)
+
+
 def main():
     cfg = load_config()
     ap = argparse.ArgumentParser(description="Vault — a local visual browser for a movie library")
@@ -4076,6 +4432,8 @@ def main():
                     help="start Vault at login and keep it running (launchd / systemd --user / Task Scheduler)")
     ap.add_argument("--uninstall-service", action="store_true", help="stop the login service and remove it")
     ap.add_argument("--service-status", action="store_true")
+    ap.add_argument("--no-tls", action="store_true",
+                    help="plain HTTP only, even when an HTTPS certificate is installed")
     args = ap.parse_args()
     if args.uninstall_service or args.service_status:
         try:
@@ -4147,11 +4505,20 @@ def main():
     else:
         sys.stderr.write(f"[boot] first scan of {library} …\n")
         rebuild_index()
-    srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    sys.stderr.write(f"[boot] Vault {VAULT_VERSION} — http://127.0.0.1:{port}/  "
+    srv = VaultServer(("0.0.0.0", port), Handler)
+    tls = None
+    if not (args.no_tls or os.environ.get("VAULT_NO_TLS")):
+        try:
+            tls = _tls_context()
+        except (OSError, ssl.SSLError) as e:
+            sys.stderr.write(f"[boot] HTTPS certificate in {TLS_DIR} unusable ({e}) — plain HTTP\n")
+    srv.tls = tls
+    scheme = "https" if tls else "http"
+    sys.stderr.write(f"[boot] Vault {VAULT_VERSION} — {scheme}://127.0.0.1:{port}/  "
                      f"({len(STATE['items'])} movies)\n")
-    sys.stderr.write(f"[boot] listening on 0.0.0.0 — reachable from LAN/VPN, "
-                     f"no auth\n")
+    sys.stderr.write(f"[boot] listening on 0.0.0.0 — reachable from LAN/VPN, no auth"
+                     + (f"; HTTPS (cert in {TLS_DIR}), plain HTTP only from this machine\n"
+                        if tls else "\n"))
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
