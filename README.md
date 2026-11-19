@@ -55,7 +55,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 - **Reassign** a single misgrouped movie to another actress straight from the player (**⇄**) — relinks just that title, never renames the actress it left
 - **Multi‑select** (shift / ⌘‑click, or the card's select box) → bulk‑assign one actress to many movies, or bulk‑delete them
 - **Delete** a movie (from the player), several at once (multi‑select), or a whole actress and her movies (from her overview) — always confirmed; files are **moved to a recoverable trash**, never hard‑deleted. Deleting an actress trashes only titles where she is the sole performer; shared co‑star titles are kept
-- **Scene markers**: the player draws scenes (e.g. *blowjob*, *doggy*, *cumshot*) as icon chips and ticks **right on the seek bar**, tube‑site style — hover for the label, click to jump. With **training mode** on (Settings → Library) you can add, move, relabel and delete markers via **＋** and a **right‑click** menu, and create custom labels. Markers come from `<video>.scenes.json` sidecars produced by an external analyzer. See **Scene markers** below
+- **Scene markers**: the player draws scenes (e.g. *blowjob*, *doggy*, *cumshot*) as icon chips and ticks **right on the seek bar**, tube‑site style — hover for the label, click to jump. Markers come from `<video>.scenes.json` sidecars written by vault-scene-tagger with the free scene model. See **Scene markers** below
 - **Organize** the folder on disk: normalize `…/<CODE>/<CODE>.ext`, quarantine junk, flag/relocate duplicates — preview first, nothing deleted
 - **Organize by actress**: fold every movie into `…/<Actress>/<CODE>/` to match the catalog (so the disk follows reassignments) — preview first, only moves, never deletes
 - **Settings** hub: change the library folder, clear caches, manage tags (rename/merge + **JP→EN translation**), manage actresses (rename, merge, **find duplicates**), and connect sources
@@ -76,10 +76,6 @@ and press **Download**. Vault unpacks it into a per-user folder that
 [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) finds on its own, and every
 improved build shows up in the same tab as an **Update**. See
 [Generating markers](#generating-markers-with-vault-scene-tagger).
-
-**Support:** Vault is developed in the open and stays free. If it earns a place in your setup, a
-contribution on [Patreon](https://www.patreon.com/FC2vault) helps cover the tools and the hours
-that go into the next release. Thank you.
 
 ## Requirements
 
@@ -254,8 +250,7 @@ Highlights:
 The player draws scene markers **on the seek bar** from **`<video>.scenes.json`** sidecar files
 placed next to each video. Producing them (shot detection, AI act/position tagging) is deliberately
 **out of scope for this server** — that runs in a separate analyzer project. Vault only reads the
-files and caches them in a `markers` table. Markers are shown as start points; editing them is
-only possible in **training mode** (see below).
+files and caches them in a `markers` table. Markers are shown as start points, view-only.
 
 Format (`schema: "vault-scenes/1"`), timestamps in seconds, relative to that one video file:
 
@@ -281,26 +276,6 @@ analyzer repo; keep the two identical. When Vault writes manual markers back, it
 sidecar's other top-level fields and its `generator`. That way the analyzer can still tell which
 phases already ran and doesn't re-decode a movie just because you added a marker.
 
-### Training mode (editing markers)
-
-**Settings → Library → Scene markers — training mode** is **off by default**, so markers are
-view‑only and `POST /api/marker` answers 403. Turn it on to curate markers in the player:
-
-- **＋** adds a marker at the playhead; **right‑click** the seek bar or the video for a menu to add
-  one at that spot; **drag** a chip along the bar to move it;
-- **right‑click** an AI marker and **✓ Confirm** it if it's correct (or **✓ Confirm all AI markers**
-  from the bar's menu) — only reviewed markers count as training labels;
-- **right‑click** a marker (or the bar next to it) to pick its label from the fixed list — 16 acts
-  and 7 positions, single choice — nudge it (−1s / +1s / playhead) or delete it.
-
-Every change is saved into the sidecar as a `manual` marker (start only), which the analyzer never
-overwrites. For future model training, a changed AI marker keeps its original under `was`, and a
-deleted AI marker is appended to the sidecar's top‑level `rejected` list; the analyzer also uses
-both to avoid re‑suggesting the same moment. The setting is stored as `"training_mode"` in
-`config.json`. Extra label types can be created from the editor's label list (**＋ New label…**) or
-in Settings; they're kept as `"custom_labels"` in `config.json` and are ordinary labels in the
-sidecar (the spec allows labels outside §4). Vault has no login, so anyone who can reach it can flip the switch — keep it on a
-trusted network.
 
 ### Generating markers with vault-scene-tagger
 
@@ -326,8 +301,7 @@ vault-scene-tagger "/path/to/library" --engine phar --log-file tagger.log
 
 It's resumable: re-runs skip videos whose sidecar is current, and Ctrl+C is safe. On an M1 Mac
 it runs at about 3.5× realtime; a CUDA GPU is several times faster. Nothing else to do on the
-Vault side: freshly tagged movies show up under **To review** by themselves, and a movie's
-sidecar is synced into the markers cache the next time you open it. Without the model the
+Vault side: a movie's sidecar is synced into the markers cache the next time you open it. Without the model the
 tagger can still write shot cuts (`--phase a`) or use skier233's AI server
 (`--engine ai-server`); its README explains both.
 

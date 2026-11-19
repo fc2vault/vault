@@ -1,10 +1,17 @@
 # Changelog
 
+## 1.8.1
+
+- **Scene markers are view-only.** The marker editor is not part of the public package; markers
+  from the scene model show on the seek bar as before.
+- Support links removed from the app, the docs and the website.
+- Fixed: the shipped test suite looked for `webui/serve.py`, which only exists in the source tree.
+
 ## 1.8.0 — Subtitles
 
 Highlights: **English subtitles from the Japanese audio**, made offline on your computer (Whisper +
 a small local translator), a **Tools** menu, imports that scan their own metadata, and scene
-markers with **ranges**. Player keys: `y` / `c` previous / next marker, `Shift+Y` / `Shift+C`
+markers with **ranges** (a band on the seek bar). Player keys: `y` / `c` previous / next marker, `Shift+Y` / `Shift+C`
 previous / next subtitle line, `v` subtitles on/off.
 
 - **Better English: Whisper + a small local LLM (default).** Whisper's one-pass translation gets
@@ -87,51 +94,15 @@ previous / next subtitle line, `v` subtitles on/off.
 - **Import in the background shows a turning cog.** After *Run in background* the Import button
   shows a turning outlined gear while the import runs (also after a page reload); clicking it reopens the
   progress instead of starting a new preview. The button turns back to 📥 when the import is done.
-- **One marker per action, with a range (2026-11-13).** A marker is now the *start* of an action,
-  and a reviewed marker may carry an `end`: the range the user vouches for. Set it in the marker
-  editor (new **End** row: ±1 s, ⤓ Playhead, ✕ = no range) or right-click a chip → **⇥ End here** /
-  **✕ Clear the range**. Ranges show as a translucent band on the seek bar. `/api/marker` `update`
-  takes `new_end` / `clear_end`, `add` takes `end`; moving a start past its end drops the end. An
-  AI marker's `end` (its detection window) is still dropped when it becomes manual; a manual
-  marker's range now survives moves and relabels (before, every edit deleted `end`).
-- **"Corrected manually" means finished.** It used to count every movie with any manual marker;
-  now only movies with no AI marker left and no part waiting under "To review" (`review_open`).
-- **Multi-part movies show which parts are still to review.** In training mode the parts list tags
-  each open part "to review", and marking a part reviewed says which parts are left (the movie stays
-  under "To review" until all are done).
-- **Right-click a marker → ⇤ Start here** moves its start to the playhead (next to ⇥ End here).
-- **Shift + A / D jumps 5 s** (fine steps for placing starts and ends); A / D alone stay 10 s, the
-  arrow keys keep 10 s / Shift 60 s.
-- **Range keys are Q (start here) and E (end here)**, next to A / S / D for the left hand; they
-  replace I / O. **Shift+Q / Shift+E** (Shift+R works too) jump to the start / end of the marker at
-  the playhead without changing it; with no end set yet, Shift+E says so.
-- **Fine drags for chips and range handles.** A chip drag used to need 5 px before it counted, and
-  on a long movie one pixel of the bar is many seconds (2 h 20 on a ~520 px bar: ~16 s, so 5 px =
-  ~80 s): a smaller move counted as a click and the chip snapped back. Now 3 px starts a drag,
-  chips and handles move by how far the mouse went (grabbing off-centre no longer jumps them), and
-  holding **Shift** while dragging moves them at 1/10 speed (~1.6 s per pixel in that movie).
-- **The selected marker stays selected while you scrub.** Scrubbing (seek bar, A / D, arrows) into
-  the segment just before it (an earlier start) or just after it (an end past the next marker's
-  start) keeps its range handles and Q / E on it, instead of switching to the neighbouring marker.
-  It moves on when playback runs into another marker, when you scrub further away, or when you click
-  another marker's chip or use ⏮ / ⏭.
-- **Ranges the editor way: in/out handles.** In training mode the marker at the playhead
-  shows its range on the seek bar with two draggable handles (start and end; the video follows the
-  drag). Without a range the end handle is dashed, at start + 20 s or the next marker; drag it to
-  set one. Keys: **E** = the marker at the playhead ends here; **Q** = start here (the next marker
-  if it begins within 30 s, so you can pull a late start back, else the current one).
-- **Re-review flag.** A sidecar with `review_open: true` counts as **To review** (with any part
-  still holding AI markers) until right-click → **✓ Reviewed — this part is done** (op `reviewed`,
-  sets `reviewed_at`; refused while AI markers remain). `/api/data` items gained `review_open`,
-  `/api/markers` returns `review_open` (part indexes). The list updates when the player closes.
-- **One marker per change of action outside training mode.** The scene model marks every few
+- **Shift + A / D jumps 5 s** (fine steps); A / D alone stay 10 s, the arrow keys keep 10 s /
+  Shift 60 s.
+- **One marker per change of action.** The scene model marks every few
   seconds; the player now shows only the first marker of each change of action (after dropping brief
-  unsure blips), picked by a display-only heuristic (`final_tags.py`). Markers you made or confirmed
-  always stay, nothing is written, and training mode still shows every marker. In testing this cut
-  the edits needed per movie from about 15 to under 5.
-- **Creampie lead-in 10 s → 15 s.** Jumping to a creampie (chip, ⏮/⏭) outside training mode now
-  lands 15 s before the marker; 10 s still started too late for the build-up. Display only, as
-  before: the stored `t` stays at the pull-out, and training mode jumps exactly to the marker.
+  unsure blips), picked by a display-only heuristic (`final_tags.py`). Nothing is written; the
+  sidecar keeps the model's full output.
+- **Creampie lead-in 10 s → 15 s.** Jumping to a creampie (chip, ⏮/⏭) now lands 15 s before the
+  marker; 10 s still started too late for the build-up. Display only: the stored `t` stays at the
+  pull-out.
 - **Volume slider is back.** The speaker button had become a plain mute toggle; hovering it now
   unfolds a slider, and the level plus mute state persist across movies (`vault_volume`,
   `vault_muted`). Clicking the speaker at 0 brings the last level back. Hidden on phones, where
@@ -139,15 +110,9 @@ previous / next subtitle line, `v` subtitles on/off.
 
 ## 1.7.0 — Freeware
 
-### No more Free and Pro
+Vault is free: no movie limit, no key, no account. Settings has a **Scene model** tab that downloads
+or updates the scene model straight from GitHub.
 
-Vault is freeware now. The 250-movie limit, the Pro key, the License tab and the key server are
-gone; fc2ppv-db lookups, *Enrich from web* and the scene model are open to everyone. Settings has
-a **Scene model** tab instead: it shows the installed model and the newest build, and one button
-downloads or updates it. The model is a release asset of the public repository
-github.com/fc2vault/models, so the download goes straight to GitHub and nothing about you travels.
-`vault_license.py`, `POST /api/license` and the `license` field in `/api/data` and `/api/settings`
-are removed; `/api/model` no longer needs a key.
 
 ### Scene model round 2
 
@@ -160,26 +125,9 @@ and fewer false markers. Same classes and input pipeline, so the tagger needs no
 The website has screenshots now (blurred where needed), and says plainly that Vault is free and
 how to support it.
 
-## 1.6.0 — Free and Pro, the scene model, run at login
+## 1.6.0 — The scene model, run at login
 
-### The scene model downloads itself
 
-**Settings → License** has a new **Scene model** section. With a Pro key active it shows what is
-installed and what the newest build is, and one button fetches it: Vault sends the key to the
-project's key server, which checks the signature and the expiry and answers with a short-lived
-download link; the zip is unpacked into a per-user folder (`~/Library/Application Support/Vault/models`
-on macOS, `%LOCALAPPDATA%\Vault\models` on Windows, `~/.local/share/vault/models` on Linux).
-`vault-scene-tagger` looks in that folder on its own, so a Pro user runs the tagger with no model
-flag. New module `vault_model.py`, standard library only; the zip is checked before unpacking (one
-`vault-r<N>` folder with a `config.json`, no paths that leave it) and a half-finished download never
-replaces an installed model. `GET /api/model`, `POST /api/model`, `GET /api/modelprogress`.
-
-### Website and key server
-
-Vault has a website (https://fc2vault.vaultkey.workers.dev) and a key server
-(https://vault-key.vaultkey.workers.dev): supporters log in with Patreon there and get their Pro
-key on the spot, no e-mail, nothing stored. Both are in the repo (`docs/index.html`; the worker
-lives beside the app source, not in this build). Settings → License links to both.
 
 ### vault-scene-tagger is published
 
@@ -196,16 +144,6 @@ New module `vault_service.py`, standard library only. On macOS the installer rea
 starting and says so when the system refused access to a folder under Documents, Desktop,
 Downloads or a removable volume, with the two ways out.
 
-### Free and Pro
-
-Vault is free for up to 250 movies. A bigger library shows the 250 movies Vault saw first; the
-count at the top reads "Free: 250 of N" and opens the new **Settings → License** tab. A Vault Pro
-key unlocks the whole library, fc2ppv‑db lookups and Enrich from web. The key is checked offline
-with an Ed25519 signature (`vault_license.py`, standard library only): no license server, and a
-key holds only its tier, last valid day and a random id. Unlocking applies at once from the cached
-library walk; removing the key goes back to the free view. Two signers are accepted
-(`PUBLIC_KEYS`): keys issued by hand, and keys the supporter key server hands out after a
-Patreon login; dropping a signer from the list revokes every key it signed.
 
 ### Multi-part movies: markers were clamped to the wrong part's length
 
@@ -229,26 +167,7 @@ hard to click. A chip that would overlap its neighbour now moves up a row (up to
 stretched down to its exact spot on the bar. If that still isn't enough (40 markers on a 2½ h
 movie), the chips shrink to 28 px and use up to 4 rows. Movies with few markers look as before.
 
-### "To review" sees markers written by the tagger
 
-The library list is cached and was only rebuilt after a change made in Vault or a rescan.
-vault-scene-tagger writes its sidecars from outside, so freshly tagged movies never showed up
-under "To review" or "AI pre-tagged" until the server restarted. The list now carries a
-fingerprint of every sidecar (mtime and size) and is rebuilt when one changes. The check is a stat
-per video: about 20 ms for the whole library once the NAS has the folders cached.
-
-### Creampie markers jump in 10 s early
-
-A creampie marker sits at the pull-out, where the event is visible. That is also where its
-training clip starts. Jumping straight there skips the build-up, so clicking the chip, ⏮ and ⏭ now
-land **10 s before** it. Not in training mode: while reviewing, a jump lands exactly on the marker,
-so you see what the model saw.
-
-- Display only: the stored `t` doesn't move. Storing it 10 s earlier would turn every confirmed
-  creampie into a training clip of plain missionary.
-- The lead-in is per label (`LEAD_IN` in `setupScenes`); every other label stays at 0.
-- ⏮/⏭ step through the jump times in order. A creampie 5 s after another marker now jumps *before*
-  it, and stepping by marker order would have skipped it.
 
 ## 1.5.2
 
@@ -1280,13 +1199,6 @@ load and resumes showing progress if a scan is running.
 
 ## 1.3.23
 
-### The tagging filters say what they mean
-
-- **To review** now means what you would assume: *any* AI marker still outstanding, including the
-  one or two suggestions left behind in a movie you otherwise finished. Previously it only caught
-  parts you had never opened, so leftovers hid under "AI pre-tagged".
-- **AI pre-tagged** is renamed **Not started** — a release where some part has AI markers and none
-  of yours, i.e. nobody has opened it yet.
 
 ## 1.3.22
 
@@ -1332,14 +1244,6 @@ The site's 18+ button only sets a cookie named `age-verified`. Vault sends that 
 
 ## 1.3.20
 
-### "To review" now counts parts, not releases
-
-A multi-part release counted as reviewed as soon as **any** part had your markers, so a 6-parter with
-four untouched parts vanished from the list. The filter now flags a release when **any single part**
-still has AI markers and none of yours: 11 releases became **32**, surfacing 29 untouched parts that
-were hidden — mostly later parts of Sora Mikumo releases.
-
-"AI pre-tagged" and "Corrected manually" keep their release-level meaning.
 
 ## 1.3.19
 
@@ -1426,26 +1330,9 @@ If every movie suddenly shows that, restart the server.
 
 ## 1.3.12
 
-### "To review" filter (training mode)
-
-The **Scene tagging** group gained a **To review** filter at the top: movies that carry AI
-suggestions but not a single marker of your own — the ones you have not touched yet.
-
-"AI pre-tagged" still lists every movie with analyzer markers left, including ones you are halfway
-through, so the two together tell you what is untouched versus in progress.
 
 ## 1.3.11
 
-### Sidebar filters for tagging progress (training mode)
-
-A **Scene tagging** group appears in the sidebar while training mode is on, with counts:
-
-- **AI pre-tagged** — movies that still carry analyzer markers waiting for review.
-- **Corrected manually** — movies where you already made or confirmed markers.
-- **No markers yet** — untouched movies, for picking the next one to work on.
-
-The flags are read from the sidecars themselves (cached by file timestamp), so they are accurate
-even for movies that were never opened in Vault.
 
 ## 1.3.10
 
@@ -1513,41 +1400,12 @@ The custom player from 1.3.2 was hard to use on a phone:
 
 ## 1.3.5
 
-### Confirm AI markers (training mode)
-
-- **✓ Confirm** an AI suggestion that's correct: in its right-click menu or in the marker editor.
-  **✓ Confirm all AI markers (N)** in the seek-bar / video right-click menu does the whole video part.
-- A confirmed marker becomes `manual` at the same time and label, and keeps the AI original under
-  `was` — so it counts as a verified training label, and untouched AI markers stay clearly
-  "not reviewed". The chip turns from dashed to solid.
 
 ## 1.3.4
 
-### Right-click menu and custom labels for scene markers (training mode)
-
-- **Right-click** a marker chip, the seek bar or the video for a context menu: **＋ Add marker** at
-  that exact spot (bar) or at the playhead (video), and **✎ Edit** / **🗑 Delete** for the marker
-  under the cursor.
-- **Custom labels:** pick **＋ New label…** in the marker editor's label list, or add/remove them in
-  **Settings → Library** under training mode. They're stored as `custom_labels` in `config.json`,
-  lowercase words joined by hyphens (max 32 chars), accepted by the server like the built-in list,
-  and shown in amber on the timeline. Removing one only takes it off the list.
 
 ## 1.3.3
 
-### Edit scene markers in training mode
-
-- New **Settings → Library → Scene markers — training mode**, **off by default** (and off in the
-  shipped `config.example.json`). While it's off, markers are view‑only and the server refuses edits.
-- With it on, in the player: **＋** adds a marker at the playhead, **drag** a chip to move it, and
-  **right‑click** a marker to pick its label from the fixed list or delete it (−1s / +1s / "playhead"
-  to fine‑tune). Free‑text labels are gone — only the SCENES_SPEC vocabulary is accepted.
-- Markers are **start points only**: the seek bar shows a tick per scene and the "▶ now" badge names
-  the last scene that started. AI suggestions have a dashed chip outline.
-- Every edit is saved as a `manual` marker. For training, a changed AI marker keeps its original
-  under `was`, and a deleted AI marker is recorded in the sidecar's `rejected` list — the analyzer
-  won't suggest either again.
-- Multi‑part movies now show and edit the markers of the part that's playing (previously always part 1).
 
 ## 1.3.2
 
