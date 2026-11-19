@@ -1549,6 +1549,7 @@ function pollScanProgress(){
   }).catch(()=>{});
 }
 /* ---------------- settings ---------------- */
+const SUPPORT_URL="https://www.patreon.com/FC2vault";
 let SET=null, SETTAB="library";
 // Vault is freeware; supporters cover the tools and the work. Shown in Settings → Scene model.
 function post2(url,body,cb){fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})}).then(r=>r.json()).then(cb).catch(()=>toast("Request failed"));}
@@ -1698,7 +1699,9 @@ function renderSetModel(pane){
     <div class="setsec">Scene model</div>
     <div class="setnote" id="mdlNote">Checking…</div>
     <div style="display:flex;gap:8px;align-items:center"><button class="setbtn" id="mdlGet" disabled>Download</button><span class="setnote" id="mdlProg" style="margin:0"></span></div>
-    <div class="setnote">The trained model places scene markers (blowjob, doggy, cowgirl, missionary, creampie …) on the seek bar. It is a free download from the project's GitHub releases; every improved build shows up here as an <b>Update</b>. Markers are written by <b>vault-scene-tagger</b>, a separate command-line tool that finds the downloaded model on its own — see the user guide.</div>`;
+    <div class="setnote">The trained model places scene markers (blowjob, doggy, cowgirl, missionary, creampie …) on the seek bar. It is a free download from the project's GitHub releases; every improved build shows up here as an <b>Update</b>. Markers are written by <b>vault-scene-tagger</b>, a separate command-line tool that finds the downloaded model on its own — see the user guide.</div>
+    <div class="setsec">Support</div>
+    <div class="setnote">Vault is free and stays free. If it earns a place in your setup, a contribution on <a href="${esc(SUPPORT_URL)}" target="_blank" rel="noopener">Patreon</a> helps cover the tools and the hours that go into the next release — thank you.</div>`;
   renderModel();
 }
 // Settings → Scene model: installed vs. newest, one button, progress while it runs.

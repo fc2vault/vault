@@ -242,6 +242,8 @@ Open **Settings** from the **☰ Tools** menu. Six tabs:
   [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) finds it by itself. The
   tagger is a separate command‑line tool; the README's *Generating markers* section has the three
   commands.
+- **Support:** Vault is free. The tab links to the project's Patreon for anyone who wants to help
+  cover the tools and the work behind the next release — voluntary, nothing is held back.
 
 ### Library & cache
 

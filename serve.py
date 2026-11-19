@@ -71,7 +71,7 @@ import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.8.1"
+VAULT_VERSION = "1.8.2"
 # Training mode (editing scene markers to make training data) is the author's own workflow, not part
 # of the public package: make_release.sh --public sets this to False, which hides the switch and
 # refuses marker/label edits. Viewing markers is unaffected.

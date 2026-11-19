@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.2
+
+- **The Patreon link is back**, for anyone who wants to contribute: Settings → Scene model, the
+  README and the website. Voluntary — Vault stays free, with nothing held back.
+
 ## 1.8.1
 
 - **Scene markers are view-only.** The marker editor is not part of the public package; markers
