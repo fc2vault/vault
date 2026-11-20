@@ -6,7 +6,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 
 **Download:** [Mac — Apple Silicon](https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-apple-silicon.dmg) · [Mac — Intel](https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-intel.dmg) · [Windows](https://github.com/fc2vault/vault/releases/latest/download/Vault-windows-setup.exe) — everything included (its own Python and ffmpeg), nothing else to install. Linux: [from source](#install).
 
-> **Read [Privacy & safety](#privacy--safety) before exposing it.** Vault listens on **all interfaces** and has **no login**. It speaks HTTPS once you give it a certificate ([HTTPS](#https)), but that only encrypts the traffic. On a trusted home network that is the point; it is not safe to port‑forward to the internet.
+> **Read [Privacy & safety](#privacy--safety) before exposing it.** Vault listens on **all interfaces** and has **no login**. **Settings → HTTPS → Turn on HTTPS** encrypts the traffic ([HTTPS](#https)), but it is not a login. On a trusted home network that is the point; it is not safe to port‑forward to the internet.
 
 ![Vault — grid view](docs/images/grid.png)
 
@@ -26,7 +26,6 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 - [How metadata works](#how-metadata-works)
 - [Subtitles (Whisper)](#subtitles-whisper)
 - [Project layout](#project-layout)
-- [Building a release](#building-a-release)
 - [Privacy & safety](#privacy--safety)
 - [Troubleshooting](#troubleshooting)
 
@@ -49,7 +48,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 **Watch**
 - In‑browser streaming with HTTP range requests + `sendfile` (fast seeks over SMB)
 - Multi‑part playback with auto‑advance
-- Keyboard shortcuts (space/k, ←→ / j l seek, ↑↓ volume, m, f, 0–9, `< >` speed)
+- Keyboard shortcuts (space/s play, a/d and ←→ seek, y/c scene markers, v subtitles, ↑↓ volume, m, f, t theater, 0–9, `< >` speed)
 - HEVC handled natively where the browser supports it, with a clear fallback panel where it doesn’t
 
 **Curate**
@@ -57,11 +56,11 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 - **Reassign** a single misgrouped movie to another actress straight from the player (**⇄**) — relinks just that title, never renames the actress it left
 - **Multi‑select** (shift / ⌘‑click, or the card's select box) → bulk‑assign one actress to many movies, or bulk‑delete them
 - **Delete** a movie (from the player), several at once (multi‑select), or a whole actress and her movies (from her overview) — always confirmed; files are **moved to a recoverable trash**, never hard‑deleted. Deleting an actress trashes only titles where she is the sole performer; shared co‑star titles are kept
-- **Scene markers**: the player draws scenes (e.g. *blowjob*, *doggy*, *cumshot*) as icon chips and ticks **right on the seek bar**, tube‑site style — hover for the label, click to jump. Markers come from `<video>.scenes.json` sidecars written by vault-scene-tagger with the free scene model. See **Scene markers** below
+- **Scene markers**: the player draws scenes (e.g. *blowjob*, *doggy*, *cumshot*) as icon chips and ticks **right on the seek bar**, tube‑site style — hover for the label, click to jump. Vault places them itself with the free scene model (Settings → Scene model → **Place markers**, a 🎬 button per movie, or the nightly run) and keeps them next to the video as `<video>.scenes.json`. See **Scene markers** below
 - **Organize** the folder on disk: normalize `…/<CODE>/<CODE>.ext`, quarantine junk, flag/relocate duplicates — preview first, nothing deleted
 - **Organize by actress**: fold every movie into `…/<Actress>/<CODE>/` to match the catalog (so the disk follows reassignments) — preview first, only moves, never deletes
 - **Nightly run** (Settings → Nightly): inside a time window you choose, Vault imports new downloads (with the Import window's choices made up front), looks up metadata for **new** movies only (a miss is retried after a week, not every night), places scene markers and writes subtitles — each step stops when the window ends and carries on the next night
-- **Settings** hub: change the library folder, clear caches, manage tags (rename/merge + **JP→EN translation**), manage actresses (rename, merge, **find duplicates**), and connect sources
+- **Settings** hub: library and download folders, tags (rename/merge + **JP→EN translation**), actresses (rename, merge, **find duplicates**), sources, the scene model, subtitles, the nightly run and **HTTPS**
 
 **Enrich**
 - **Scan metadata** from the web (English/Japanese titles, covers, dates, tags) across your library
@@ -72,13 +71,11 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 Vault is **freeware**: the whole app, every source, the catalog and the scene model, with no
 movie limit, no key and no account. The terms are in [LICENSE.md](LICENSE.md).
 
-**The scene model** is the trained video classifier that places markers (blowjob, doggy,
-cowgirl, missionary, creampie …) on the seek bar. It is a ~450 MB download from the project's
-[GitHub releases](https://github.com/fc2vault/models/releases): open **Settings → Scene model**
-and press **Download**. Vault unpacks it into a per-user folder that
-[vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) finds on its own, and every
-improved build shows up in the same tab as an **Update**. See
-[Generating markers](#generating-markers-with-vault-scene-tagger).
+**The scene model** is the trained video classifier that recognises scenes (blowjob, doggy,
+cowgirl, missionary, creampie …) so Vault can mark them on the seek bar. It is a ~450 MB download
+from the project's GitHub releases: open **Settings → Scene model** and press **Download**; every
+improved build shows up in the same tab as an **Update**. Placing the markers is built into Vault
+— see [Placing markers](#placing-markers).
 
 **Support:** Vault is developed in the open and stays free. If it earns a place in your setup, a
 contribution on [Patreon](https://www.patreon.com/FC2vault) helps cover the tools and the hours
@@ -92,7 +89,7 @@ The **Mac and Windows downloads** need nothing but a browser: they bring their o
 - **Python 3.8+** (standard library only — no `pip install`)
 - **ffmpeg / ffprobe** on your `PATH` (posters + duration/resolution/codec)
 - A modern browser (Chrome, Brave, Safari, Firefox)
-- macOS, Linux or Windows (developed on macOS; Windows support is new, run it with `py serve.py`; the optional fc2ppv‑db session store uses the macOS Keychain, with a file fallback elsewhere)
+- macOS, Linux or Windows (on Windows from source: `py serve.py`; the optional fc2ppv‑db session store uses the macOS Keychain, with a file fallback elsewhere)
 
 Install ffmpeg:
 
@@ -165,6 +162,8 @@ running from source; the installers do those steps for you.
 
 ## Configure
 
+*From source* — the installers ask for the movie folder on first start instead.
+
 On first run Vault copies `config.example.json` to `config.json`. Edit it to point at your movies:
 
 ```json
@@ -182,6 +181,8 @@ python3 serve.py --library "/path/to/your/movies"
 
 ## Run
 
+*From source* — with the installers, opening Vault does this.
+
 ```bash
 python3 serve.py
 ```
@@ -195,6 +196,9 @@ python3 serve.py > vault.log 2>&1 &
 ```
 
 ### Run at login (as a service)
+
+*From source.* With the installers: on a Mac add Vault under System Settings → General → Login
+Items; on Windows tick *Start Vault when I log on* in the setup.
 
 ```bash
 python3 serve.py --install-service      # starts at login, restarts if it stops
@@ -240,7 +244,7 @@ Nothing here is authenticated — see [Privacy & safety](#privacy--safety).
 **Detail / player** shows the movie with the actress up top (English → Japanese → code), her stats as pills, full technical metadata, tags, rating, and a filmography rail of her other titles (owned + wishlist).
 
 
-**Settings** is where you manage everything — library folder & cache, tags, actresses, and sources.
+**Settings** is where you manage everything — library and download folders, tags, actresses, sources, the scene model and markers, subtitles, the nightly run and HTTPS.
 
 ![Settings — Sources & fc2ppv‑db](docs/images/settings_sources.png)
 
@@ -257,26 +261,27 @@ The detailed, screenshot‑driven guide lives in **[`docs/USER_GUIDE.md`](docs/U
 - Multi‑select bulk actress assignment
 - Organizing the library folder (by `<CODE>` and **by actress**)
 - Scanning & enriching from the web (and the verification model)
-- Settings: library, cache, **tags + translations**, **actresses + dedup**, sources
-- Connecting the premium **fc2ppv‑db** source
+- Importing from your download folder
+- English subtitles, scene markers and the nightly run
+- Settings: library, **tags + translations**, **actresses + dedup**, sources, scene model, subtitles, nightly, HTTPS
+- Connecting the optional **fc2ppv‑db** source
 
 ## How metadata works
 
-Vault treats your **filesystem as the spine** and the catalog database (`data/catalog.db`) as an enrichment overlay. Each source contributes only the fields it’s best at, and Vault never overwrites a value you edited by hand. See **[`SOURCES.md`](SOURCES.md)** for the per‑field priority table and the exact scraping model.
+Vault treats your **filesystem as the spine** and the catalog database (`data/catalog.db`) as an enrichment overlay. Each source fills what it's best at, and Vault never overwrites a value you set by hand. **[`SOURCES.md`](SOURCES.md)** has the details.
 
 Highlights:
 - **Local first** — duration/resolution/codec from `ffprobe`, posters from `ffmpeg`.
-- **Shell scrapers** — 123av (English titles), ffjav (JP title, cover, date).
+- **Scan metadata**, in priority order: **fc2ppv‑db** (the cast, JP title, date, cover, tags — optional, it sits behind a human check: paste a browser session in Settings → Sources, or point Vault at a FlareSolverr on the same public IP), then **fc2db.net**, then **123av** (English titles) and **ffjav** — each only filling what the ones before left empty.
 - **Verified actress enrichment** — javdatabase + jav.guru, gated by FC2‑code overlap with your library.
-- **fc2ppv‑db** (optional) — actress faces, aliases, JP titles, dates, tags, full filmographies. It sits behind a human‑check. In Settings → Sources, either paste a browser session from this machine, or point Vault at a FlareSolverr on the same public IP and let that browser load the pages.
 - **Canonical tags** — every scraped tag is routed through the JP→EN / merge table before it’s stored: Japanese tags become their English label, merged tags stay merged (a merge you make is remembered for future scans), and untranslated Japanese one‑offs are dropped instead of polluting the set. English tags without a mapping are kept as‑is.
 
 ## Scene markers (sidecars)
 
 The player draws scene markers **on the seek bar** from **`<video>.scenes.json`** sidecar files
-placed next to each video. Producing them (shot detection, AI act/position tagging) is deliberately
-**out of scope for this server** — that runs in a separate analyzer project. Vault only reads the
-files and caches them in a `markers` table. Markers are shown as start points, view-only.
+next to each video. Vault writes them with its built-in scene tagger ([Placing markers](#placing-markers)),
+and any other tool that follows the format can too; Vault reads them and caches them in a
+`markers` table. Markers are shown as start points, view-only.
 
 Format (`schema: "vault-scenes/1"`), timestamps in seconds, relative to that one video file:
 
@@ -285,6 +290,8 @@ Format (`schema: "vault-scenes/1"`), timestamps in seconds, relative to that one
   "schema": "vault-scenes/1",
   "video": "FC2-PPV-1234567.mp4",
   "duration": 1800.0,
+  "generator": "vault-scene-tagger 0.1.0",
+  "generated_at": "2026-11-20T16:50:19Z",
   "markers": [
     { "t": 120.0, "end": 300.0, "label": "blowjob", "confidence": 0.82, "source": "ml" },
     { "t": 900.0, "label": "cumshot", "source": "manual" }
@@ -292,47 +299,37 @@ Format (`schema: "vault-scenes/1"`), timestamps in seconds, relative to that one
 }
 ```
 
-Merge rule: the analyzer owns `source` values `cut` / `heuristic` / `ml` and may rewrite them on
-every run; markers with `source: "manual"` (added in Vault) are always preserved. Drop a sidecar
-next to any movie and open it — the markers appear. (Vault generates its own scrub‑bar thumbnails;
-a sidecar sprite sheet is not required.)
-
-The full, versioned contract is **[`SCENES_SPEC.md`](SCENES_SPEC.md)**. It's a verbatim copy of the one in the
-analyzer repo; keep the two identical. When Vault writes manual markers back, it keeps the
-sidecar's other top-level fields and its `generator`. That way the analyzer can still tell which
-phases already ran and doesn't re-decode a movie just because you added a marker.
+Merge rule: the tagger owns `source` values `cut` / `heuristic` / `ml` and may rewrite them on
+every run; markers with `source: "manual"` are always preserved. Drop a sidecar next to any movie
+and open it — the markers appear. (Vault generates its own scrub‑bar thumbnails; a sidecar sprite
+sheet is not required.) The full, versioned format is **[`SCENES_SPEC.md`](SCENES_SPEC.md)**.
 
 
-### Generating markers with vault-scene-tagger
+### Placing markers
 
-The analyzer is its own project, [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger)
-(standard library + ffmpeg; the model engine adds `torch` and `transformers`). It walks a folder
-and writes a `<video>.scenes.json` sidecar next to each movie with the scene markers it found:
-positions (missionary, doggy, cowgirl, …) and acts (blowjob, fingering, creampie, …), each with a
-confidence. Install once:
+Vault places the markers itself with the scene model. Once, in **Settings → Scene model**:
 
-```bash
-pip install "git+https://github.com/fc2vault/vault-scene-tagger"
-pip install torch transformers numpy        # the model engine; see pytorch.org for a CUDA build
-```
+1. **Download** the scene model (~450 MB).
+2. **Set up** — installs what the model needs to run (PyTorch, about 1 GB) into Vault's own
+   environment, the same one the subtitles use. On an Apple Silicon Mac it runs on the GPU; on
+   Windows or Linux with an NVIDIA card Set up picks the CUDA build. Anywhere else it runs on the
+   processor, which works but takes hours per movie.
 
-Then download the scene model in **Settings → Scene model** and run the tagger; it finds the
-downloaded model on its own:
+Then:
 
-```bash
-vault-scene-tagger "/path/to/library" --dry-run                      # what would run
-vault-scene-tagger "/path/to/library/<Actress>" --engine phar        # one actress
-vault-scene-tagger "/path/to/library" --engine phar --log-file tagger.log
-```
+- **Place markers on N movies without them** (same tab) works through the library in the
+  background, with progress and **Stop**;
+- **🎬 Place markers** in a movie's panel does one movie;
+- the **nightly run** (Settings → Nightly → Scene markers) does new movies, or the whole library,
+  inside its time window.
 
-It's resumable: re-runs skip videos whose sidecar is current, and Ctrl+C is safe. Vault's
-**nightly run** (Settings → Nightly) can run it for you: it finds `vault-scene-tagger` on the
-`PATH` or in Vault's Whisper Python, or takes a command you give it, and stops it at the end of
-the night. On an M1 Mac
-it runs at about 3.5× realtime; a CUDA GPU is several times faster. Nothing else to do on the
-Vault side: a movie's sidecar is synced into the markers cache the next time you open it. Without the model the
-tagger can still write shot cuts (`--phase a`) or use skier233's AI server
-(`--engine ai-server`); its README explains both.
+It takes a few minutes per movie (about 3× realtime on an M1 Mac; an NVIDIA GPU is faster).
+Movies that already have markers are skipped, and stopping is safe. A movie's markers appear the
+next time you open it.
+
+The tagger also runs on its own, for scripting: `python scene_tagger.py "/path/to/library"
+--engine phar` with a Python that has `torch`, `transformers` and `numpy` (the one Set up made is
+`<Vault data>/whisper-env`). `--help` lists the options; `--phase a` writes shot cuts only.
 
 ## Subtitles (Whisper)
 
@@ -364,9 +361,10 @@ Expect roughly 15–30 minutes per hour of video on an 8 GB M1 Mac (the second l
 movies with long sex scenes). Memory stays capped — Whisper at a third of the RAM, the translator
 at 40 % — so the computer stays usable.
 
-Whisper runs in its own Python environment, so Vault itself stays on the plain system Python.
-**Settings → Subtitles → Set up** creates `<Vault data>/whisper-env` and installs what runs fastest
-on that machine (needs Python 3.10+; about 1 GB, the models download on first use):
+Whisper runs in its own Python environment, apart from Vault's. **Settings → Subtitles → Set up**
+creates `<Vault data>/whisper-env` and installs what runs fastest on that machine (about 1 GB; the
+models download on first use). The installers build it from their own Python; from source it needs
+Python 3.10+ on the computer:
 
 | Engine | Where | Notes |
 |---|---|---|
@@ -376,7 +374,8 @@ on that machine (needs Python 3.10+; about 1 GB, the models download on first us
 
 Or install one yourself and put that Python in the same Settings tab. `auto` uses the first of
 mlx → faster → openai that imports. Model: **large-v3** (best, ~1.6 GB as the 8-bit build on a Mac,
-downloads on first use), medium or small. `ffmpeg` must be on the PATH (it decodes the audio).
+downloads on first use), medium or small. It decodes the audio with ffmpeg (bundled in the
+installers; from source it must be on the PATH).
 
 The worker, `tools/transcribe.py`, also runs on its own:
 `python tools/transcribe.py movie.mp4 movie.en.srt --translator llm --ja-out movie.ja.srt`.
@@ -387,87 +386,45 @@ keeps every repeat of a short word), `--no-voice-filter` (raw audio).
 ## Project layout
 
 ```
-serve.py         # the app + HTTP API (Python stdlib, single file)
-index.html       # the entire front‑end (vanilla JS, no build step)
-scan.py          # web scrapers + enrichment (123av, ffjav, javdatabase, jav.guru, fc2ppv‑db)
-organize.py      # preview‑then‑apply library tidy (never deletes/overwrites)
-subtitles.py     # Whisper transcription queue (Tools → Transcribe)
-nightly.py       # the nightly run (Settings → Nightly)
+serve.py             # the app + HTTP API (Python stdlib)
+index.html           # the entire front‑end (vanilla JS, no build step)
+scan.py              # web sources + enrichment (fc2ppv‑db, fc2db.net, 123av, ffjav, javdatabase, jav.guru)
+catalog.py           # the catalog database
+organize.py          # preview‑then‑apply library tidy (never deletes/overwrites)
+rename_fc2.py, refolder_fc2.py, migrate_fc2.py   # Import: rename, clean, move into the library
+dedupe.py            # find & merge duplicate actress records
+subtitles.py         # Whisper transcription queue (Tools → Transcribe)
 tools/transcribe.py  # the Whisper worker (runs with the Whisper Python)
-dedupe.py        # find & merge duplicate actress records
-data/catalog.db  # preloaded catalog (SQLite): actresses, works, tags, aliases, links
-config.json      # your library path + port (gitignored)
-docs/            # this guide + screenshots
+vault_model.py       # the scene model download (Settings → Scene model)
+scenetag.py          # placing markers (Settings → Scene model → Place markers)
+scene_tagger.py, vault_scene_tagger/   # the scene tagger itself
+final_tags.py        # which markers become tags
+nightly.py           # the nightly run (Settings → Nightly)
+tlsgen.py            # HTTPS certificates (Settings → HTTPS)
+vault_service.py     # --install-service (launchd / systemd / Task Scheduler)
+packaging/           # how the Mac and Windows installers are built
+data/catalog.db      # preloaded catalog (SQLite): actresses, works, tags, aliases, links
+config.json          # your library path + port (gitignored)
+docs/                # the user guide + screenshots
 ```
 
-## Building a release
+The Mac disk images and the Windows setup are built by GitHub Actions from `packaging/` when a
+release is published, and attached to it.
 
-`make_release.sh` assembles a clean, self‑contained, GitHub‑ready copy (app + scrapers + a fresh DB snapshot + a `start.command` launcher):
-
-```bash
-./make_release.sh            # full build — ships YOUR ownership flags. Personal.
-./make_release.sh --rc       # shareable release candidate (see below)
-./make_release.sh --public   # --rc, plus sanitized imagery. This is what's on GitHub.
-```
-
-All three strip the author's absolute paths from the shipped scripts. They differ in what the bundled catalog says about *you*, and in what the screenshots show.
-
-### `--public` — the published build
-
-Everything `--rc` does, plus:
-
-- **Actress portrait blobs are cleared** from the catalog (text metadata is untouched).
-- **Screenshots are swapped for a sanitized set** in `docs/images_public/`:
-  - Library views (grid, multi‑select) keep their layout with the **poster art pixelated**.
-  - The settings / scan / organize / import dialogs are **cropped to the dialog** — nothing needs censoring once the library behind them is out of frame.
-  - The player and actress‑overview shots are omitted, and the docs that referenced them are pruned so no image link dangles.
-
-Regenerate the sanitized set after taking new screenshots:
-
-```bash
-python3 tools/censor_shots.py docs/images /tmp/px     # pixelate poster art
-```
-
-`tools/censor_shots.py` finds photographic regions structurally rather than by hand‑placed coordinates — Vault's chrome is flat and near‑black while poster art is bright, textured and coloured — then boxes each region so a whole poster is covered even where detection only caught part of it. UI text stays sharp.
-
-### `--rc` — the shareable build
-
-Use this for anything public. It keeps the catalog as a **prebuilt metadata library** — every title, cover, tag, actress profile, portrait, alias and filmography link survives — while removing every signal about what you personally own or want:
-
-| Removed | Why |
-|---|---|
-| `works.in_library` → `0` | marks the files you hold |
-| `works.availability` → `available` | `missing` is your wishlist |
-| `works.source` `fs`/`manual`/`user` → `catalog` | `fs` means "found on my disk" — that flag alone re‑identifies the whole owned library |
-| `actresses.source` `manual`/`csv` → `catalog` | same, for hand‑curated actress rows |
-| works rows with **no** metadata at all | their only content is "this code was on my disk" |
-| `crawl` table | scraper bookkeeping, not movie or actress data |
-
-`VACUUM` runs last so deleted rows can't be recovered from the freelist. External provenance (`bigboobs.pink`, `jav-forum:*`, `javfc2`, `jav.guru`) is deliberately kept — that's attribution, documented in `SOURCES.md`.
-
-The build then **verifies itself and fails rather than shipping a leak**, re‑checking each item above plus: no personal paths or hostnames in any shipped text file, and no `.DS_Store` / `config.json` / `cache/`. A clean run ends with:
-
-```
-RC verify: clean (no ownership flags, no personal paths, no runtime cruft).
-```
-
-Watched state, favorites (movies **and** actresses) and ratings never enter this picture — they live in a **`userdata.json` sidecar** next to the DB, the single source of truth, kept deliberately **separate from `catalog.db`** so they survive a catalog rebuild/reimport and a browser cache wipe. They are your personal state and are never part of the shipped catalog.
-
-**What a recipient gets:** their own scan populates the grid; the bundled catalog enriches whatever codes they happen to own. Since nothing is flagged `missing`, they get no wishlist ghosts until they enrich an actress themselves.
 
 ## Privacy & safety
 
-- **No cloud, no telemetry.** Vault talks to the internet only when *you* press a scrape/enrich button. It has no accounts and phones home to nothing; the only other request is the one you start in Settings → Scene model, which asks GitHub for the newest model.
+- **No cloud, no telemetry.** Vault has no accounts and phones home to nothing. It goes online only for: the metadata scans you start (and the nightly run's scan of new movies, if you switch it on), **Enrich from web**, a look at GitHub for the newest scene model when you open Settings → Scene model, and the downloads you ask for (the scene model; the packages and models that Set up and the first transcription fetch). Your movies, audio, subtitles and markers never leave the computer.
 - **It is not access‑controlled.** The server binds `0.0.0.0`, so anyone who can reach the port gets the whole library — there is **no login** (HTTPS, when you turn it on, encrypts the traffic but locks nobody out). Two endpoints act on the host machine rather than just returning data:
   - `POST /api/open` — opens a file in your desktop video player
   - `POST /api/reveal` — reveals it in Finder
 
-  Treat reachability as the only control. Keep it on a network you trust (LAN or a VPN back to your LAN); do **not** port‑forward it or put it on a public/coworking Wi‑Fi. To pin it back to this machine only, change the bind in `serve.py`:
+  Treat reachability as the only control. Keep it on a network you trust (LAN or a VPN back to your LAN); do **not** port‑forward it or put it on a public/coworking Wi‑Fi. Running from source, you can pin it to this machine only by changing the bind in `serve.py`:
 
   ```python
-  srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)   # was "0.0.0.0"
+  srv = SERVER = VaultServer(("127.0.0.1", port), Handler)   # was "0.0.0.0"
   ```
-- <a id="https"></a>**HTTPS is optional.** Put a certificate and its key, named `vault.crt` and `vault.key`, in Vault's `tls` folder and restart Vault: it then serves HTTPS on its normal port. The folder is `~/Library/Application Support/Vault/tls` on macOS, `%LOCALAPPDATA%\Vault\tls` on Windows and `~/.local/share/vault/tls` on Linux; any certificate that names this machine works. Plain HTTP keeps working on the machine itself, and other devices are redirected to `https://`. If you signed the certificate with your own CA, put its `vault-ca.crt` there too: a phone can fetch it from `http://<this-machine>:8730/vault-ca.crt` and trust it once. `--no-tls` turns HTTPS off.
+- <a id="https"></a>**HTTPS is one button.** **Settings → HTTPS → Turn on HTTPS** makes a small private certificate authority and a certificate for this computer (its names and network addresses, valid 825 days) and switches HTTPS on at once, on the normal port — no restart, no openssl. Plain HTTP keeps working on the machine itself; other devices are redirected to `https://`. Each phone or computer trusts the certificate once: the tab shows the steps, starting at `http://<this-machine>:8730/vault-ca.crt`. **Renew** makes a new certificate (e.g. after the computer got a new address) from the same authority, so devices keep trusting it; **Turn off** parks the certificate, and turning on again reuses it. To use your own certificate instead, put `vault.crt` and `vault.key` (and optionally `vault-ca.crt`) in Vault's `tls` folder and restart. The folder is `~/Library/Application Support/Vault/tls` on macOS, `%LOCALAPPDATA%\Vault\tls` on Windows and `~/.local/share/vault/tls` on Linux; any certificate that names this machine works. `--no-tls` keeps HTTPS off.
 - **Non‑destructive by design.** Organize *moves* junk/duplicates into recoverable folders and never deletes or overwrites; enrichment is fill‑if‑empty and never clobbers your edits.
 - **Secrets** (the optional fc2ppv‑db session) are stored in the **macOS Keychain** (encrypted), or a `0600` file elsewhere — never in the repo.
 - Web scraping honors each site’s access model; the one human‑checked source is only ever reached through a session **you** authenticate.
@@ -476,8 +433,9 @@ Watched state, favorites (movies **and** actresses) and ratings never enter this
 
 | Symptom | Fix |
 |---|---|
-| “no valid library folder” on start | Set `library` in `config.json`, or `--library "…"`, or **Settings → Library**. |
-| No posters / durations | Install `ffmpeg`/`ffprobe` and ensure they’re on `PATH`. |
+| “no valid library folder” on start | Installers: Vault asks for the folder (Windows: Start menu → **Vault - Choose movie folder**). From source: set `library` in `config.json`, or `--library "…"`, or **Settings → Library**. |
+| No posters / durations | The installers bring ffmpeg. From source: install `ffmpeg`/`ffprobe` and make sure they’re on `PATH`. |
+| Vault doesn't start (installers) | The log is `~/Library/Application Support/Vault/server.log` (Mac — or the app menu → **Show Server Log**) or `%LOCALAPPDATA%\Vault\server.log` (Windows). |
 | Slow first boot | Normal over SMB — it caches after the first walk and boots instantly next time. |
 | A movie didn’t appear after copying it in | **Scan library** re‑indexes the filesystem first; new folders show up then. |
 | A movie you own still shows Status **missing** | Its catalog row is stale. Any scan/rescan reconciles it — the log prints `[db] N work(s) marked available`. The import pipeline now marks them as it goes. |

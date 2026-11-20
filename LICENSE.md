@@ -16,9 +16,9 @@ There is no trial, no limit and no key, and nothing in it expires.
 
 ## The scene model
 
-The scene model (`vault-r<N>`, published at github.com/fc2vault/models) is a fine-tune of
-P-HAR's TimeSformer (Apache-2.0). It is free for use with Vault and vault-scene-tagger on your
-own library under the same terms as the app: run it, share the unmodified release, don't sell it.
+The scene model (`vault-r<N>`, published with Vault's GitHub releases) is a fine-tune of
+P-HAR's TimeSformer (Apache-2.0). It is free for use with Vault on your own library under the
+same terms as the app: run it, share the unmodified release, don't sell it.
 The reviewed footage it was trained on is not part of the project and is not distributed.
 
 ## Bundled data
@@ -32,4 +32,4 @@ labelled and is not a work of this project.
 Vault is provided as is, without warranty of any kind. The authors are not liable for any loss
 or damage arising from its use, including loss of files during organizing, importing or
 de-duplicating, which is why every such step previews first and never deletes a movie without
-asking.
+your say-so (a choice you set in advance, such as the nightly run's duplicate handling, counts).

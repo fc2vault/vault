@@ -10,15 +10,17 @@ A feature‑by‑feature walkthrough. To install, download Vault for Mac or Wind
 4. [Playing a movie](#4-playing-a-movie)
 5. [Editing a movie](#5-editing-a-movie)
 6. [Multi‑select: bulk‑assign an actress](#6-multi-select-bulk-assign-an-actress)
-7. [Organize the library folder](#7-organize-the-library-folder)
+7. [Import from your download folder](#7-import-from-your-download-folder)
 8. [Scan metadata from the web](#8-scan-metadata-from-the-web)
 9. [Enrich an actress (verified)](#9-enrich-an-actress-verified)
 10. [Settings](#10-settings)
+    - [Scene model & placing markers](#scene-model)
     - [Library & cache](#library--cache)
     - [Tags & translations](#tags--translations)
     - [Actresses & de‑duplication](#actresses--de-duplication)
     - [Sources & fc2ppv‑db](#sources--fc2ppv-db)
     - [Subtitles](#subtitles)
+    - [HTTPS](#https)
     - [Nightly](#nightly)
 11. [Using Vault on your phone](#11-using-vault-on-your-phone)
 12. [Subtitles (Japanese → English)](#12-subtitles-japanese--english)
@@ -75,10 +77,8 @@ Click any owned card to open the detail/player view.
 - **Right panel:** actress name in a fixed order — **English → Japanese → code** — then, for a multi‑actress title, a **co‑stars** row (each clickable to open that performer's overview), her stats as pills (age · cup · height · B·W·H), technical **metadata**, favorite / played / **censored toggle**, external‑player & Finder buttons, **Scan metadata**, your star rating, editable **tags**, and a **🗑 Delete movie** button. A movie's cast is a **many‑to‑many** relationship — one lead (**main**) plus any number of **co‑stars** — so a title shows up under every performer in it.
   - **Click her name** (the **›** caret) to fold out her full **overview** — portrait, bio, and everything owned + missing — without leaving the movie.
   - **⇄** (next to the ✎ edit button) **reassigns just this movie** to another actress — see [§5](#5-editing-a-movie).
-  - **Scenes on the seek bar:** the player uses a custom control bar with the scenes drawn on the scrubber — **clickable pictogram chips** above the bar (click to jump), **⏮ / ⏭** to step to the previous/next scene, colored **ticks** on the bar at each scene's start, a hover **label + time** tooltip, and a **"▶ now"** badge for the current scene. Markers come from a `<video>.scenes.json` sidecar next to the movie, written by [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) with the scene model (Settings → Scene model).
-  - **Confirmed vs. suggested:** a marker the AI proposed and nobody has checked wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. (Amber, not red — an unreviewed guess is not a wrong one.) The chip's bottom edge keeps its label colour either way, so you can still read *what* it is at a glance.
-
-  - **Ranges:** a marker is the *start* of an action and can carry an *end* — the range shows as a translucent band on the bar. The player shows one marker per change of action, so the bar stays readable.
+  - **Scenes on the seek bar:** the player uses a custom control bar with the scenes drawn on the scrubber — **clickable pictogram chips** above the bar (click to jump), **⏮ / ⏭** to step to the previous/next scene, colored **ticks** on the bar at each scene's start, a hover **label + time** tooltip, and a **"▶ now"** badge for the current scene. Vault places them with the scene model — **🎬 Place markers** in the right panel, Settings → Scene model, or the nightly run — and keeps them in a `<video>.scenes.json` sidecar next to the movie.
+  - **Placed by the model:** a marker the scene model placed wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. The chip's bottom edge keeps its label colour, so you can still read *what* it is at a glance. The player shows one marker per change of action, so the bar stays readable.
   - **Subtitles:** a movie with subtitles shows a **CC** button in the control bar (or press `v`); `shift`+`y` / `shift`+`c` jump to the previous / next line. The right panel's **💬 Transcribe (JA → EN)** makes them for this movie — see [§12](#12-subtitles-japanese--english).
   - **Volume:** hover the speaker icon and a slider unfolds next to it; the level and mute state are remembered across movies. Clicking the speaker mutes, clicking it again brings the previous level back.
 
@@ -86,7 +86,7 @@ Click any owned card to open the detail/player view.
 
 > `a` `s` `d` sit under the left hand so the right one can stay on the mouse.
 
-**Esc closes one thing at a time**, topmost first: the marker editor, then fullscreen, then an actress sheet you opened from the movie, then the player itself. Opening a performer's overview from a movie and pressing `Esc` returns you **to the movie**, not to the grid.
+**Esc closes one thing at a time**, topmost first: fullscreen, then an actress sheet you opened from the movie, then the player itself. Opening a performer's overview from a movie and pressing `Esc` returns you **to the movie**, not to the grid.
 
 **On a phone** the three columns can't sit side by side, so the player restacks: the video pins to the top with a **×** over it, and the two side panels become tabs underneath —
 
@@ -232,7 +232,7 @@ The key idea is **verification**: it checks whether any code in her online filmo
 
 ## 10. Settings
 
-Open **Settings** from the **☰ Tools** menu. Six tabs:
+Open **Settings** from the **☰ Tools** menu. The tabs: Library, Tags, Actresses, Sources, Scene model, Subtitles, Nightly and HTTPS.
 
 ### Scene model
 
@@ -241,10 +241,13 @@ Open **Settings** from the **☰ Tools** menu. Six tabs:
 - Shows the installed model and the newest build on GitHub, with one button to **Download** or
   **Update** (about 450 MB). The model lands in a per‑user folder
   (`~/Library/Application Support/Vault/models` on macOS, `%LOCALAPPDATA%\Vault\models` on
-  Windows, `~/.local/share/vault/models` on Linux) where
-  [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger) finds it by itself. The
-  tagger is a separate command‑line tool; the README's *Generating markers* section has the three
-  commands.
+  Windows, `~/.local/share/vault/models` on Linux).
+- **Placing markers:** **Set up** once — it installs what the model needs to run (PyTorch, about
+  1 GB) into the same private environment the subtitles use. Then **Place markers on N movies
+  without them** works through the library in the background (progress, **Stop**); one movie at a
+  time is the **🎬 Place markers** button in its panel, and the nightly run can do new movies on its
+  own. A few minutes per movie on an Apple Silicon Mac or with an NVIDIA graphics card; anywhere
+  else it runs on the processor and takes hours, and the tab says so.
 - **Support:** Vault is free. The tab links to the project's Patreon for anyone who wants to help
   cover the tools and the work behind the next release — voluntary, nothing is held back.
 
@@ -307,8 +310,8 @@ another.
 ![Settings — Subtitles](images/settings_subtitles.png)
 
 - **Status** shows which Whisper engines the subtitle environment can run and whether the
-  translator is installed. **Set up** creates that environment for you (a separate Python, about
-  1 GB, so Vault itself stays on the plain system Python); the models download the first time you
+  translator is installed. **Set up** creates that environment for you (its own Python
+  environment, about 1 GB); the models download the first time you
   transcribe (Whisper ~1.6 GB, the translator ~2.3 GB on a Mac). Or point **Python** at one you
   installed yourself.
 - **Engine:** *auto* picks the fastest installed (mlx on an Apple Silicon Mac, faster‑whisper
@@ -316,6 +319,15 @@ another.
 - **Translation:** *Whisper + LLM* (default — Whisper writes the Japanese, a small local model
   translates it with the conversation as context) or *Whisper only* (faster, rougher). On Windows /
   Linux, run Ollama or LM Studio and enter its **server address** and **model** here.
+
+### HTTPS
+
+**Turn on HTTPS** makes a certificate for this computer and switches HTTPS on right away; other
+devices then open `https://<this-machine>:8730/`. Each phone or computer trusts the certificate
+once — the tab lists the steps for iPhone, Android, Mac and Windows, starting with
+`http://<this-machine>:8730/vault-ca.crt`. **Renew** after the computer got a new network address
+(the tab warns when it did); devices keep trusting it. **Turn off** goes back to plain HTTP. On the
+computer itself `http://127.0.0.1:8730/` always works.
 
 ### Nightly
 
@@ -336,7 +348,7 @@ http://<this-machine-ip>:8730/
 
 On macOS `ipconfig getifaddr en0` prints the address; on Linux use `hostname -I`. `127.0.0.1` only works on the machine itself.
 
-> Vault has **no login**. With a certificate installed it speaks HTTPS (README → Privacy & safety), so nobody on the network can read along — but anyone who can reach that address still gets your whole library, and `Open in external player` / `Reveal in Finder` act on the host machine. Keep it to networks you trust, and don't port‑forward it.
+> Vault has **no login**. With **Settings → HTTPS** turned on, nobody on the network can read along — but anyone who can reach that address still gets your whole library, and `Open in external player` / `Reveal in Finder` act on the host machine. Keep it to networks you trust, and don't port‑forward it.
 
 **What changes on a narrow screen**
 
@@ -374,13 +386,13 @@ computer. Nothing is uploaded anywhere.
 ![Player with subtitles](images/player_subtitles.png)
 
 **What to expect.** The Japanese transcript is usually accurate; the English is good for following
-the conversation, with roughly one line in eight to ten off — mostly where the speech was misheard,
-or where a word means something different in a sexual context. Lines that are only moans, sighs or
+the conversation, with roughly one line in five off — mostly where the speech was misheard, or who
+is talking to whom got mixed up. Each release improves the translator's glossary. Lines that are only moans, sighs or
 laughter are left out; short answers and questions (はい, いや, え?) stay. Words said while moaning
 are caught by a second, careful listen to the quiet stretches.
 
-**First time:** Settings → Subtitles → **Set up** (see [Settings](#subtitles)). It needs Python 3.10
-or newer and `ffmpeg`.
+**First time:** Settings → Subtitles → **Set up** (see [Settings](#subtitles)). The installers bring
+everything else; from source it needs Python 3.10 or newer and `ffmpeg` on the computer.
 
 ## 13. The nightly run
 
@@ -400,10 +412,10 @@ or newer and `ffmpeg`.
   the sources have nothing for a movie, it is asked again after a week at the earliest, so the
   sites don't see the same misses every night (at most 200 movies a night). The rest of the
   library stays with **Scan library**.
-- **🎬 Scene markers** — runs [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger)
-  with the scene model, for the *new movies* or *working through the whole library*. Movies that
-  already have markers are skipped. Vault finds the tagger on its own if it is installed (or give
-  its command in the box).
+- **🎬 Scene markers** — places markers with the scene model, like Settings → Scene model → Place
+  markers, for the *new movies* or *working through the whole library*. Movies that already have
+  markers are skipped. Needs the model and **Set up** in Settings → Scene model (the box takes
+  another tagger command, if you have one).
 - **💬 Subtitles** — the same as 💬 Transcribe, for the *new movies* or *the whole library, newest
   first*. When scene markers also work through the whole library, they get at most half of the
   night, so the subtitles get their turn.

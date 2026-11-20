@@ -82,11 +82,13 @@ import vault_model
 import final_tags        # which markers count as final tags outside training mode
 import subtitles as subsmod   # Whisper transcription queue (Japanese speech -> .en.srt)
 import nightly                # the nightly run (Settings -> Nightly)
+import tlsgen                 # HTTPS certificates (Settings -> HTTPS)
+import scenetag               # placing scene markers (Settings -> Scene model)
 import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.9.1"
+VAULT_VERSION = "1.10.0"
 # Training mode (editing scene markers to make training data) is the author's own workflow, not part
 # of the public package: make_release.sh --public sets this to False, which hides the switch and
 # refuses marker/label edits. Viewing markers is unaffected.
@@ -616,6 +618,8 @@ _POST_KEEPS_DATA = frozenset({
     "/api/stash", "/api/sourcesave",
     "/api/transcribe", "/api/transcribe/cancel", "/api/whisper/save", "/api/whisper/setup",
     "/api/nightly/save", "/api/nightly/run", "/api/nightly/stop",
+    "/api/tls/on", "/api/tls/renew", "/api/tls/off",
+    "/api/tagger/setup", "/api/tagger/run", "/api/tagger/stop",
 })
 
 # progress for the Import pipeline (rename+clean -> migrate/dedupe into library)
@@ -1942,6 +1946,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(subsmod.snapshot())
             if p == "/api/nightly":
                 return self._json(self._nightly_info())
+            if p == "/api/tagger":
+                return self._json(_tagger_info(q.get("fresh", [""])[0] == "1", q.get("count", [""])[0] == "1"))
+            if p == "/api/tls":
+                return self._json(_tls_info(self.headers.get("Host", "")))
             if p == "/api/whisper":
                 return self._whisper_status(q.get("fresh", [""])[0] == "1")
             if p.startswith("/subs/"):
@@ -2080,6 +2088,19 @@ class Handler(BaseHTTPRequestHandler):
             if body.get("preview"):
                 return self._import_preview()
             return self._import_run(bool(body.get("confirm_lib_deletes")))
+        if p == "/api/tagger/setup":
+            return self._json(dict(_tagger_info(), started=scenetag.setup(WHISPER_ROOT, lambda py: None)))
+        if p == "/api/tagger/run":
+            return self._tagger_run(body)
+        if p == "/api/tagger/stop":
+            scenetag.stop()
+            return self._json(_tagger_info())
+        if p in ("/api/tls/on", "/api/tls/renew", "/api/tls/off"):
+            try:
+                note = _tls_switch(p.rsplit("/", 1)[1])
+            except (OSError, ValueError, ssl.SSLError, RuntimeError) as e:
+                return self._json({"error": "HTTPS: %s" % e}, 400)
+            return self._json(dict(_tls_info(self.headers.get("Host", "")), note=note))
         if p == "/api/nightly/save":
             cfg = load_config()
             ns, err = nightly.clean(body, nightly.settings(cfg))
@@ -3073,10 +3094,37 @@ class Handler(BaseHTTPRequestHandler):
             return False, "could not start (%s)" % e
         return True, ""
 
+    def _tagger_run(self, body):
+        """Place markers: on the given movies (codes), else on every movie that has none yet."""
+        if not vault_model.installed():
+            return self._json({"error": "Download the scene model first (above)."}, 400)
+        py = subsmod.resolve_python(load_config(), WHISPER_ROOT)
+        if not scenetag.check(py).get("ready"):
+            return self._json({"error": "Set up the scene tagger first."}, 400)
+        codes = set(body.get("codes") or [])
+        videos = []
+        for it in STATE.get("items") or []:
+            if it.get("missing") or (codes and it.get("code") not in codes and it.get("uid") not in codes):
+                continue
+            for pp in _item_parts(it):
+                vp = pp.get("path")
+                if vp and (codes or not os.path.exists(_scenes_path(vp))):
+                    videos.append(vp)
+        if not videos:
+            return self._json(dict(_tagger_info(), note="Every movie has markers already."))
+        try:
+            started = scenetag.start(py, videos, os.path.join(CACHE, "tagger.log"))
+        except RuntimeError as e:
+            return self._json({"error": str(e)}, 400)
+        return self._json(dict(_tagger_info(), started=started))
+
     def _nightly_info(self):
         d = NIGHTLY.snapshot()
         d["settings"] = nightly.settings(load_config())
         d["download"] = STATE.get("download") or ""
+        cmd = NIGHTLY.tagger_cmd(d["settings"])
+        d["tagger"] = ("" if not cmd else "Vault's own scene tagger" if cmd == _NightlyHost().bundled_tagger()
+                       else " ".join(cmd))
         return d
 
     def _scan_after_import(self, before):
@@ -4412,6 +4460,11 @@ class _NightlyHost:
     def whisper_python(self):
         return subsmod.resolve_python(load_config(), WHISPER_ROOT)
 
+    def bundled_tagger(self):
+        """The tagger that ships with Vault, when its runtime is set up: an argv prefix, or None."""
+        py = self.whisper_python()
+        return scenetag.command(py) if scenetag.check(py).get("ready") else None
+
     def subs_ready(self):
         chk = subsmod.check(self.whisper_python())
         return ("Whisper isn't set up: " + chk["error"]) if chk.get("error") else ""
@@ -4537,6 +4590,95 @@ class _PlainRedirect(BaseHTTPRequestHandler):
     do_GET = do_HEAD = do_POST = do_PUT = do_DELETE = do_OPTIONS = do_PATCH = _answer
 
 
+def _cert_details(path):
+    """{"names", "ips", "not_after" (epoch), "issuer"} of a PEM certificate, or {} if unreadable."""
+    try:
+        d = ssl._ssl._test_decode_cert(path)
+    except Exception:
+        return {}
+    alt = d.get("subjectAltName") or ()
+    issuer = ""
+    for rdn in d.get("issuer") or ():
+        for k, v in rdn:
+            if k == "commonName":
+                issuer = v
+    try:
+        until = int(ssl.cert_time_to_seconds(d["notAfter"]))
+    except Exception:
+        until = 0
+    return {"names": [v for k, v in alt if k == "DNS"],
+            "ips": [v.strip() for k, v in alt if k == "IP Address"],
+            "not_after": until, "issuer": issuer}
+
+
+def _tagger_info(fresh=False, count=False):
+    """Settings → Scene model → Placing markers: runtime, setup, the running job."""
+    py = subsmod.resolve_python(load_config(), WHISPER_ROOT)
+    d = {"check": scenetag.check(py, fresh), "setup": scenetag.setup_status(), "job": scenetag.snapshot(),
+         "bundled": bool(scenetag.tagger_script()), "model": vault_model.installed(),
+         "hardware": scenetag.hardware_note()}
+    if count:
+        d["without"] = sum(1 for it in STATE.get("items") or [] if not it.get("missing")
+                           for pp in _item_parts(it)
+                           if pp.get("path") and not os.path.exists(_scenes_path(pp["path"])))
+    return d
+
+
+def _tls_info(host_header=""):
+    crt, key = os.path.join(TLS_DIR, "vault.crt"), os.path.join(TLS_DIR, "vault.key")
+    have = os.path.isfile(crt) and os.path.isfile(key)
+    parked = os.path.isfile(crt + ".off") and os.path.isfile(key + ".off")
+    det = _cert_details(crt if have else crt + ".off") if (have or parked) else {}
+    ips = tlsgen.local_ips()
+    port = STATE.get("port") or 8730
+    ours = tlsgen.vault_ca(TLS_DIR) is not None and det.get("issuer", "").startswith(tlsgen.CA_NAME)
+    names = [n for n in tlsgen.local_names() if n != "localhost"]
+    return {
+        "available": not STATE.get("no_tls"),
+        "on": SERVER is not None and SERVER.tls is not None,
+        "have": have, "parked": parked, "ours": ours,
+        "cert": det, "folder": TLS_DIR,
+        "missing": [ip for ip in ips if det and ip not in det.get("ips", [])],
+        "addresses": [h for h in ips + names if h != "127.0.0.1"],
+        "port": port,
+        "has_ca": os.path.isfile(os.path.join(TLS_DIR, "vault-ca.crt")),
+    }
+
+
+def _tls_switch(action):
+    """Turn HTTPS on / renew the certificate / turn it off, live (no restart). -> a note for the UI."""
+    if STATE.get("no_tls"):
+        raise RuntimeError("Vault was started with --no-tls")
+    crt, key = os.path.join(TLS_DIR, "vault.crt"), os.path.join(TLS_DIR, "vault.key")
+    note = ""
+    if action == "off":
+        for f in (crt, key):
+            if os.path.isfile(f):
+                os.replace(f, f + ".off")           # parked: turning it on again keeps the devices' trust
+        if SERVER is not None:
+            SERVER.tls = None
+        return "HTTPS is off. Other devices use http:// again."
+    if action == "on" and not os.path.isfile(crt):
+        if os.path.isfile(crt + ".off") and os.path.isfile(key + ".off"):
+            os.replace(crt + ".off", crt)
+            os.replace(key + ".off", key)
+        else:
+            r = tlsgen.make_all(TLS_DIR)
+            note = "new_ca" if r["new_ca"] else ""
+    elif action == "renew":
+        r = tlsgen.make_all(TLS_DIR)               # keeps Vault's own CA, so devices stay trusting
+        note = "new_ca" if r["new_ca"] else "renewed"
+    ctx = _tls_context()
+    if ctx is None:
+        raise RuntimeError("no certificate in %s" % TLS_DIR)
+    if SERVER is not None and (action == "on" or SERVER.tls is not None):
+        SERVER.tls = ctx
+    return note
+
+
+SERVER = None                                      # the running VaultServer (set in main)
+
+
 class VaultServer(ThreadingHTTPServer):
     tls = None                                     # ssl.SSLContext when HTTPS is on
 
@@ -4655,9 +4797,12 @@ def main():
         sys.stderr.write(f"[boot] first scan of {library} …\n")
         rebuild_index()
     NIGHTLY.start_scheduler()
-    srv = VaultServer(("0.0.0.0", port), Handler)
+    global SERVER
+    srv = SERVER = VaultServer(("0.0.0.0", port), Handler)
+    STATE["port"] = port
+    STATE["no_tls"] = bool(args.no_tls or os.environ.get("VAULT_NO_TLS"))
     tls = None
-    if not (args.no_tls or os.environ.get("VAULT_NO_TLS")):
+    if not STATE["no_tls"]:
         try:
             tls = _tls_context()
         except (OSError, ssl.SSLError) as e:

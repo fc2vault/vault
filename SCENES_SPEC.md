@@ -1,8 +1,9 @@
 # Vault scene sidecar spec — `vault-scenes/1`
 
-Canonical, versioned contract between `vault-scene-tagger` (writer) and any reader such as the
-Vault media server. Copied verbatim from the project brief §3–§5; keep this file identical in both
-repos. A machine-readable JSON Schema lives in [`examples/scenes.schema.json`](examples/scenes.schema.json).
+The versioned file format for scene markers: what Vault's scene tagger (`vault_scene_tagger`,
+bundled with Vault) writes next to each video, and what Vault — or any other reader — reads. Any
+tool that writes this format can supply markers. (The section numbers start at 3 for historical
+reasons.)
 
 ---
 
@@ -89,8 +90,8 @@ Notes:
 
 ## 5. Source ownership & merge rule (so re-runs don't clobber edits)
 
-The sidecar is a **shared, merged source of truth**. The reader (Vault) lets users add/correct
-markers and writes them **back into the same sidecar** with `source:"manual"`. Therefore:
+The sidecar is a **shared, merged source of truth**: a reader or a person may add or correct
+markers and write them **back into the same sidecar** with `source:"manual"`. Therefore:
 
 - On (re)generation you **must preserve every marker with `source:"manual"`** and merge your
   output around them.
@@ -119,12 +120,6 @@ Not part of the contract. Readers must not depend on them.
   Phase B → `heuristic`, Phase C → `ml`), so `--phase a` never removes Phase C output. Markers
   with any other `source` value (including unknown ones) are kept as-is.
 - A sidecar that exists but can't be parsed is never overwritten. It's reported as an error.
-- **User feedback (written by Vault, used for training and by the tagger):** markers are edited
-  as start points. When the user confirms, moves or relabels a marker it becomes `source: "manual"` without
-  `end`/`confidence`. If it was an AI marker, its original fields are kept under a marker extra
-  `"was": {"t", "end", "label", "source", "confidence"}`. When the user deletes a non-manual marker
-  it is appended to a top-level extra `"rejected": [{…marker…, "rejected_at": ISO-8601}]`. The tagger
-  doesn't re-suggest a moment with the same label within 10 s of a `rejected` entry or a `was`.
 - The sidecar is re-read right before writing, so manual markers added while ffmpeg was running
   are kept.
 - Temp files are hidden dotfiles in the same directory (`.<name>.tmp-…`), renamed into place.

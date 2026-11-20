@@ -117,12 +117,15 @@ class DownloadTest(unittest.TestCase):
     def opener(self, req, timeout=0):
         url = req.full_url
         self.calls.append(url)
-        if url.endswith("/releases/latest"):
-            rel = {"tag_name": "vault-r3", "published_at": "2026-11-04T06:40:58Z", "body": "notes",
-                   "assets": [{"name": "README.txt", "size": 1, "browser_download_url": "https://x/README.txt"},
-                              {"name": "vault-r3.zip", "size": len(self.blob),
-                               "browser_download_url": "https://example.test/dl/vault-r3.zip"}]}
-            return FakeResponse(json.dumps(rel).encode())
+        if url.endswith("/repos/fc2vault/vault/releases?per_page=50"):
+            # the app's own releases, with the model builds among them as pre-releases
+            rels = [{"tag_name": "v1.10.0", "assets": [{"name": "Vault-windows-setup.exe", "size": 9}]},
+                    {"tag_name": "vault-r3", "prerelease": True, "published_at": "2026-11-04T06:40:58Z", "body": "notes",
+                     "assets": [{"name": "README.txt", "size": 1, "browser_download_url": "https://x/README.txt"},
+                                {"name": "vault-r3.zip", "size": len(self.blob),
+                                 "browser_download_url": "https://example.test/dl/vault-r3.zip"}]},
+                    {"tag_name": "vault-r2", "prerelease": True, "assets": [{"name": "vault-r2.zip", "size": 5}]}]
+            return FakeResponse(json.dumps(rels).encode())
         if url == "https://example.test/dl/vault-r3.zip" and not self.refuse:
             return FakeResponse(self.blob, {"Content-Length": str(len(self.blob))})
         from urllib.error import HTTPError
@@ -140,6 +143,16 @@ class DownloadTest(unittest.TestCase):
         def down(req, timeout=0):
             raise OSError("no route to host")
         self.assertIn("could not reach", vm.latest(opener=down)["error"])
+
+    def test_falls_back_to_the_old_models_repo(self):
+        def opener(req, timeout=0):
+            if "/repos/fc2vault/vault/" in req.full_url:
+                return FakeResponse(json.dumps([{"tag_name": "v1.9.1", "assets": []}]).encode())
+            return FakeResponse(json.dumps([{"tag_name": "vault-r2", "assets": [
+                {"name": "vault-r2.zip", "size": 7, "browser_download_url": "https://example.test/r2.zip"}]}]).encode())
+        vm._LATEST.update(at=0.0, info=None)
+        self.assertEqual(vm.latest(opener=opener)["name"], "vault-r2")
+        vm._LATEST.update(at=0.0, info=None)
 
     def test_download_installs_and_cleans_up(self):
         name = vm.download(models_dir=self.dir, opener=self.opener)
