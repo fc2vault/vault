@@ -1,6 +1,6 @@
 # Vault — User Guide
 
-A feature‑by‑feature walkthrough. For install & setup see the main **[README](../README.md)**.
+A feature‑by‑feature walkthrough. To install, download Vault for Mac or Windows from the [latest release](https://github.com/fc2vault/vault/releases/latest) (see the README's **[Install](../README.md#install)**); running from source and setup details are in the main **[README](../README.md)**.
 
 ## Contents
 

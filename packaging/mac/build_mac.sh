@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build Vault-<version>-mac-<arch>.dmg: Vault.app with its own Python and ffmpeg, nothing to install.
+# Build Vault-mac-<apple-silicon|intel>.dmg: Vault.app with its own Python and ffmpeg, nothing to install.
 #   build_mac.sh <release-dir> <arm64|x86_64> <out-dir> [downloads-dir]
 # <release-dir> is a folder made by make_release.sh. Runs on any Mac with the command-line tools
 # (swiftc, hdiutil); the downloads are cached in [downloads-dir] (default <out-dir>/_downloads).
@@ -86,7 +86,8 @@ codesign --force -s - "$APP"
 DMGDIR="$WORK/dmg"; mkdir -p "$DMGDIR"
 mv "$APP" "$DMGDIR/"
 ln -s /Applications "$DMGDIR/Applications"
-NAME="Vault-$VERSION-mac-$( [ "$ARCH" = arm64 ] && echo apple-silicon || echo intel ).dmg"
+# no version in the name: the website links to releases/latest/download/<name>
+NAME="Vault-mac-$( [ "$ARCH" = arm64 ] && echo apple-silicon || echo intel ).dmg"
 rm -f "$OUT/$NAME"
 hdiutil create -quiet -volname "Vault $VERSION" -srcfolder "$DMGDIR" -fs HFS+ -format UDZO -imagekey zlib-level=9 "$OUT/$NAME"
 echo "$OUT/$NAME  $(du -h "$OUT/$NAME" | cut -f1)"

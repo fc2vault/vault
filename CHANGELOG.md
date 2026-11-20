@@ -4,10 +4,10 @@
 
 - **Download, double-click, done.** The release page now has installers that carry everything
   Vault needs — its own Python and ffmpeg, nothing to install first and no Terminal:
-  - **Mac:** `Vault-…-mac-apple-silicon.dmg` or `…-mac-intel.dmg`. Drag Vault into Applications
+  - **Mac:** `Vault-mac-apple-silicon.dmg` or `Vault-mac-intel.dmg`. Drag Vault into Applications
     and open it; the first start asks for your movie folder and opens Vault in the browser.
     While the app is open Vault runs; clicking its Dock icon shows Vault again, Quit stops it.
-  - **Windows:** `Vault-…-windows-setup.exe`. Installs for your user only (no administrator
+  - **Windows:** `Vault-windows-setup.exe`. Installs for your user only (no administrator
     rights), with Start-menu entries to open Vault, stop it and choose another movie folder, and
     an optional "start when I log on".
   - The installers are not code-signed (that would need a registered real name). The first time,

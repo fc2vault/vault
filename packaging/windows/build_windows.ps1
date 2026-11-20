@@ -1,4 +1,4 @@
-# Build Vault-<version>-windows-setup.exe: Vault with its own Python and ffmpeg, nothing to install.
+# Build Vault-windows-setup.exe (no version in the name: the website links to releases/latest/download/): Vault with its own Python and ffmpeg, nothing to install.
 #   pwsh build_windows.ps1 -Release <release dir> -Out <out dir>
 # Needs Inno Setup 6 (ISCC.exe). Runs on GitHub's Windows machines (.github/workflows/installers.yml).
 param([Parameter(Mandatory)][string]$Release, [Parameter(Mandatory)][string]$Out)
@@ -56,4 +56,4 @@ $Iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
 if (-not $Iscc) { $Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
 & $Iscc /Q "/DVersion=$Version" "/DStage=$Stage" "/DOutDir=$Out" (Join-Path $Here "vault.iss")
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
-Get-Item (Join-Path $Out "Vault-$Version-windows-setup.exe") | Select-Object Name, Length
+Get-Item (Join-Path $Out "Vault-windows-setup.exe") | Select-Object Name, Length
