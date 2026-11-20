@@ -48,6 +48,20 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
+if sys.platform == "win32":
+    # Vault runs without a console (pythonw). Windows then gives every console program it starts
+    # (ffmpeg, ffprobe, the subtitle worker, the tagger) a window of its own, which flashes up and
+    # closes for each movie during a scan. Start them all without one, unless a caller asks otherwise.
+    _CREATE_NO_WINDOW = 0x08000000
+
+    class _NoWindowPopen(subprocess.Popen):
+        def __init__(self, *a, **kw):
+            if not kw.get("creationflags"):
+                kw["creationflags"] = _CREATE_NO_WINDOW
+            super().__init__(*a, **kw)
+
+    subprocess.Popen = _NoWindowPopen
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENAMERS = os.path.dirname(HERE)
 sys.path.insert(0, RENAMERS)   # dev layout: scan.py is in the parent
@@ -72,7 +86,7 @@ import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.9.0"
+VAULT_VERSION = "1.9.1"
 # Training mode (editing scene markers to make training data) is the author's own workflow, not part
 # of the public package: make_release.sh --public sets this to False, which hides the switch and
 # refuses marker/label edits. Viewing markers is unaffected.

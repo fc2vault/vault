@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.9.1 — Installers
+
+- **Download, double-click, done.** The release page now has installers that carry everything
+  Vault needs — its own Python and ffmpeg, nothing to install first and no Terminal:
+  - **Mac:** `Vault-…-mac-apple-silicon.dmg` or `…-mac-intel.dmg`. Drag Vault into Applications
+    and open it; the first start asks for your movie folder and opens Vault in the browser.
+    While the app is open Vault runs; clicking its Dock icon shows Vault again, Quit stops it.
+  - **Windows:** `Vault-…-windows-setup.exe`. Installs for your user only (no administrator
+    rights), with Start-menu entries to open Vault, stop it and choose another movie folder, and
+    an optional "start when I log on".
+  - The installers are not code-signed (that would need a registered real name). The first time,
+    macOS asks you to allow the app in System Settings → Privacy & Security ("Open Anyway"), and
+    Windows shows "Windows protected your PC" → **More info → Run anyway**.
+- **Windows: no more console windows flashing** while Vault reads your movies and makes posters.
+- The docs said "no login and no HTTPS"; Vault speaks HTTPS once you give it a certificate
+  (README → Privacy & safety). There is still no login.
+
 ## 1.9.0 — The nightly run
 
 - **Settings → Nightly**: once a night, inside the hours you choose, Vault imports new downloads,
