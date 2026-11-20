@@ -121,6 +121,34 @@ jobs:
           & "$app\python\python.exe" -c "import sys; sys.path.insert(0, r'$app\app'); import tlsgen; tlsgen.make_all(r'$env:RUNNER_TEMP\vtls')"
           if (-not (Test-Path "$env:RUNNER_TEMP\vtls\vault.crt")) { throw "no HTTPS certificate" }
           "HTTPS certificate made"
+      - name: Self-update test (Vault downloads the newest release's setup and runs it)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $app = "$env:RUNNER_TEMP\vault"
+          $data = "$env:LOCALAPPDATA\Vault"
+          New-Item -ItemType Directory -Force $data | Out-Null
+          $lib = ("$env:RUNNER_TEMP\lib") -replace '\\', '/'
+          Set-Content "$data\config.json" ('{"library": "' + $lib + '", "port": 8797}')
+          Start-Process "$app\python\pythonw.exe" -ArgumentList ('"' + "$app\launcher.pyw" + '"'), "--background" -WorkingDirectory $app
+          $up = $false
+          foreach ($i in 1..60) { try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8797/ | Out-Null; $up = $true; break } catch { Start-Sleep 1 } }
+          if (-not $up) { throw "Vault did not start from the launcher" }
+          $u = Invoke-RestMethod "http://127.0.0.1:8797/api/update?check=1"
+          "kind=$($u.kind) current=$($u.current) latest=$($u.info.latest) asset=$($u.info.asset.name)"
+          if ($u.kind -ne "windows") { throw "not detected as a Windows install" }
+          $r = Invoke-RestMethod -Method Post -ContentType "application/json" -Body '{"reinstall": true}' http://127.0.0.1:8797/api/update/install
+          if (-not $r.started) { throw "update did not start: $($r | ConvertTo-Json -Compress)" }
+          $ok = $false
+          foreach ($i in 1..180) {
+            if ((Test-Path "$data\update.log") -and (Select-String -Path "$data\update.log" -Pattern "Installation process succeeded" -Quiet)) { $ok = $true; break }
+            Start-Sleep 1
+          }
+          if (Test-Path "$data\update.log") { Get-Content "$data\update.log" -Tail 5 }
+          if (-not $ok) { throw "the downloaded setup did not finish" }
+          "the in-app update downloaded, verified and ran the setup"
+
       - uses: actions/upload-artifact@v7
         with:
           name: windows-installer

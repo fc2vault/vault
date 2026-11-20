@@ -84,6 +84,8 @@ import subtitles as subsmod   # Whisper transcription queue (Japanese speech -> 
 import nightly                # the nightly run (Settings -> Nightly)
 import tlsgen                 # HTTPS certificates (Settings -> HTTPS)
 import scenetag               # placing scene markers (Settings -> Scene model)
+import updater                # Settings -> Updates
+import catalogmerge           # newer shipped catalog -> your copy
 import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
@@ -620,6 +622,7 @@ _POST_KEEPS_DATA = frozenset({
     "/api/nightly/save", "/api/nightly/run", "/api/nightly/stop",
     "/api/tls/on", "/api/tls/renew", "/api/tls/off",
     "/api/tagger/setup", "/api/tagger/run", "/api/tagger/stop",
+    "/api/update/install", "/api/update/save",
 })
 
 # progress for the Import pipeline (rename+clean -> migrate/dedupe into library)
@@ -1300,6 +1303,7 @@ def _delete_targets(it, library):
 
 
 def _purge_work_rows(con, code):
+    catalogmerge.tombstone(con, "work", code)        # a newer shipped catalog won't bring it back
     con.execute("DELETE FROM tags WHERE code=?", (code,))
     con.execute("DELETE FROM work_actresses WHERE code=?", (code,))
     con.execute("DELETE FROM works WHERE code=?", (code,))
@@ -1946,6 +1950,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(subsmod.snapshot())
             if p == "/api/nightly":
                 return self._json(self._nightly_info())
+            if p == "/api/update":
+                return self._json(_update_info(q.get("check", [""])[0] == "1"))
             if p == "/api/tagger":
                 return self._json(_tagger_info(q.get("fresh", [""])[0] == "1", q.get("count", [""])[0] == "1"))
             if p == "/api/tls":
@@ -2088,6 +2094,22 @@ class Handler(BaseHTTPRequestHandler):
             if body.get("preview"):
                 return self._import_preview()
             return self._import_run(bool(body.get("confirm_lib_deletes")))
+        if p == "/api/update/install":
+            info = updater.STATE.get("info") or {}
+            kind, target = updater.install_kind(HERE)
+            why = updater.can_install(kind, target or "")
+            if why:
+                return self._json({"error": why}, 400)
+            if not info.get("asset") or not (info.get("newer") or body.get("reinstall")):
+                return self._json({"error": "No newer version to install."}, 400)
+            started = updater.install(info, kind, target, DATA_DIR)
+            return self._json(dict(_update_info(), started=started))
+        if p == "/api/update/save":
+            cfg = load_config()
+            cfg["update_check"] = bool(body.get("enabled"))
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(cfg, f, indent=2)
+            return self._json(_update_info())
         if p == "/api/tagger/setup":
             return self._json(dict(_tagger_info(), started=scenetag.setup(WHISPER_ROOT, lambda py: None)))
         if p == "/api/tagger/run":
@@ -2658,6 +2680,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "no tag / db"}, 400)
         con = sqlite3.connect(DB_PATH, timeout=30)
         n = con.execute("DELETE FROM tags WHERE tag=?", (tag,)).rowcount
+        catalogmerge.tombstone(con, "tag", tag)
         con.commit()
         con.close()
         rebuild_index(_load_fs_index(STATE["library"]))
@@ -4126,6 +4149,9 @@ class Handler(BaseHTTPRequestHandler):
             # matches a uuid through this table and would hand back a deleted actress id.
             con.execute("DELETE FROM links WHERE actress_id=?", (aid,))
             con.execute("DELETE FROM crawl WHERE actress_id=?", (aid,))
+            gone = con.execute("SELECT name_en, name_jp, fc2ppvdb_uuid FROM actresses WHERE id=?", (aid,)).fetchone()
+            if gone:
+                catalogmerge.tombstone(con, "actress", *gone)
             con.execute("DELETE FROM actresses WHERE id=?", (aid,))
             con.commit()
         finally:
@@ -4611,6 +4637,62 @@ def _cert_details(path):
             "not_after": until, "issuer": issuer}
 
 
+def _update_info(check=False):
+    """Settings → Updates: this version, how it was installed, the newest release."""
+    enabled = load_config().get("update_check", True) is not False
+    kind, target = updater.install_kind(HERE)
+    if check or (enabled and not updater.STATE.get("info")):
+        updater.check(VAULT_VERSION, kind)
+    return {"current": VAULT_VERSION, "kind": kind, "enabled": enabled,
+            "can_install": updater.can_install(kind, target or ""),
+            "info": updater.STATE.get("info"), "checked": updater.STATE.get("checked"),
+            "progress": dict(updater.PROGRESS)}
+
+
+def _update_loop():
+    """Once a day while Vault runs (unless switched off): is there a newer release?"""
+    time.sleep(90)
+    while True:
+        try:
+            if updater.due(load_config().get("update_check", True) is not False):
+                updater.check(VAULT_VERSION, updater.install_kind(HERE)[0])
+        except Exception:
+            pass
+        time.sleep(3600)
+
+
+def _merge_shipped_catalog():
+    """A newer catalog shipped with this version (installers / a release folder) goes into the
+    user's own copy once. Only in app mode, where the user's copy lives apart from the shipped one."""
+    shipped = os.path.join(HERE, "data", "catalog.db")
+    if DATA_DIR == HERE or not os.path.isfile(shipped) or not os.path.isfile(DB_PATH) \
+            or os.path.abspath(DB_PATH) == os.path.abspath(shipped):
+        return
+    try:
+        sha = catalogmerge.file_sha(shipped)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        try:
+            done = catalogmerge.get_meta(con, "shipped_sha")
+            if done == sha:
+                return
+            if done is None and con.execute("SELECT COUNT(*) FROM works WHERE in_library=1").fetchone()[0] == 0 \
+                    and not os.path.exists(os.path.join(DATA_DIR, "userdata.json")):
+                catalogmerge.set_meta(con, "shipped_sha", sha)       # just seeded from it: nothing to merge
+                con.commit()
+                return
+        finally:
+            con.close()
+        shutil.copy2(DB_PATH, DB_PATH + ".before-merge")            # one step back, just in case
+        st = catalogmerge.merge(DB_PATH, shipped)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        catalogmerge.set_meta(con, "shipped_sha", sha)
+        con.commit()
+        con.close()
+        sys.stderr.write("[catalog] merged the shipped catalog: %s\n" % st)
+    except Exception as e:
+        sys.stderr.write("[catalog] merge skipped: %s\n" % e)
+
+
 def _tagger_info(fresh=False, count=False):
     """Settings → Scene model → Placing markers: runtime, setup, the running job."""
     py = subsmod.resolve_python(load_config(), WHISPER_ROOT)
@@ -4761,6 +4843,7 @@ def main():
     # remember the choice for next launch (merge — don't clobber 'download' etc.)
     save_config(library=library, port=port)
     STATE["library"] = library
+    _merge_shipped_catalog()
     STATE["training"] = TRAINING_AVAILABLE and bool(cfg.get("training_mode", False))   # scene-marker editing; off by default
     STATE["custom_labels"] = sorted({l for l in (cfg.get("custom_labels") or [])
                                      if isinstance(l, str) and _SCENE_LABEL_RE.match(l) and l not in SCENE_LABELS})
@@ -4797,6 +4880,7 @@ def main():
         sys.stderr.write(f"[boot] first scan of {library} …\n")
         rebuild_index()
     NIGHTLY.start_scheduler()
+    threading.Thread(target=_update_loop, daemon=True).start()
     global SERVER
     srv = SERVER = VaultServer(("0.0.0.0", port), Handler)
     STATE["port"] = port

@@ -411,7 +411,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     <div class="priv">
       <div><b>No cloud</b><p>A single Python process serves a single HTML page from your machine. Your library index, posters and catalog live in a folder next to it.</p></div>
       <div><b>No account</b><p>Nothing to register. The only outbound traffic is the metadata scan you start yourself and the model downloads you ask for (the scene model, and the speech and translation models the first time you transcribe). Audio and subtitles never leave your machine.</p></div>
-      <div><b>No telemetry</b><p>No analytics, no crash reports, no update pings — the only check is for a newer scene model, when you open its Settings tab. The source is open; read the whole server in one sitting.</p></div>
+      <div><b>No telemetry</b><p>No analytics, no crash reports. Vault asks GitHub once a day whether a newer version is out (one switch in Settings turns that off), and for a newer scene model when you open its tab — nothing about you or your library goes along. The source is open; read the whole server in one sitting.</p></div>
       <div><b>LAN only</b><p>Vault has no login on purpose. Settings → HTTPS turns on encryption with one click, but that is not a login: use it on a trusted home network or over a VPN, and don't port‑forward it.</p></div>
     </div>
   </div>
@@ -441,13 +441,13 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     <div class="steps" data-panel="mac">
       <div class="step"><div><h3>Download</h3><p><a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-apple-silicon.dmg"><b>Vault for Apple Silicon</b></a> (M1 and later, ~90 MB) or <a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-intel.dmg"><b>Vault for Intel</b></a> (~100 MB). Not sure? Apple menu → About This Mac: "Chip: Apple M…" is Apple Silicon.</p></div></div>
       <div class="step"><div><h3>Drag it into Applications and open it</h3><p>Open the downloaded file and drag <b>Vault</b> onto <b>Applications</b>. The first time you open it, macOS says it can't check the app for malware: Vault isn't signed with a paid Apple certificate. Click <b>Done</b>, then in <b>System Settings → Privacy &amp; Security</b> scroll down and click <b>Open Anyway</b>. Only once.</p></div></div>
-      <div class="step"><div><h3>Choose your movie folder</h3><p>Vault asks for the folder that holds your movies, then opens in your browser. It runs while the app is open: click its Dock icon to bring the page back, quit it to stop. To have it start with your Mac, add Vault under <b>System Settings → General → Login Items</b>. From your phone: <code>http://&lt;this-mac&gt;:8730/</code>.</p></div></div>
+      <div class="step"><div><h3>Choose your movie folder</h3><p>Vault asks for the folder that holds your movies, then opens in your browser. It runs while the app is open: click its Dock icon to bring the page back, quit it to stop. To have it start with your Mac, add Vault under <b>System Settings → General → Login Items</b>. From your phone: <code>http://&lt;this-mac&gt;:8730/</code>. New versions install from Settings → Updates.</p></div></div>
     </div>
 
     <div class="steps" data-panel="win" hidden>
       <div class="step"><div><h3>Download</h3><p><a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-windows-setup.exe"><b>Vault for Windows</b></a> (Windows 10 / 11, 64‑bit, ~120 MB).</p></div></div>
       <div class="step"><div><h3>Run the setup</h3><p>Windows may say <em>"Windows protected your PC"</em>: Vault isn't signed with a paid certificate. Click <b>More info → Run anyway</b>, only this once. Setup installs for your user only, no administrator rights; tick <em>Start Vault when I log on</em> to keep it running in the background.</p></div></div>
-      <div class="step"><div><h3>Choose your movie folder</h3><p>Vault asks for the folder that holds your movies, then opens in your browser. The Start menu has <b>Vault</b> (open it), <b>Vault - Stop</b> and <b>Vault - Choose movie folder</b>. Updating later: run the new setup over the old one, your settings stay.</p></div></div>
+      <div class="step"><div><h3>Choose your movie folder</h3><p>Vault asks for the folder that holds your movies, then opens in your browser. The Start menu has <b>Vault</b> (open it), <b>Vault - Stop</b> and <b>Vault - Choose movie folder</b>. Updating later: Settings → Updates installs a new version with one click, your settings stay.</p></div></div>
     </div>
 
     <div class="steps" data-panel="linux" hidden>
