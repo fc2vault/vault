@@ -4,7 +4,7 @@
 
 Runs entirely on your machine. No cloud, no accounts, no telemetry — a single Python file serves a single HTML page. The UI is fully responsive, so the same page works on a phone over your LAN or VPN.
 
-> **Read [Privacy & safety](#privacy--safety) before exposing it.** Vault listens on **all interfaces** and has **no login and no HTTPS**. On a trusted home network that is the point; it is not safe to port‑forward to the internet.
+> **Read [Privacy & safety](#privacy--safety) before exposing it.** Vault listens on **all interfaces** and has **no login**. It speaks HTTPS once you give it a certificate ([HTTPS](#https)), but that only encrypts the traffic. On a trusted home network that is the point; it is not safe to port‑forward to the internet.
 
 ![Vault — grid view](docs/images/grid.png)
 
@@ -437,7 +437,7 @@ Watched state, favorites (movies **and** actresses) and ratings never enter this
 ## Privacy & safety
 
 - **No cloud, no telemetry.** Vault talks to the internet only when *you* press a scrape/enrich button. It has no accounts and phones home to nothing; the only other request is the one you start in Settings → Scene model, which asks GitHub for the newest model.
-- **It is not access‑controlled.** The server binds `0.0.0.0`, so anyone who can reach the port gets the whole library — there is **no login and no TLS**. Two endpoints act on the host machine rather than just returning data:
+- **It is not access‑controlled.** The server binds `0.0.0.0`, so anyone who can reach the port gets the whole library — there is **no login** (HTTPS, when you turn it on, encrypts the traffic but locks nobody out). Two endpoints act on the host machine rather than just returning data:
   - `POST /api/open` — opens a file in your desktop video player
   - `POST /api/reveal` — reveals it in Finder
 
@@ -446,6 +446,7 @@ Watched state, favorites (movies **and** actresses) and ratings never enter this
   ```python
   srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)   # was "0.0.0.0"
   ```
+- <a id="https"></a>**HTTPS is optional.** Put a certificate and its key, named `vault.crt` and `vault.key`, in Vault's `tls` folder and restart Vault: it then serves HTTPS on its normal port. The folder is `~/Library/Application Support/Vault/tls` on macOS, `%LOCALAPPDATA%\Vault\tls` on Windows and `~/.local/share/vault/tls` on Linux; any certificate that names this machine works. Plain HTTP keeps working on the machine itself, and other devices are redirected to `https://`. If you signed the certificate with your own CA, put its `vault-ca.crt` there too: a phone can fetch it from `http://<this-machine>:8730/vault-ca.crt` and trust it once. `--no-tls` turns HTTPS off.
 - **Non‑destructive by design.** Organize *moves* junk/duplicates into recoverable folders and never deletes or overwrites; enrichment is fill‑if‑empty and never clobbers your edits.
 - **Secrets** (the optional fc2ppv‑db session) are stored in the **macOS Keychain** (encrypted), or a `0600` file elsewhere — never in the repo.
 - Web scraping honors each site’s access model; the one human‑checked source is only ever reached through a session **you** authenticate.
