@@ -1,5 +1,6 @@
 # Builds the download installers and attaches them to the GitHub release:
-#   Vault-<v>-mac-apple-silicon.dmg, Vault-<v>-mac-intel.dmg, Vault-<v>-windows-setup.exe
+#   Vault-mac-apple-silicon.dmg, Vault-mac-intel.dmg, Vault-windows-setup.exe (fixed names, so
+#   https://github.com/fc2vault/vault/releases/latest/download/<name> always gets the newest)
 # Runs when a release is published. By hand (Actions → Installers → Run workflow) it builds a tag
 # for testing: the installers land under the run's Artifacts, not on the release page,
 # unless "attach" is ticked.
@@ -89,7 +90,7 @@ jobs:
       - name: Smoke test (silent install, start, list a movie)
         shell: pwsh
         run: |
-          $setup = Get-ChildItem "$env:RUNNER_TEMP\out\Vault-*-windows-setup.exe" | Select-Object -First 1
+          $setup = Get-ChildItem "$env:RUNNER_TEMP\out\Vault-windows-setup.exe" | Select-Object -First 1
           Start-Process $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=$env:RUNNER_TEMP\vault" -Wait
           $app = "$env:RUNNER_TEMP\vault"
           & "$app\bin\ffmpeg.exe" -hide_banner -version | Select-Object -First 1
@@ -109,11 +110,11 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: windows-installer
-          path: ${{ runner.temp }}/out/Vault-*-windows-setup.exe
+          path: ${{ runner.temp }}/out/Vault-windows-setup.exe
           retention-days: 14
       - name: Attach to the release
         if: env.ATTACH == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$env:TAG" (Get-ChildItem "$env:RUNNER_TEMP\out\Vault-*-windows-setup.exe").FullName --clobber -R "$env:GITHUB_REPOSITORY"
+        run: gh release upload "$env:TAG" (Get-ChildItem "$env:RUNNER_TEMP\out\Vault-windows-setup.exe").FullName --clobber -R "$env:GITHUB_REPOSITORY"

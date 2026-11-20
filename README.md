@@ -4,6 +4,8 @@
 
 Runs entirely on your machine. No cloud, no accounts, no telemetry — a single Python file serves a single HTML page. The UI is fully responsive, so the same page works on a phone over your LAN or VPN.
 
+**Download:** [Mac — Apple Silicon](https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-apple-silicon.dmg) · [Mac — Intel](https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-intel.dmg) · [Windows](https://github.com/fc2vault/vault/releases/latest/download/Vault-windows-setup.exe) — everything included (its own Python and ffmpeg), nothing else to install. Linux: [from source](#install).
+
 > **Read [Privacy & safety](#privacy--safety) before exposing it.** Vault listens on **all interfaces** and has **no login**. It speaks HTTPS once you give it a certificate ([HTTPS](#https)), but that only encrypts the traffic. On a trusted home network that is the point; it is not safe to port‑forward to the internet.
 
 ![Vault — grid view](docs/images/grid.png)
@@ -84,6 +86,9 @@ that go into the next release. Nothing is required, and nothing is held back. Th
 
 ## Requirements
 
+The **Mac and Windows downloads** need nothing but a browser: they bring their own Python and ffmpeg
+(see [Install](#install)). Running **from source** (Linux, or any OS) needs:
+
 - **Python 3.8+** (standard library only — no `pip install`)
 - **ffmpeg / ffprobe** on your `PATH` (posters + duration/resolution/codec)
 - A modern browser (Chrome, Brave, Safari, Firefox)
@@ -135,12 +140,28 @@ simply skip the fc2ppv‑db pass, saying so rather than failing.
 
 ## Install
 
+**Mac:** download [Vault for Apple Silicon](https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-apple-silicon.dmg) (M1 and later) or
+[for Intel](https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-intel.dmg), open it and drag **Vault** into **Applications**. The installers
+are not signed with a paid Apple certificate, so the first time macOS refuses to open it: click
+**Done**, then **System Settings → Privacy & Security → Open Anyway** (once). Vault asks for your movie
+folder and opens in the browser; it runs while the app is open (Dock icon → the page again, Quit → stop).
+Data lives in `~/Library/Application Support/Vault`.
+
+**Windows:** download [the setup](https://github.com/fc2vault/vault/releases/latest/download/Vault-windows-setup.exe) and run it. If Windows says
+*"Windows protected your PC"*, click **More info → Run anyway** (once; the installer isn't signed).
+It installs for your user only, no administrator rights, with Start‑menu entries **Vault**,
+**Vault - Stop** and **Vault - Choose movie folder**, and optionally starts Vault at log on. Data
+lives in `%LOCALAPPDATA%\Vault`. To update, run the new setup over the old one.
+
+**From source** (Linux, or any OS):
+
 ```bash
-git clone <your-repo-url> vault
+git clone https://github.com/fc2vault/vault.git vault
 cd vault
 ```
 
-There’s nothing to build or compile.
+There’s nothing to build or compile. The rest of this README (Configure, Run, services) is about
+running from source; the installers do those steps for you.
 
 ## Configure
 

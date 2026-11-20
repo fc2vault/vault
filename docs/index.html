@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vault</title>
-<meta name="description" content="Vault is a free, self-hosted poster wall, player and scene tagger for an FC2 / JAV library. One Python file, no cloud, no accounts, no telemetry.">
+<meta name="description" content="Vault is a free, self-hosted poster wall, player and scene tagger for an FC2 / JAV library. One download for Mac or Windows, no cloud, no accounts, no telemetry.">
 <meta property="og:title" content="Vault">
 <meta property="og:description" content="A free, self-hosted Plex for FC2 / JAV. Poster wall, streaming player, scene markers on the seek bar, actress catalog. Runs on your machine only.">
 <meta property="og:type" content="website">
@@ -214,19 +214,19 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
 <header class="hero" id="top">
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">Free &amp; self‑hosted · v1.9.0 · macOS · Windows · Linux</p>
+      <p class="eyebrow">Free &amp; self‑hosted · v1.9.1 · macOS · Windows · Linux</p>
       <h1>Your library,<br>finally <span>browsable.</span></h1>
-      <p class="lede">Vault turns a folder of FC2 / JAV movies into a fast, private web app: a poster wall, a streaming player with scene markers on the seek bar and English subtitles made on your own computer, and an actress catalog. <strong>One Python file. No cloud, no accounts, no telemetry. Free, the whole thing.</strong></p>
+      <p class="lede">Vault turns a folder of FC2 / JAV movies into a fast, private web app: a poster wall, a streaming player with scene markers on the seek bar and English subtitles made on your own computer, and an actress catalog. <strong>One download for Mac or Windows. No cloud, no accounts, no telemetry. Free, the whole thing.</strong></p>
       <div class="cta">
-        <a class="btn primary" href="https://github.com/fc2vault/vault/releases/latest">Download Vault — free</a>
+        <a class="btn primary" data-dl="mac" href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-apple-silicon.dmg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.1zM13.9 4.9c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3.1-1.5z"/></svg>Download for Mac</a>
+        <a class="btn primary" data-dl="win" href="https://github.com/fc2vault/vault/releases/latest/download/Vault-windows-setup.exe"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 4.3 10 3.2v7.7H2zm0 15.4 8 1.1v-7.6H2zm9.1 1.3L22 22.5V13.2H11.1zm0-17.9v7.8H22V1.5z"/></svg>Download for Windows</a>
         <a class="btn" href="#free">Support the project</a>
-        <span class="note">No limit, no key, no sign‑up. The scene model is a free download inside the app.</span>
+        <span class="note">Mac with Apple Silicon (M1 and later) · <a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-intel.dmg">Mac with Intel</a> · Windows 10 / 11, 64‑bit · Linux: <a href="#install">from source</a>. Everything is included, nothing else to install. Free: no limit, no key, no sign‑up.</span>
       </div>
       <div class="strip">
-        <span><b>0</b> pip installs</span>
+        <span><b>1</b> download, nothing else</span>
         <span><b>0</b> bytes sent anywhere</span>
-        <span><b>1</b> file to run</span>
-        <span><b>3,000+</b> movies, one page</span>
+                <span><b>3,000+</b> movies, one page</span>
       </div>
     </div>
 
@@ -421,16 +421,15 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
   <div class="wrap">
     <div class="sec-head">
       <p class="eyebrow">Install</p>
-      <h2>Ten minutes,<br>no build step.</h2>
-      <p class="lede">Vault is plain Python with no packages to install. You need Python 3.8 or newer, ffmpeg, and a modern browser.</p>
+      <h2>One download,<br>nothing else.</h2>
+      <p class="lede">The Mac and Windows downloads bring everything Vault needs, its own Python and ffmpeg included: no Terminal, no packages, no admin rights. All you need besides is a modern browser. On Linux Vault runs from source.</p>
     </div>
 
     <div class="deps">
-      <div><b>Python 3.8+</b><p>Required. macOS: already there once the command‑line tools are installed. Windows: <a href="https://www.python.org/downloads/">python.org</a>, tick <em>Add python to PATH</em>. Linux: your package manager.</p></div>
-      <div><b>ffmpeg / ffprobe</b><p>Required. Makes posters and reads duration, resolution and codec. <code>brew install ffmpeg</code>, <code>winget install ffmpeg</code>, or <code>apt install ffmpeg</code>.</p></div>
+      <div><b>Python and ffmpeg</b><p>Built into the Mac and Windows downloads. On Linux, or to run from source anywhere: Python 3.8+ and ffmpeg from your package manager (<code>apt install ffmpeg</code>, <code>brew install ffmpeg</code>).</p></div>
       <div><b>FlareSolverr</b><p>Optional. fc2ppv‑db sits behind a Cloudflare check; FlareSolverr clears it for you. A separate third‑party program, usually run in Docker. Without it you can paste a browser session instead.</p></div>
       <div><b>Scene model</b><p>Optional. A ~450 MB download from Settings → Scene model. Tagging needs Apple Silicon or an NVIDIA GPU; viewing markers needs nothing special.</p></div>
-      <div><b>Subtitles</b><p>Optional. Settings → Subtitles → <em>Set up</em> installs Whisper and the translator into their own Python 3.10+ environment (~1 GB); the models (~4 GB) download on first use. Fastest on Apple Silicon or an NVIDIA GPU; on Windows / Linux the translator runs in Ollama or LM Studio.</p></div>
+      <div><b>Subtitles</b><p>Optional. Settings → Subtitles → <em>Set up</em> installs Whisper and the translator into their own environment (~1 GB); the models (~4 GB) download on first use. Fastest on Apple Silicon or an NVIDIA GPU; on Windows / Linux the translator runs in Ollama or LM Studio.</p></div>
     </div>
 
     <div class="os-tabs" role="tablist" aria-label="Operating system">
@@ -440,34 +439,22 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     </div>
 
     <div class="steps" data-panel="mac">
-      <div class="step"><div><h3>Install ffmpeg</h3><p>With <a href="https://brew.sh">Homebrew</a>. If <code>python3</code> asks to install the command‑line tools, say yes.</p>
-<pre>brew install ffmpeg</pre></div></div>
-      <div class="step"><div><h3>Get Vault</h3><p>Either download <b>Vault.app</b> from the latest release and drop it into Applications, or clone the repo. The app asks for your library folder on first launch; the clone takes it on the command line.</p>
-<pre>git clone https://github.com/fc2vault/vault.git
-cd vault
-python3 serve.py --library "/Volumes/Movies"</pre></div></div>
-      <div class="step"><div><h3>Keep it running</h3><p>Register Vault as a login item: it starts when you log in, restarts if it stops, and keeps running with no window open. Remove it again with <code>--uninstall-service</code>.</p>
-<pre>python3 serve.py --install-service
-<span class="c"># then open http://127.0.0.1:8730/  — or http://&lt;this-mac&gt;:8730/ from your phone</span></pre></div></div>
+      <div class="step"><div><h3>Download</h3><p><a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-apple-silicon.dmg"><b>Vault for Apple Silicon</b></a> (M1 and later, ~90 MB) or <a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-intel.dmg"><b>Vault for Intel</b></a> (~100 MB). Not sure? Apple menu → About This Mac: "Chip: Apple M…" is Apple Silicon.</p></div></div>
+      <div class="step"><div><h3>Drag it into Applications and open it</h3><p>Open the downloaded file and drag <b>Vault</b> onto <b>Applications</b>. The first time you open it, macOS says it can't check the app for malware: Vault isn't signed with a paid Apple certificate. Click <b>Done</b>, then in <b>System Settings → Privacy &amp; Security</b> scroll down and click <b>Open Anyway</b>. Only once.</p></div></div>
+      <div class="step"><div><h3>Choose your movie folder</h3><p>Vault asks for the folder that holds your movies, then opens in your browser. It runs while the app is open: click its Dock icon to bring the page back, quit it to stop. To have it start with your Mac, add Vault under <b>System Settings → General → Login Items</b>. From your phone: <code>http://&lt;this-mac&gt;:8730/</code>.</p></div></div>
     </div>
 
     <div class="steps" data-panel="win" hidden>
-      <div class="step"><div><h3>Install Python and ffmpeg</h3><p>Python from <a href="https://www.python.org/downloads/">python.org</a> (tick <em>Add python to PATH</em> in the installer), then ffmpeg in a terminal:</p>
-<pre>winget install ffmpeg</pre></div></div>
-      <div class="step"><div><h3>Get Vault</h3><p>Download the latest release zip from GitHub and unpack it, for example to <code>C:\Vault</code>. Then in a terminal:</p>
-<pre>cd C:\Vault
-py serve.py --library "D:\Movies"</pre></div></div>
-      <div class="step"><div><h3>Keep it running</h3><p>Register Vault as a scheduled task that runs at log on, without a console window. It appears in Task Scheduler as <b>Vault</b>; remove it with <code>--uninstall-service</code>.</p>
-<pre>py serve.py --install-service
-<span class="c"># then open http://127.0.0.1:8730/</span></pre>
-<p class="fine" style="margin-top:10px">Windows support is new. If something breaks, open an issue with the message from <code>server.log</code>.</p></div></div>
+      <div class="step"><div><h3>Download</h3><p><a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-windows-setup.exe"><b>Vault for Windows</b></a> (Windows 10 / 11, 64‑bit, ~120 MB).</p></div></div>
+      <div class="step"><div><h3>Run the setup</h3><p>Windows may say <em>"Windows protected your PC"</em>: Vault isn't signed with a paid certificate. Click <b>More info → Run anyway</b>, only this once. Setup installs for your user only, no administrator rights; tick <em>Start Vault when I log on</em> to keep it running in the background.</p></div></div>
+      <div class="step"><div><h3>Choose your movie folder</h3><p>Vault asks for the folder that holds your movies, then opens in your browser. The Start menu has <b>Vault</b> (open it), <b>Vault - Stop</b> and <b>Vault - Choose movie folder</b>. Updating later: run the new setup over the old one, your settings stay.</p></div></div>
     </div>
 
     <div class="steps" data-panel="linux" hidden>
       <div class="step"><div><h3>Install ffmpeg</h3><p>Python 3 is already there on every current distribution.</p>
 <pre>sudo apt install ffmpeg      <span class="c"># Debian / Ubuntu</span>
 sudo dnf install ffmpeg      <span class="c"># Fedora</span></pre></div></div>
-      <div class="step"><div><h3>Get Vault</h3><p>Clone the repo and point it at your movies. Updating later is a <code>git pull</code>.</p>
+      <div class="step"><div><h3>Get Vault</h3><p>Clone the repo and point it at your movies. Updating later is a <code>git pull</code>. (This also runs Vault from source on a Mac or a Windows PC.)</p>
 <pre>git clone https://github.com/fc2vault/vault.git
 cd vault
 python3 serve.py --library "/srv/movies"</pre></div></div>
@@ -519,7 +506,11 @@ function showOS(os) {
 }
 for (const b of tabs) b.addEventListener("click", () => showOS(b.dataset.os));
 const ua = navigator.userAgent;
-showOS(/Windows/.test(ua) ? "win" : /Linux|X11/.test(ua) && !/Android/.test(ua) ? "linux" : "mac");
+const os = /Windows/.test(ua) ? "win" : /Linux|X11/.test(ua) && !/Android/.test(ua) ? "linux" : "mac";
+showOS(os);
+// Hero: the visitor's own platform keeps the filled button, the other one goes plain.
+if (os === "mac" || os === "win")
+  for (const a of document.querySelectorAll("[data-dl]")) a.classList.toggle("primary", a.dataset.dl === os);
 </script>
 </body>
 </html>
