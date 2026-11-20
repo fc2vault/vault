@@ -1,0 +1,10 @@
+Vault includes these programs, each under its own license:
+
+Python 3.12 (python-build-standalone)
+  Python Software Foundation License — https://docs.python.org/3/license.html
+  Build: https://github.com/astral-sh/python-build-standalone
+
+FFmpeg and FFprobe 8.1 (LGPL build from https://github.com/BtbN/FFmpeg-Builds)
+  GNU Lesser General Public License v2.1 or later — see bin\FFMPEG-LICENSE.txt
+  Source code: https://ffmpeg.org/download.html and https://github.com/BtbN/FFmpeg-Builds
+  Vault runs ffmpeg as a separate program; it is not linked into Vault.
