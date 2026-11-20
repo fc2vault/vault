@@ -329,6 +329,10 @@ class Runner:
                 return shlex.split(cfg["tagger"])
             except ValueError:
                 return None
+        bundled = getattr(self.h, "bundled_tagger", None)          # the one shipped with Vault
+        cmd = bundled() if bundled else None
+        if cmd:
+            return cmd
         exe = shutil.which("vault-scene-tagger")
         if exe:
             return [exe]
@@ -363,8 +367,8 @@ class Runner:
     def _scenes(self, cfg, deadline):
         cmd = self.tagger_cmd(cfg)
         if not cmd:
-            self.log("Scene markers: skipped — vault-scene-tagger not found "
-                     "(install it, or give its command in Settings → Nightly)")
+            self.log("Scene markers: skipped — the scene tagger isn't set up "
+                     "(Settings → Scene model → Set up)")
             return
         logf = self.h.log_path("nightly-tagger.log")
         args = ["--phase", "c", "--engine", "phar"]

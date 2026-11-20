@@ -1,8 +1,10 @@
 """The scene model: where it lives, what the newest one is, how it is fetched.
 
-Standard library only. Models are release assets of the public GitHub repository MODEL_REPO
-(one release per build, tag ``vault-r<N>``, one ``vault-r<N>.zip``). Vault asks GitHub for the
-newest release and downloads the zip from it; nothing about the user travels.
+Standard library only. Models are release assets on GitHub: one pre-release per build in Vault's
+own repository, tag ``vault-r<N>``, one ``vault-r<N>.zip`` (pre-releases, so the app's "latest
+release" and its installer links never point at a model). Until 1.10 they lived in a separate
+fc2vault/models repository, still asked as a fallback. Vault asks GitHub for the newest build and
+downloads the zip from it; nothing about the user travels.
 
 The model lands in ``user_models_dir()/vault-r<N>/``, a per-user folder that vault-scene-tagger
 looks in as well, so a downloaded model is picked up by the tagger with no further setup.
@@ -17,8 +19,9 @@ import time
 import zipfile
 from urllib.request import Request, urlopen
 
-MODEL_REPO = os.environ.get("VAULT_MODEL_REPO") or "fc2vault/models"
-RELEASES_URL = "https://api.github.com/repos/%s/releases/latest" % MODEL_REPO
+MODEL_REPOS = ([os.environ["VAULT_MODEL_REPO"]] if os.environ.get("VAULT_MODEL_REPO")
+               else ["fc2vault/vault", "fc2vault/models"])
+RELEASES_URL = "https://api.github.com/repos/%s/releases?per_page=50"
 _ROUND_RE = re.compile(r"^vault-r(\d+)$")
 USER_AGENT = "vault-model"
 
@@ -71,13 +74,23 @@ def latest(timeout=8, max_age=600, opener=urlopen):
     now = time.time()
     if _LATEST["info"] is not None and now - _LATEST["at"] < max_age:
         return _LATEST["info"]
-    try:
-        with opener(Request(RELEASES_URL, headers={"User-Agent": USER_AGENT,
-                                                   "Accept": "application/vnd.github+json"}),
-                    timeout=timeout) as r:
-            info = _parse_release(json.loads(r.read().decode("utf-8")))
-    except Exception as e:   # offline, DNS, 404 before the first model is published, ...
-        info = {"error": "could not reach GitHub for the model (%s)" % _short(e)}
+    info = None
+    for repo in MODEL_REPOS:
+        try:
+            with opener(Request(RELEASES_URL % repo, headers={"User-Agent": USER_AGENT,
+                                                              "Accept": "application/vnd.github+json"}),
+                        timeout=timeout) as r:
+                rels = json.loads(r.read().decode("utf-8"))
+        except Exception as e:   # offline, DNS, a repository that is gone, ...
+            info = info or {"error": "could not reach GitHub for the model (%s)" % _short(e)}
+            continue
+        builds = [(int(_ROUND_RE.match(rel.get("tag_name") or "").group(1)), rel)
+                  for rel in rels if isinstance(rel, dict) and not rel.get("draft")
+                  and _ROUND_RE.match(rel.get("tag_name") or "")]
+        if builds:
+            info = _parse_release(max(builds, key=lambda b: b[0])[1])
+            break
+        info = info if info and "error" not in info else {"error": "no scene model published yet"}
     if "error" not in info:
         _LATEST.update(at=now, info=info)
     return info

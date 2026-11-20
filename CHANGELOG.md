@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.10.0 — Scene markers built in, HTTPS in one click
+
+- **Vault places scene markers itself.** The scene tagger is now part of Vault — in the installers
+  too — instead of a separate command-line program. Settings → Scene model: **Set up** installs
+  what the model needs to run (PyTorch, ~1 GB, into the same private environment the subtitles
+  use; the CUDA build on Windows / Linux with an NVIDIA card), then **Place markers** works through
+  the movies without markers in the background, with progress and Stop. Each movie's panel has
+  **🎬 Place markers**, and the nightly run uses it on its own. (The separate vault-scene-tagger
+  repository is retired; its training-data export is not part of Vault.)
+- **Scene model builds now come with Vault's own GitHub releases** (as pre-releases, so the
+  download links for the app are unaffected); older Vault versions keep downloading from the old
+  models repository.
+- **Settings → HTTPS → Turn on HTTPS.** Vault makes its own certificate for this computer and
+  switches HTTPS on at once — no openssl, no restart, nothing to install (it works the same in the
+  Mac and Windows installers). The tab shows the address to use, how long the certificate is
+  valid, and the once-per-device steps to trust it on iPhone, Android, Mac and Windows. **Renew**
+  after the computer got a new address (the tab notices), keeping the devices' trust; **Turn off**
+  goes back to plain HTTP.
+- **Documentation brought up to date:** keyboard shortcuts, the Settings tabs, where metadata
+  comes from (SOURCES.md rewritten), what goes online and when, running from the installers vs.
+  from source, and the scene-marker parts that described editing the public version can't do.
+
 ## 1.9.1 — Installers
 
 - **Download, double-click, done.** The release page now has installers that carry everything

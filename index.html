@@ -1564,7 +1564,7 @@ function refreshSettings(tab){if(tab)SETTAB=tab;
   fetch("/api/settings").then(r=>r.json()).then(j=>{SET=j;renderSettings();reloadData&&reloadData();});}
 function renderSettings(){
   const b=$("#setbox"),close=()=>$("#setmodal").classList.remove("on");
-  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["model","Scene model"],["subs","Subtitles"],["nightly","Nightly"]];
+  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["model","Scene model"],["subs","Subtitles"],["nightly","Nightly"],["https","HTTPS"]];
   b.innerHTML=`<div class="orghd">Settings</div>
     <div class="settabs">${tabs.map(([t,l])=>`<div class="settab${SETTAB===t?' on':''}" data-t="${t}">${l}</div>`).join("")}</div>
     <div class="setpane" id="setpane"></div>
@@ -1572,7 +1572,7 @@ function renderSettings(){
   b.querySelectorAll(".settab").forEach(t=>t.onclick=()=>{SETTAB=t.dataset.t;renderSettings();});
   $("#setClose").onclick=close;
   const pane=$("#setpane");
-  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,model:renderSetModel,subs:renderSetSubs,nightly:renderSetNightly}[SETTAB]||renderSetLibrary)(pane);
+  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,model:renderSetModel,subs:renderSetSubs,nightly:renderSetNightly,https:renderSetHttps}[SETTAB]||renderSetLibrary)(pane);
 }
 let nightlyTimer=null;
 function renderSetNightly(pane){
@@ -1603,8 +1603,8 @@ function renderSetNightly(pane){
       <div class="setnote">Only movies added since the nightly run was switched on${n.baseline?` (${new Date(n.baseline*1000).toLocaleDateString()})`:''} — the rest of the library stays with <b>Scan library</b>. A movie the sources had nothing for is asked again after a week at the earliest, so the sites don't see the same misses every night${n.waiting?` (${n.waiting} waiting for their retry)`:''}. At most 200 a night.</div>
       ${ck("nScn",s.scenes,"🎬 Scene markers")}
       ${seg("nScnScope",s.scenes_scope,[["new","New movies"],["library","Work through the whole library"]])}
-      <div class="setnote" style="margin-top:6px">Runs <b>vault-scene-tagger</b> with the scene model (Settings → Scene model). Movies that already have markers are skipped. ${n.tagger?`Found: <code>${esc(n.tagger)}</code>`:'<span style="color:var(--warn)">vault-scene-tagger not found</span> — install it (see the user guide) or give its command here:'}</div>
-      <div style="display:flex;gap:8px"><input class="setin" id="nTag" style="flex:1" value="${esc(s.tagger||'')}" placeholder="tagger command (empty = find it), e.g. /path/to/python -m vault_scene_tagger"></div>
+      <div class="setnote" style="margin-top:6px">The same as <b>Place markers</b> in Settings → Scene model; movies that already have markers are skipped. ${n.tagger?`Uses: <b>${esc(n.tagger)}</b>.`:'<span style="color:var(--warn)">The scene tagger isn\'t set up yet</span> — Settings → Scene model → Set up.'}</div>
+      <div style="display:flex;gap:8px"><input class="setin" id="nTag" style="flex:1" value="${esc(s.tagger||'')}" placeholder="another tagger command (optional; empty = Vault's own)"></div>
       ${ck("nSub",s.subs,"💬 Subtitles")}
       ${seg("nSubScope",s.subs_scope,[["new","New movies"],["library","Work through the whole library (newest first)"]])}
       <div class="setnote" style="margin-top:6px">The same as 💬 Transcribe, with the Settings → Subtitles setup. When scene markers work through the whole library too, they get at most half of the night, so the subtitles get their turn.</div>
@@ -1632,6 +1632,52 @@ function renderSetNightly(pane){
     if(n.running)nightlyTimer=setTimeout(poll,3000);
   };
   fetch("/api/nightly").then(r=>r.json()).then(show).catch(()=>{pane.innerHTML='<div class="setnote">Vault could not be reached.</div>';});
+}
+function renderSetHttps(pane){
+  pane.innerHTML='<div class="setnote">Loading…</div>';
+  const day=t=>t?new Date(t*1000).toLocaleDateString([], {year:'numeric',month:'short',day:'numeric'}):'';
+  const show=t=>{
+    if(!$("#setpane")||SETTAB!=="https")return;
+    const c=t.cert||{},addr=(t.addresses||[])[0]||"this-computer",port=t.port||8730;
+    const where=[...(c.names||[]).filter(n=>n!=="localhost"),...(c.ips||[]).filter(i=>i!=="127.0.0.1")];
+    let status;
+    if(!t.available)status='<span style="color:var(--warn)">Vault was started with <code>--no-tls</code>, so HTTPS stays off.</span>';
+    else if(t.on)status=`<span style="color:var(--good)">✓ On</span> — other devices open <b>https://${esc(addr)}:${port}/</b>. The certificate covers ${esc(where.join(', ')||'this computer')} and is valid until <b>${esc(day(c.not_after))}</b>.`
+      +(t.missing&&t.missing.length?`<br><span style="color:var(--warn)">This computer's address ${esc(t.missing.join(', '))} is not in the certificate (the network gave it a new one): Renew.</span>`:'')
+      +(t.have&&!t.ours?'<br><span style="color:var(--dim2)">The certificate was put in the folder by hand. Renew replaces it with one Vault makes; your devices then trust Vault\'s certificate once.</span>':'');
+    else status='Off — Vault answers on plain <b>http://</b>.'+(t.parked?' Turning it on again uses the same certificate, so devices that trusted it keep trusting it.':'');
+    const steps=t.on&&t.has_ca?`
+      <div class="setsec">Your phone and other computers</div>
+      <div class="setnote">Each device trusts Vault's certificate once. Then the browser shows Vault as secure, with no warnings.</div>
+      <ol class="setnote" style="padding-left:20px;line-height:1.6">
+        <li>On the device, open <b>http://${esc(addr)}:${port}/vault-ca.crt</b> — it downloads the certificate.</li>
+        <li><b>iPhone / iPad:</b> Settings → <i>Profile Downloaded</i> → Install. Then Settings → General → About → Certificate Trust Settings → switch on <i>Vault local CA</i>.<br>
+            <b>Android:</b> Settings → Security → More → Encryption &amp; credentials → Install a certificate → CA certificate.<br>
+            <b>Mac:</b> open the file, then in Keychain Access double-click <i>Vault local CA</i> → Trust → <i>Always Trust</i>.<br>
+            <b>Windows:</b> open the file → Install Certificate → Current User → <i>Trusted Root Certification Authorities</i>.</li>
+        <li>Open <b>https://${esc(addr)}:${port}/</b>.</li>
+      </ol>
+      <div class="setnote">On this computer itself, <code>http://127.0.0.1:${port}/</code> keeps working as before.</div>`:'';
+    pane.innerHTML=`
+      <div class="setsec">HTTPS</div>
+      <div class="setnote">On this computer plain HTTP is fine. From a phone or another computer, <b>HTTPS</b> keeps others on the network from reading along. Vault makes its own certificate for this computer — nothing to buy, nothing leaves the house. It encrypts the traffic; it is not a login: anyone who can reach Vault can still open it.</div>
+      <div class="setsec">Status</div>
+      <div class="setnote" id="tlsStat">${status}</div>
+      <div class="pactions" style="justify-content:flex-start;margin-top:10px">
+        ${!t.available?'':t.on?'<button class="btn" id="tlsRenew" title="A new certificate for this computer\'s current names and addresses">Renew certificate</button><button class="btn" id="tlsOff">Turn off</button>'
+          :'<button class="btn pri" id="tlsOn">Turn on HTTPS</button>'}
+      </div>
+      ${steps}
+      <div class="setnote" style="margin-top:12px;color:var(--dim2)">Certificate folder: <code>${esc(t.folder||'')}</code></div>`;
+    const act=(id,url,busy,done)=>{const b=$("#"+id);if(!b)return;b.onclick=()=>{
+      b.disabled=true;b.textContent=busy;
+      post2(url,{},j=>{if(j.error){toast(j.error);show(t);return;}
+        toast(j.note==="new_ca"?done+" — devices trust Vault's new certificate once (steps below)":done);show(j);});};};
+    act("tlsOn","/api/tls/on","Making the certificate…","HTTPS is on");
+    act("tlsRenew","/api/tls/renew","Renewing…","Certificate renewed");
+    act("tlsOff","/api/tls/off","Turning off…","HTTPS is off");
+  };
+  fetch("/api/tls").then(r=>r.json()).then(show).catch(()=>{pane.innerHTML='<div class="setnote">Vault could not be reached.</div>';});
 }
 function renderSetSubs(pane){
   pane.innerHTML='<div class="setnote">Checking the Whisper setup…</div>';
@@ -1758,10 +1804,44 @@ function renderSetModel(pane){
     <div class="setsec">Scene model</div>
     <div class="setnote" id="mdlNote">Checking…</div>
     <div style="display:flex;gap:8px;align-items:center"><button class="setbtn" id="mdlGet" disabled>Download</button><span class="setnote" id="mdlProg" style="margin:0"></span></div>
-    <div class="setnote">The trained model places scene markers (blowjob, doggy, cowgirl, missionary, creampie …) on the seek bar. It is a free download from the project's GitHub releases; every improved build shows up here as an <b>Update</b>. Markers are written by <b>vault-scene-tagger</b>, a separate command-line tool that finds the downloaded model on its own — see the user guide.</div>
+    <div class="setnote">The trained model recognises the scenes (blowjob, doggy, cowgirl, missionary, creampie …) so Vault can put markers on the seek bar. It is a free download from the project's GitHub releases; every improved build shows up here as an <b>Update</b>.</div>
+    <div class="setsec">Placing markers</div>
+    <div id="tagBox"><div class="setnote">Checking…</div></div>
     <div class="setsec">Support</div>
     <div class="setnote">Vault is free and stays free. If it earns a place in your setup, a contribution on <a href="${esc(SUPPORT_URL)}" target="_blank" rel="noopener">Patreon</a> helps cover the tools and the hours that go into the next release — thank you.</div>`;
   renderModel();
+  renderTagger();
+}
+// Settings → Scene model → Placing markers: set up the runtime, run the bundled tagger, show progress.
+let TAG_TIMER=null;
+function renderTagger(fresh){
+  clearTimeout(TAG_TIMER);
+  const box=$("#tagBox");if(!box)return;
+  fetch("/api/tagger?count=1"+(fresh?"&fresh=1":"")).then(r=>r.json()).then(t=>{
+    if(!$("#tagBox")||SETTAB!=="model")return;
+    const c=t.check||{},st=t.setup||{},j=t.job||{};
+    const dev={mps:"the Apple GPU",cuda:"the NVIDIA GPU",cpu:"the processor (slow)"}[c.device]||c.device;
+    const ready=c.ready;
+    box.innerHTML=`
+      <div class="setnote">Vault looks at each movie with the scene model and writes its markers next to the video (<code>&lt;name&gt;.scenes.json</code>). It takes a few minutes per movie on an Apple Silicon Mac or with an NVIDIA graphics card. The <b>Nightly</b> run can do it for new movies on its own.</div>
+      <div class="setnote">${ready?`<span style="color:var(--good)">✓ Ready</span> — runs on ${esc(dev)} (PyTorch ${esc(c.torch||"")}).`
+        :`<b>Set up</b> installs what the model needs to run (PyTorch, about 1 GB) into Vault's own environment, the same one the subtitles use.`}
+        ${t.hardware?`<br><span style="color:var(--warn)">${esc(t.hardware)}</span>`:''}${t.model?'':'<br><span style="color:var(--warn)">Download the scene model above first.</span>'}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="setbtn" id="tagSetup"${st.running?' disabled':''}>${ready?'Re-install':'Set up'}</button>
+        <span class="setnote" id="tagSetupLine" style="margin:0">${esc(st.line||'')}</span></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
+        ${j.running?'<button class="setbtn" id="tagStop">■ Stop</button>'
+          :`<button class="setbtn" id="tagRun"${ready&&t.model&&t.without?'':' disabled'}>Place markers on ${t.without||0} movie${t.without===1?'':'s'} without them</button>`}
+        <span class="setnote" id="tagLine" style="margin:0">${j.running?`${esc(j.line||'')} (${j.done+1} of ${j.total})`:esc(j.line||'')}</span></div>
+      ${(j.errors||[]).length?`<div class="setnote" style="color:var(--warn)">${(j.errors||[]).slice(-3).map(esc).join('<br>')}</div>`:''}`;
+    $("#tagSetup").onclick=()=>post2("/api/tagger/setup",{},r=>{if(!r.started)toast("Setup is already running");renderTagger();});
+    const run=$("#tagRun");if(run)run.onclick=()=>post2("/api/tagger/run",{},r=>{if(r.error){toast(r.error);return;}
+      toast(r.note||"Placing markers…");renderTagger();});
+    const stop=$("#tagStop");if(stop)stop.onclick=()=>post2("/api/tagger/stop",{},()=>{toast("Stopping after this movie…");renderTagger();});
+    if(st.running||j.running)TAG_TIMER=setTimeout(()=>renderTagger(),3000);
+    else if(st.ok&&!ready&&!fresh)renderTagger(true);      // setup just finished: check once more
+  }).catch(()=>{box.innerHTML='<div class="setnote">Vault could not be reached.</div>';});
 }
 // Settings → Scene model: installed vs. newest, one button, progress while it runs.
 let MDL_TIMER=null;
@@ -2691,7 +2771,7 @@ function openPlayer(it){
       </div>
       ${playActions}
       <div class="pactions"><button class="btn" id="pscan" title="Fetch title / cover / tags from web sources">⟳ Scan metadata</button>
-        ${it.missing?'':'<button class="btn" id="ptrans">💬 Transcribe (JA → EN)</button>'}</div>
+        ${it.missing?'':'<button class="btn" id="ptrans">💬 Transcribe (JA → EN)</button><button class="btn" id="ptag" title="Let the scene model place this movie\'s markers (Settings → Scene model)">🎬 Place markers</button>'}</div>
       <h4 class="sec">Your rating</h4>
       <div class="prate">${starsHTML(it.code)}</div>
       <div class="pactions"><button class="btn pbtn-danger" id="pdelete" title="${it.missing?'Remove this wishlist entry':'Move files to Trash and remove from catalog'}">🗑 ${it.missing?'Remove from wishlist':'Delete movie'}</button></div>
@@ -2729,6 +2809,11 @@ function openPlayer(it){
        if(st==="run"||st==="queued"){openTranscribe();return;}
        if(st==="has"&&!confirm("This movie already has English subtitles. Transcribe it again (replaces them)?"))return;
        startTranscribe([it.uid||it.code],st==="has",true).then(()=>paintPlayerTrans());};}}
+  {const gb=p.querySelector("#ptag");
+   if(gb)gb.onclick=()=>post2("/api/tagger/run",{codes:[it.uid||it.code]},j=>{
+     if(j.error){toast(j.error);return;}
+     if(!j.started){toast("Markers are already being placed — see Settings → Scene model");return;}
+     gb.disabled=true;gb.textContent="🎬 Placing markers…";toast("Placing markers — a few minutes; reopen the movie to see them");});}
   p.querySelector("#pscan").onclick=e=>{
     const b=e.currentTarget;b.textContent="⟳ Scanning…";b.disabled=true;
     fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json"},

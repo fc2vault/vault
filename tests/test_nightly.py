@@ -207,7 +207,7 @@ class RunTest(unittest.TestCase):
     def test_missing_tagger_is_reported(self):
         log = self.run_steps(scenes=True, tagger="")
         if not shutil.which("vault-scene-tagger"):
-            self.assertTrue(any("vault-scene-tagger not found" in m for m in log))
+            self.assertTrue(any("scene tagger isn't set up" in m for m in log))
 
 
 if __name__ == "__main__":

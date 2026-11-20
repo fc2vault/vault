@@ -214,7 +214,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
 <header class="hero" id="top">
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">Free &amp; self‑hosted · v1.9.1 · macOS · Windows · Linux</p>
+      <p class="eyebrow">Free &amp; self‑hosted · v1.10.0 · macOS · Windows · Linux</p>
       <h1>Your library,<br>finally <span>browsable.</span></h1>
       <p class="lede">Vault turns a folder of FC2 / JAV movies into a fast, private web app: a poster wall, a streaming player with scene markers on the seek bar and English subtitles made on your own computer, and an actress catalog. <strong>One download for Mac or Windows. No cloud, no accounts, no telemetry. Free, the whole thing.</strong></p>
       <div class="cta">
@@ -241,7 +241,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     <div class="sec-head">
       <p class="eyebrow">What it does</p>
       <h2>A wall, a player,<br>subtitles, a catalog.</h2>
-      <p class="lede">Everything a tube site does for its own videos, done for the files on your disk. The filesystem is the source of truth; Vault never moves a file without a preview and never deletes one without asking.</p>
+      <p class="lede">Everything a tube site does for its own videos, done for the files on your disk. The filesystem is the source of truth; Vault never moves a file without a preview and never deletes one without your say‑so.</p>
     </div>
     <div class="feat">
       <article>
@@ -294,9 +294,9 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     <div class="gallery">
       <div class="two">
         <div>
-          <figure class="shot"><img src="img/player.webp" width="2000" height="1250" alt="The Vault player: a movie playing with an English subtitle line, scene chips and ranges above the seek bar, and the movie's tags, metadata and actions on the right." loading="lazy"></figure>
+          <figure class="shot"><img src="img/player.webp" width="2000" height="1250" alt="The Vault player: a movie playing with an English subtitle line, scene chips above the seek bar, and the movie's tags, metadata and actions on the right." loading="lazy"></figure>
           <h3>The player</h3>
-          <p>Scene chips and their ranges above the seek bar, English subtitles on the picture (CC, or <code>v</code>; <code>Shift+Y</code> / <code>Shift+C</code> jump between lines), tags and metadata beside it. Filmography of the performer on the left, so the next title is one click away.</p>
+          <p>Scene chips above the seek bar, English subtitles on the picture (CC, or <code>v</code>; <code>Shift+Y</code> / <code>Shift+C</code> jump between lines), tags and metadata beside it. Filmography of the performer on the left, so the next title is one click away.</p>
         </div>
         <div>
           <figure class="shot"><img src="img/actress.webp" width="2000" height="1250" alt="An actress page in Vault: portrait, Japanese name, age, cup size, height and measurements, aliases, and a grid of the 82 titles owned." loading="lazy"></figure>
@@ -326,9 +326,9 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
           <h2>Trained on real reviews.<br>Updated every round.</h2>
         </div>
         <div class="text">
-          <p>Vault ships with a video classifier fine‑tuned on thousands of hand‑reviewed scene markers. It watches a movie in 6.4‑second windows and proposes where each act starts: <strong>blowjob, doggy, cowgirl, missionary, fingering, toy, creampie</strong> and more. The markers land on the seek bar.</p>
+          <p>Vault places scene markers itself, with a video classifier fine‑tuned on thousands of hand‑reviewed scene markers. It watches a movie in 6.4‑second windows and proposes where each act starts: <strong>blowjob, doggy, cowgirl, missionary, fingering, toy, creampie</strong> and more. The markers land on the seek bar.</p>
           <p>The model is <strong>actively maintained</strong>: each round is trained on a larger reviewed set and measured against the same held‑out performers, so every release is a verified step up. The newest build is a <strong>free download</strong> in Settings → Scene model, and the app tells you when there is a new one.</p>
-          <p>Tagging runs on a Mac with Apple Silicon or any machine with an NVIDIA GPU, offline. Nothing from your library leaves your network.</p>
+          <p>One <strong>Set up</strong> click installs what it needs to run, then <strong>Place markers</strong> works through the library — or a movie at a time, or each night for new arrivals. It runs offline on a Mac with Apple Silicon or any machine with an NVIDIA GPU. Nothing from your library leaves your network.</p>
           <div class="labels" aria-label="Round-1 recall per label">
             <span>blowjob <b>96%</b></span><span>creampie <b>96%</b></span><span>cowgirl <b>95%</b></span><span>missionary <b>89%</b></span><span>fingering <b>84%</b></span><span>doggy <b>81%</b></span><span>scoop‑up <b>67%</b></span><span>standing <b>62%</b></span><span>toy <b>60%</b></span>
           </div>
@@ -359,7 +359,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     </div>
     <figure class="shot">
       <img src="img/settings.webp" width="1600" height="1022" alt="Settings → Scene model in Vault: the installed model, the newest build with its release notes, and an Update button." loading="lazy">
-      <figcaption>Settings → Scene model. One button fetches the newest build from the project's GitHub releases; the tagger finds it on its own.</figcaption>
+      <figcaption>Settings → Scene model. One button fetches the newest build from the project's GitHub releases; Set up and Place markers sit in the same tab.</figcaption>
     </figure>
   </div>
 </section>
@@ -411,8 +411,8 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     <div class="priv">
       <div><b>No cloud</b><p>A single Python process serves a single HTML page from your machine. Your library index, posters and catalog live in a folder next to it.</p></div>
       <div><b>No account</b><p>Nothing to register. The only outbound traffic is the metadata scan you start yourself and the model downloads you ask for (the scene model, and the speech and translation models the first time you transcribe). Audio and subtitles never leave your machine.</p></div>
-      <div><b>No telemetry</b><p>No analytics, no update pings, no crash reports. The source is open; read the whole server in one sitting.</p></div>
-      <div><b>LAN only</b><p>Vault has no login on purpose. It speaks HTTPS once you give it a certificate, but that only encrypts the traffic: use it on a trusted home network or over a VPN, and don't port‑forward it.</p></div>
+      <div><b>No telemetry</b><p>No analytics, no crash reports, no update pings — the only check is for a newer scene model, when you open its Settings tab. The source is open; read the whole server in one sitting.</p></div>
+      <div><b>LAN only</b><p>Vault has no login on purpose. Settings → HTTPS turns on encryption with one click, but that is not a login: use it on a trusted home network or over a VPN, and don't port‑forward it.</p></div>
     </div>
   </div>
 </section>
@@ -428,7 +428,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     <div class="deps">
       <div><b>Python and ffmpeg</b><p>Built into the Mac and Windows downloads. On Linux, or to run from source anywhere: Python 3.8+ and ffmpeg from your package manager (<code>apt install ffmpeg</code>, <code>brew install ffmpeg</code>).</p></div>
       <div><b>FlareSolverr</b><p>Optional. fc2ppv‑db sits behind a Cloudflare check; FlareSolverr clears it for you. A separate third‑party program, usually run in Docker. Without it you can paste a browser session instead.</p></div>
-      <div><b>Scene model</b><p>Optional. A ~450 MB download from Settings → Scene model. Tagging needs Apple Silicon or an NVIDIA GPU; viewing markers needs nothing special.</p></div>
+      <div><b>Scene model</b><p>Optional. A ~450 MB download from Settings → Scene model, then <em>Set up</em> (~1 GB) to place markers. Placing them needs Apple Silicon or an NVIDIA GPU; viewing markers needs nothing special.</p></div>
       <div><b>Subtitles</b><p>Optional. Settings → Subtitles → <em>Set up</em> installs Whisper and the translator into their own environment (~1 GB); the models (~4 GB) download on first use. Fastest on Apple Silicon or an NVIDIA GPU; on Windows / Linux the translator runs in Ollama or LM Studio.</p></div>
     </div>
 
@@ -474,7 +474,7 @@ python3 serve.py --library "/srv/movies"</pre></div></div>
     <div class="faq">
       <details><summary>Is it really all free?</summary><p>Yes. The app, every metadata source, the bundled catalog and the scene model, with no movie limit and no key. The terms are in <code>LICENSE.md</code>: use it, share it, don't sell it.</p></details>
       <details><summary>What do I get for supporting on Patreon?</summary><p>The same Vault as everyone else, and my thanks. Contributions pay for the GPU time that trains each model round, the tooling and the hours behind every release. Nothing is held back from people who don't contribute.</p></details>
-      <details><summary>How does the scene model get onto my machine?</summary><p>Settings → Scene model shows the newest build and a Download button. Vault fetches it from the project's GitHub releases into a per‑user folder, and vault‑scene‑tagger finds it there on its own. When a new round ships, the same tab offers the update.</p></details>
+      <details><summary>How does the scene model get onto my machine?</summary><p>Settings → Scene model shows the newest build and a Download button. Vault fetches it from the project's GitHub releases into a per‑user folder; <em>Set up</em> in the same tab installs what it needs to run (~1 GB), and <em>Place markers</em> does the rest. When a new round ships, the same tab offers the update.</p></details>
       <details><summary>Does the scene model need a GPU?</summary><p>Tagging runs on Apple Silicon (MPS) at roughly 3× realtime, or much faster on any NVIDIA GPU. Viewing markers in the player needs nothing special. The model runs entirely on your machine.</p></details>
       <details><summary>Which sources does it use for metadata?</summary><p>fc2db.net, 123av and ffjav work out of the box. fc2ppv‑db, which supplies the cast and faces, sits behind a Cloudflare check, so it needs a pasted browser session or a FlareSolverr instance on your LAN.</p></details>
       <details><summary>How good are the subtitles?</summary><p>Good enough to follow the conversation. The Japanese transcript is usually accurate where people talk normally; quiet words under moaning are harder. In the English, expect roughly one line in five to be off, mostly where a word was misheard or who is talking to whom got mixed up. Each release improves the translator's glossary. Expect about 15–30 minutes per hour of video on an 8 GB M1 Mac, less on a faster machine. Everything runs locally: no audio and no text is sent anywhere.</p></details>
