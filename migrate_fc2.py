@@ -251,12 +251,14 @@ def pick_keepers(entries, tol):
     return keepers, dups, skips
 
 
-def migrate(apply, tol, limit, confirm_lib):
+def migrate(apply, tol, limit, confirm_lib, keep_dupes=False):
     print(f"STEP 2  MIGRATE  {COMPLETED_SPARE}  ->  {FC2_PPV}")
     print(f"Mode : {'APPLY' if apply else 'DRY RUN'}   (bigger wins; "
           f"equal within {tol:g}% -> delete source)")
     print(f"Library deletes (REPLACE TARGET): "
-          f"{'CONFIRMED — will execute' if confirm_lib else 'require --confirm-lib-deletes'}\n")
+          f"{'CONFIRMED — will execute' if confirm_lib else 'require --confirm-lib-deletes'}")
+    print(f"Duplicates (DELETE SOURCE)      : "
+          f"{'KEPT in the download folder (--keep-dupes)' if keep_dupes else 'deleted'}\n")
     for p in (COMPLETED_SPARE, FC2_PPV):
         if not os.path.isdir(p):
             sys.exit(f"error: not a directory: {p}")
@@ -363,6 +365,11 @@ def migrate(apply, tol, limit, confirm_lib):
         src = os.path.join(COMPLETED_SPARE, entry)
         dst = os.path.join(FC2_PPV, entry)
         try:
+            if keep_dupes and action in ("DELETE SOURCE", "DELETE DUPLICATE"):
+                print(f"      KEEP {entry}/  (duplicate left in the download folder)")
+                if action == "DELETE SOURCE":
+                    in_library.append(code)        # the library copy is the keeper
+                continue
             if action == "DELETE DUPLICATE":
                 if code in failed_codes:
                     print(color(f"      KEEP {entry}/ — {match} failed, so this copy stays",
@@ -497,6 +504,8 @@ def main():
     ap.add_argument("--apply", action="store_true", help="execute (default: dry run)")
     ap.add_argument("--confirm-lib-deletes", action="store_true",
                     help="authorize REPLACE TARGET rows (deletes inside 1_FC2 PPV)")
+    ap.add_argument("--keep-dupes", action="store_true",
+                    help="leave duplicates (library copy as good or bigger) in the source folder")
     ap.add_argument("--tolerance", type=float, default=1.0,
                     help="percent size difference treated as EQUAL (default 1)")
     ap.add_argument("--limit", type=int, default=0, help="cap preview rows (0=all)")
@@ -513,7 +522,7 @@ def main():
         print(f"\nRemoved: {len(rem)}   Stuck (SMB lock, retry later): {len(stuck)}")
         return
 
-    migrate(args.apply, args.tolerance, args.limit, args.confirm_lib_deletes)
+    migrate(args.apply, args.tolerance, args.limit, args.confirm_lib_deletes, args.keep_dupes)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.9.0 — The nightly run
+
+- **Settings → Nightly**: once a night, inside the hours you choose, Vault imports new downloads,
+  looks up metadata for new movies, places scene markers and writes subtitles — whichever you
+  switch on. Every step stops when the window closes and carries on the next night; **Run now**
+  and **Stop** in the same pane.
+  - Import makes the Import window's two choices up front: replace the library copy with a
+    bigger download or leave it for you; delete duplicates or leave them in the download folder
+    (new `migrate_fc2.py --keep-dupes`).
+  - Metadata only for movies added since the nightly run was switched on; a movie the sources had
+    nothing for is asked again after a week at the earliest (at most 200 a night).
+  - Scene markers run vault-scene-tagger (found on the PATH or in Vault's Whisper Python, or a
+    command you give); subtitles use the Transcribe queue.
+- **Subtitle files made outside Vault** (the command-line worker, a downloaded `.srt`) show up in
+  the player right away — before, they waited for the next library scan.
+- **More dialogue during sex scenes.** When Whisper got stuck repeating a moan ("ああああ…") on a
+  second listen, the lines around it were lost; those stretches are now heard again piece by
+  piece (a test movie's climax went from nothing to four lines).
+- **Better translations.** The translator's glossary grew from ~30 to ~70 entries after a review
+  of ~2300 subtitle lines: common mishearings (咥える heard as 加える, 締まり as 縛り, 乳首 as ちくみ),
+  words it got wrong (生 = bareback, ゴム = condom, ムラムラ = horny, パンツ = panties, 立つ = get hard),
+  and a rule for who is talking (the man's questions and instructions are about her, not "I").
+  Stock phrases Whisper invents in silence and stray foreign words in the Japanese are dropped.
+
 ## 1.8.2
 
 - **The Patreon link is back**, for anyone who wants to contribute: Settings → Scene model, the

@@ -58,6 +58,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 - **Scene markers**: the player draws scenes (e.g. *blowjob*, *doggy*, *cumshot*) as icon chips and ticks **right on the seek bar**, tube‑site style — hover for the label, click to jump. Markers come from `<video>.scenes.json` sidecars written by vault-scene-tagger with the free scene model. See **Scene markers** below
 - **Organize** the folder on disk: normalize `…/<CODE>/<CODE>.ext`, quarantine junk, flag/relocate duplicates — preview first, nothing deleted
 - **Organize by actress**: fold every movie into `…/<Actress>/<CODE>/` to match the catalog (so the disk follows reassignments) — preview first, only moves, never deletes
+- **Nightly run** (Settings → Nightly): inside a time window you choose, Vault imports new downloads (with the Import window's choices made up front), looks up metadata for **new** movies only (a miss is retried after a week, not every night), places scene markers and writes subtitles — each step stops when the window ends and carries on the next night
 - **Settings** hub: change the library folder, clear caches, manage tags (rename/merge + **JP→EN translation**), manage actresses (rename, merge, **find duplicates**), and connect sources
 
 **Enrich**
@@ -303,7 +304,10 @@ vault-scene-tagger "/path/to/library/<Actress>" --engine phar        # one actre
 vault-scene-tagger "/path/to/library" --engine phar --log-file tagger.log
 ```
 
-It's resumable: re-runs skip videos whose sidecar is current, and Ctrl+C is safe. On an M1 Mac
+It's resumable: re-runs skip videos whose sidecar is current, and Ctrl+C is safe. Vault's
+**nightly run** (Settings → Nightly) can run it for you: it finds `vault-scene-tagger` on the
+`PATH` or in Vault's Whisper Python, or takes a command you give it, and stops it at the end of
+the night. On an M1 Mac
 it runs at about 3.5× realtime; a CUDA GPU is several times faster. Nothing else to do on the
 Vault side: a movie's sidecar is synced into the markers cache the next time you open it. Without the model the
 tagger can still write shot cuts (`--phase a`) or use skier233's AI server
@@ -367,6 +371,7 @@ index.html       # the entire front‑end (vanilla JS, no build step)
 scan.py          # web scrapers + enrichment (123av, ffjav, javdatabase, jav.guru, fc2ppv‑db)
 organize.py      # preview‑then‑apply library tidy (never deletes/overwrites)
 subtitles.py     # Whisper transcription queue (Tools → Transcribe)
+nightly.py       # the nightly run (Settings → Nightly)
 tools/transcribe.py  # the Whisper worker (runs with the Whisper Python)
 dedupe.py        # find & merge duplicate actress records
 data/catalog.db  # preloaded catalog (SQLite): actresses, works, tags, aliases, links

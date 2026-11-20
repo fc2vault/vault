@@ -1564,7 +1564,7 @@ function refreshSettings(tab){if(tab)SETTAB=tab;
   fetch("/api/settings").then(r=>r.json()).then(j=>{SET=j;renderSettings();reloadData&&reloadData();});}
 function renderSettings(){
   const b=$("#setbox"),close=()=>$("#setmodal").classList.remove("on");
-  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["model","Scene model"],["subs","Subtitles"]];
+  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["model","Scene model"],["subs","Subtitles"],["nightly","Nightly"]];
   b.innerHTML=`<div class="orghd">Settings</div>
     <div class="settabs">${tabs.map(([t,l])=>`<div class="settab${SETTAB===t?' on':''}" data-t="${t}">${l}</div>`).join("")}</div>
     <div class="setpane" id="setpane"></div>
@@ -1572,7 +1572,66 @@ function renderSettings(){
   b.querySelectorAll(".settab").forEach(t=>t.onclick=()=>{SETTAB=t.dataset.t;renderSettings();});
   $("#setClose").onclick=close;
   const pane=$("#setpane");
-  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,model:renderSetModel,subs:renderSetSubs}[SETTAB]||renderSetLibrary)(pane);
+  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,model:renderSetModel,subs:renderSetSubs,nightly:renderSetNightly}[SETTAB]||renderSetLibrary)(pane);
+}
+let nightlyTimer=null;
+function renderSetNightly(pane){
+  clearTimeout(nightlyTimer);
+  pane.innerHTML='<div class="setnote">Loading…</div>';
+  const seg=(id,cur,opts)=>`<div class="seg" id="${id}" style="width:max-content;flex:none">${opts.map(([v,l])=>`<button data-v="${v}" class="${cur===v?'on':''}">${l}</button>`).join("")}</div>`;
+  const when=t=>t?new Date(t*1000).toLocaleString([], {weekday:'short',hour:'2-digit',minute:'2-digit'}):'';
+  const show=n=>{
+    if(!$("#setpane")||SETTAB!=="nightly")return;
+    const s=n.settings||{},last=n.last;
+    const ck=(id,on,label)=>`<label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin:14px 0 4px;font-weight:600"><input type="checkbox" id="${id}"${on?' checked':''}> ${label}</label>`;
+    pane.innerHTML=`
+      <div class="setsec">Nightly run</div>
+      <div class="setnote">Once a night, inside the time window below, Vault works through the library on its own: imports new downloads, looks up metadata for new movies, places scene markers and writes subtitles — whatever you switch on, in that order. Each step stops when the window ends and the next night carries on. The computer has to be on (Vault keeps a Mac awake while it runs, but can't wake one that is asleep).</div>
+      ${seg("nOn",s.enabled?"1":"0",[["0","Off"],["1","On"]])}
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
+        <span class="setnote" style="margin:0">Allowed between</span><input class="setin" type="time" id="nStart" value="${esc(s.start)}" style="width:110px">
+        <span class="setnote" style="margin:0">and</span><input class="setin" type="time" id="nEnd" value="${esc(s.end)}" style="width:110px">
+      </div>
+      ${ck("nImp",s.import,"📥 Import from the download folder")}
+      <div class="setnote">${n.download?`<code>${esc(n.download)}</code> — renamed, cleaned and moved into the library, the same as <b>Import</b> in the Tools menu. Point it at the folder of <i>finished</i> downloads. The two choices the Import window asks you:`:'<span style="color:var(--warn)">No download folder set (Settings → Library).</span>'}</div>
+      <div class="setnote" style="margin:6px 0 4px">A <b>bigger version</b> of a movie already in the library:</div>
+      ${seg("nRep",s.replace?"1":"0",[["1","Replace the library copy"],["0","Leave it for me to decide"]])}
+      <div class="setnote" style="margin:8px 0 4px">A <b>duplicate</b> (the library copy is as good or bigger):</div>
+      ${seg("nDup",s.dupes,[["delete","Delete the download"],["keep","Leave it in the download folder"]])}
+      <div class="setnote" style="margin-top:6px">Whatever is left behind shows up in the Import window the next time you open it. A folder whose code appears twice with different sizes is always left for you.</div>
+      ${ck("nMeta",s.metadata,"🔎 Metadata for new movies")}
+      <div class="setnote">Only movies added since the nightly run was switched on${n.baseline?` (${new Date(n.baseline*1000).toLocaleDateString()})`:''} — the rest of the library stays with <b>Scan library</b>. A movie the sources had nothing for is asked again after a week at the earliest, so the sites don't see the same misses every night${n.waiting?` (${n.waiting} waiting for their retry)`:''}. At most 200 a night.</div>
+      ${ck("nScn",s.scenes,"🎬 Scene markers")}
+      ${seg("nScnScope",s.scenes_scope,[["new","New movies"],["library","Work through the whole library"]])}
+      <div class="setnote" style="margin-top:6px">Runs <b>vault-scene-tagger</b> with the scene model (Settings → Scene model). Movies that already have markers are skipped. ${n.tagger?`Found: <code>${esc(n.tagger)}</code>`:'<span style="color:var(--warn)">vault-scene-tagger not found</span> — install it (see the user guide) or give its command here:'}</div>
+      <div style="display:flex;gap:8px"><input class="setin" id="nTag" style="flex:1" value="${esc(s.tagger||'')}" placeholder="tagger command (empty = find it), e.g. /path/to/python -m vault_scene_tagger"></div>
+      ${ck("nSub",s.subs,"💬 Subtitles")}
+      ${seg("nSubScope",s.subs_scope,[["new","New movies"],["library","Work through the whole library (newest first)"]])}
+      <div class="setnote" style="margin-top:6px">The same as 💬 Transcribe, with the Settings → Subtitles setup. When scene markers work through the whole library too, they get at most half of the night, so the subtitles get their turn.</div>
+      <div class="pactions" style="justify-content:flex-start;margin-top:14px"><button class="btn pri" id="nSave">Save</button>
+        ${n.running?'<button class="btn" id="nStop">■ Stop</button>':'<button class="btn" id="nRun" title="The same steps now, for at most the window\'s length">▶ Run now</button>'}</div>
+      <div class="setsec">Status</div>
+      <div class="setnote" id="nStat">${n.running?`<b>Running</b>${n.step?' — '+esc(n.step):''}: ${esc(n.line||'')}<br>until ${esc(when(n.until))}`
+        :(s.enabled?`Next run: <b>${esc(n.next)}</b>`:'Off')}</div>
+      ${last?`<div class="setnote" style="margin-bottom:4px">Last run: ${esc(when(last.started))}${last.manual?' (Run now)':''}${last.ended?' – '+esc(new Date(last.ended*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})):''}</div>
+      <div class="orglist" style="max-height:180px">${(last.log||[]).map(([t,m])=>`<div class="orgrow" style="font-size:12px"><span style="color:var(--dim2);flex:none">${new Date(t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span><span>${esc(m)}</span></div>`).join("")}</div>`:''}`;
+    pane.querySelectorAll(".seg").forEach(g=>g.querySelectorAll("button").forEach(bt=>bt.onclick=()=>{g.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===bt));}));
+    const val=id=>{const b=$("#"+id+" button.on");return b?b.dataset.v:"";};
+    $("#nSave").onclick=()=>post2("/api/nightly/save",{enabled:val("nOn")==="1",start:$("#nStart").value,end:$("#nEnd").value,
+        import:$("#nImp").checked,replace:val("nRep")==="1",dupes:val("nDup"),metadata:$("#nMeta").checked,
+        scenes:$("#nScn").checked,scenes_scope:val("nScnScope"),tagger:$("#nTag").value,subs:$("#nSub").checked,subs_scope:val("nSubScope")},
+      j=>{if(j.error){toast(j.error);return;}toast("Saved");show(j);});
+    const r=$("#nRun");if(r)r.onclick=()=>post2("/api/nightly/run",{},j=>{toast(j.started?"Nightly run started":"Already running");show(j);});
+    const st=$("#nStop");if(st)st.onclick=()=>post2("/api/nightly/stop",{},j=>{toast("Stopping…");show(j);});
+    // while running, refresh only the status line, so a half-edited form isn't thrown away
+    const poll=()=>fetch("/api/nightly").then(r=>r.json()).then(j=>{
+      const el=$("#nStat");if(!el||SETTAB!=="nightly"||!$("#setmodal").classList.contains("on"))return;
+      if(!j.running){show(j);return;}
+      el.innerHTML=`<b>Running</b>${j.step?' — '+esc(j.step):''}: ${esc(j.line||'')}<br>until ${esc(when(j.until))}`;
+      nightlyTimer=setTimeout(poll,3000);}).catch(()=>{});
+    if(n.running)nightlyTimer=setTimeout(poll,3000);
+  };
+  fetch("/api/nightly").then(r=>r.json()).then(show).catch(()=>{pane.innerHTML='<div class="setnote">Vault could not be reached.</div>';});
 }
 function renderSetSubs(pane){
   pane.innerHTML='<div class="setnote">Checking the Whisper setup…</div>';
@@ -3045,7 +3104,15 @@ function setupScenes(p,it){
     vid.querySelectorAll('track').forEach(t=>t.remove());
     const has=partHasSubs(part);
     if(ccBtn)ccBtn.hidden=!has;
-    if(!has)return;
+    if(!has){
+      // a .en.srt made outside Vault's queue isn't in the index until the next library walk: ask
+      fetch('/subs/'+encodeURIComponent(it.uid||it.code)+'?part='+part+'&check=1').then(r=>{
+        if(r.status!==204||subsPart!==part||!document.contains(vid))return;
+        if((it.parts||[]).length>1){if(it.parts[part])it.parts[part].subs=true;it.subs=it.parts.filter(x=>x.subs).length;}
+        else it.subs=1;
+        const sc=$("#subscnt");if(sc)sc.textContent=DATA.items.filter(i=>i.subs&&!i.missing).length;
+        syncSubs(true);}).catch(()=>{});
+      return;}
     const tr=document.createElement('track');
     tr.kind='subtitles';tr.srclang='en';tr.label='English';
     tr.src='/subs/'+encodeURIComponent(it.uid||it.code)+'?part='+part+'&v='+Date.now();

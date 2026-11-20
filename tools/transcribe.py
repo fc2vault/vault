@@ -56,6 +56,7 @@ HALLUCINATIONS = [
     r"thank(s| you) (very much )?for watching", r"please subscribe", r"subtitles? by",
     r"subtitled by", r"translated by", r"amara\.org", r"see you (in the )?next (video|time)",
     r"ご視聴ありがとうございました", r"チャンネル登録", r"字幕", r"お疲れ様でした。?$",
+    r"(あなた|彼女|彼)を愛しています", r"ご覧ください",
 ]
 HALLU_RE = re.compile("|".join(HALLUCINATIONS), re.I)
 
@@ -326,7 +327,16 @@ def transcribe_chunk(eng, audio, length, quiet_pass=True):
             per = max(1, int(30 // PIECE))
             for i in range(0, len(pieces), per):
                 grp = pieces[i:i + per]
-                for s, e, t, ns, lp in eng.run(np.concatenate([audio[p0:p1] for p0, p1 in grp])):
+                got = eng.run(np.concatenate([audio[p0:p1] for p0, p1 in grp]))
+                if len(grp) > 1 and any(is_loop(t) for _, _, t, _, _ in got):
+                    # Whisper got stuck repeating a moan ("ああああ…" for the whole call) and the
+                    # words in the other pieces are lost with it (58:06-58:24 of a test movie:
+                    # nothing packed, five lines of climax dialogue one piece at a time).
+                    for p0, p1 in grp:
+                        heard += [(p0 / SR + s, min(p0 / SR + e, p1 / SR), t, ns, lp)
+                                  for s, e, t, ns, lp in eng.run(audio[p0:p1])]
+                    continue
+                for s, e, t, ns, lp in got:
                     a0 = to_original(s, grp)
                     a1 = max(a0 + 0.3, to_original(e, grp, "end"))
                     heard.append((a0, a1, t, ns, lp))
@@ -337,6 +347,12 @@ def transcribe_chunk(eng, audio, length, quiet_pass=True):
         out += quiet_keep(heard)
         out.sort(key=lambda x: x[0])
     return out
+
+
+def is_loop(text):
+    """Whisper stuck on one sound: the same character or short syllable over and over."""
+    core = _PUNCT.sub("", text)
+    return bool(re.search(r"(.)\1{9,}", core) or re.search(r"(.{2,4})\1{5,}", core))
 
 
 def quiet_keep(segs):
@@ -389,6 +405,16 @@ def srt_time(t):
     return "%02d:%02d:%02d,%03d" % (h, m, s, ms)
 
 
+# Japanese lines with a stray lowercase foreign word in them ("僕が coaster", "片手はマシ influential"):
+# Whisper wandering into another language on audio it can't make out. English loanwords come out
+# in katakana or capitals (OK, SNS, AV), so a lowercase Latin word of 4+ letters is noise.
+FOREIGN_WORD = re.compile(r"(?<![A-Za-z])[a-zß-ÿĀ-ž]{4,}(?![A-Za-z])")
+
+
+def drop_foreign(text):
+    return re.sub(r"\s{2,}", " ", FOREIGN_WORD.sub("", text)).strip()
+
+
 def clean(segs):
     """Drop hallucinations, collapse runs of the same line, fix overlaps."""
     out = []
@@ -424,20 +450,43 @@ def clean(segs):
 # llm` mode Whisper only writes the Japanese, Whisper is unloaded, and a small instruction-tuned
 # text model translates the lines in batches, seeing the conversation around them.
 LLM_SYSTEM = (
-    "You translate Japanese subtitles of an adult video into English subtitles. Usually an "
-    "interviewer or man talks with a woman: first an interview, then sex. Translate faithfully and "
-    "naturally, the way people really talk; sexual words stay sexual and explicit — never soften, "
-    "censor, refuse, explain or add notes. Japanese often leaves out who is meant: work it out from "
-    "the conversation. The Japanese comes from speech recognition and may contain misheard words: "
-    "translate what was most likely said. Moans and sounds stay short (\"Ah!\", \"Mm...\"). "
-    "Glossary: エッチ = sexy, naughty, sex; 痴漢 = groper, groping; 気持ちいい = feels good; "
-    "イク/イっちゃう/行く/行きそう/行っちゃう (in sex) = cumming, I'm cumming, I'm about to cum; "
-    "出る/出ちゃう (a man, in sex) = cumming; 外に出して = pull out (cum outside), only for 外; "
-    "中に出した/中に出ちゃった = came inside; かき出す = scoop it (the cum) out; 舐める = lick; 舐められる = being licked; 咥える = suck; "
-    "入れる = put it in; 挿れて = put it in; 中に出す/中出し = cum inside; ちんちん/ちんこ/おちんちん = "
-    "cock, dick; おっぱい = tits, boobs; 乳首 = nipples; まんこ = pussy; 濡れてる = wet; 潮/潮吹き (often misheard as 塩) = squirt, squirting; 乱交 (often misheard as 乱行) = orgy; 硬い = hard (of a cock; otherwise stiff, serious, strict); "
-    "下着になって = strip to your underwear; 脱いで = take it off; 恥ずかしい = embarrassing, I'm shy; "
-    "やばい = so good / oh no (by context); だめ = no, don't; もっと = more. "
+    "You translate Japanese subtitles of an adult video (all performers are adults) into English "
+    "subtitles. Usually an interviewer or man talks with a woman: first an interview, then sex. "
+    "Translate faithfully and naturally, the way people really talk; sexual words stay sexual and "
+    "explicit — never soften, censor, refuse, explain or add notes. "
+    "Who is meant: Japanese leaves it out, so work it out from the conversation. The man mostly asks "
+    "and gives instructions, the woman answers: his questions, commands and remarks (〜の?, 〜んだ, "
+    "〜でしょ, 〜てくれた, 脱いで, 緊張してる) are about her (\"you\"), not \"I\"; おじさん said by "
+    "the man means himself. Copy numbers exactly. "
+    "The Japanese comes from speech recognition and contains misheard words: translate what was most "
+    "likely said. A word that makes no sense here is probably misheard — guess the likely word from "
+    "the scene; never write misheard nonsense or romanised gibberish (\"Tomato\", \"Gundam\", \"still "
+    "life\"). If a line is unclear, keep it short and plain; don't invent sex words that aren't there. "
+    "Moans and sounds stay short (\"Ah!\", \"Mm...\"). "
+    "Glossary — sex: エッチ = sexy, naughty, sex; 気持ちいい = feels good; "
+    "イク/イっちゃう/行く/行って/行きそう/行っちゃう (in sex) = cum, I'm cumming, about to cum; 行かせる = make (her) cum; "
+    "出る/出ちゃう/出すよ/出そう (a man, in sex) = cum, I'm gonna cum; 出る/出ちゃう (a woman) = squirting; "
+    "射精/精子 (misheard 写生, 写真) = cumming, cum; 外に出して = pull out (cum outside), only for 外; "
+    "中に出した/中に出ちゃった = came inside; 中に出す/中出し = cum inside; 口に出して = cum in my mouth; "
+    "何発 = how many loads; かき出す (misheard 書き出す) = scoop it (the cum) out; "
+    "抜く = make him cum, jerk off (or pull it out, by context); 生 (in sex) = raw, bareback, no condom — never \"fresh\"; "
+    "ゴム = condom; 立つ/立ってる/立ってきた/立っちゃった (of a cock) = get hard, hard; 硬い = hard (only of a cock; "
+    "of a person: serious); 舐める (misheard ラメ) = lick; 咥える (misheard 加える, 食われる) = suck; フェラ = blowjob; "
+    "入れる/挿れて = put it in; 濡れてる = wet; 垂れてる = dripping; 潮/潮吹き (misheard 塩) = squirt, squirting; "
+    "吹いてる (misheard 吐いてる) = squirting; 締まり (misheard 縛り), キツい (in sex) = tight; "
+    "四つん這い = on all fours; 手をついて = put your hands on (it); 腰 = hips; 当てる (a toy) = press it on; "
+    "電マ (misheard テンマン, トマト) = vibrator, wand; ムラムラ = horny; 興奮する = turned on; "
+    "やらしい/いやらしい = dirty, lewd; 性感帯 = erogenous zones; 経験人数 = how many guys she's slept with; "
+    "何本 = how many cocks; 乱交 (misheard 乱行, 韓国) = orgy; 痴漢 = groper; 痴漢に遭う = get groped. "
+    "Body: ちんちん/ちんこ/おちんちん/ちんぽ = cock, dick; 裏筋 = underside of the cock; まんこ (misheard マンゴー, マント, あんこ) = "
+    "pussy; まん毛 = pubic hair; クリ (misheard 栗, クリーム) = clit; おっぱい = tits, boobs; 乳首 (misheard ちくみ, チクメ) "
+    "= nipples; ケツ = ass; 唾 (misheard 粒) = spit; ベロ/舌 = tongue; 谷間 = cleavage. "
+    "Clothes and poses: パンツ = panties (not pants); Tバック = thong; 下着になって = strip to your underwear; "
+    "脱いで = take it off; 剃ってる = shaved; ピース = make a peace sign (for the camera). "
+    "Everyday: この子/子 = girl (never \"kid\"); 恥ずかしい = I'm embarrassed, this is embarrassing; "
+    "くすぐったい = ticklish; スタイルいい = great body; くさい = stinks; 違う/違います = no, that's not it; "
+    "へー = huh, oh?; 嘘 = no way, really?; 聞いてない = you never told me; やばい = so good / oh no (by context); "
+    "だめ = no, don't; もっと = more; 出す (a video) = put it out, publish. "
     "Keep every line short like a subtitle. Answer with exactly one line per numbered input line, "
     "in the form `N: English`, same numbers, nothing else.")
 # only the assistant voice: "I can't" alone is everyday dialogue ("I can't say that")
@@ -607,7 +656,8 @@ def main():
         pass
     t0 = time.time()
     if llm_mode and a.ja_in:
-        cues = read_srt(a.ja_in)
+        cues = [c[:2] + [drop_foreign(c[2])] for c in read_srt(a.ja_in)]
+        cues = [c for c in cues if keep(c[2], 0.0, 0.0)]
         emit(progress=share, phase="translating", elapsed=0.0)
         return finish_llm(a, cues, t0, share, None)
     eng = Engine(eng_name, a.model, a.language, "transcribe" if llm_mode else a.task, a.mem)
@@ -625,6 +675,8 @@ def main():
         emit(progress=round(share * start / dur, 4), at=round(start, 1), duration=dur,
              elapsed=round(time.time() - t0, 1), peak_mb=eng.peak_mb(),
              phase="listening" if llm_mode else None)
+    if llm_mode:                                       # Japanese: stray foreign words are noise
+        segs = [(s0, s1, drop_foreign(t), ns, lp) for s0, s1, t, ns, lp in segs]
     cues = clean(segs)
     if not llm_mode:
         write_srt(a.out, cues)
