@@ -336,7 +336,7 @@ http://<this-machine-ip>:8730/
 
 On macOS `ipconfig getifaddr en0` prints the address; on Linux use `hostname -I`. `127.0.0.1` only works on the machine itself.
 
-> Vault has **no login and no HTTPS**. Anyone who can reach that address gets your whole library, and `Open in external player` / `Reveal in Finder` act on the host machine. Keep it to networks you trust, and don't port‑forward it.
+> Vault has **no login**. With a certificate installed it speaks HTTPS (README → Privacy & safety), so nobody on the network can read along — but anyone who can reach that address still gets your whole library, and `Open in external player` / `Reveal in Finder` act on the host machine. Keep it to networks you trust, and don't port‑forward it.
 
 **What changes on a narrow screen**
 
