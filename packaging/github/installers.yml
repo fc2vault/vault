@@ -55,12 +55,13 @@ jobs:
           "$R/bin/ffmpeg" -hide_banner -loglevel error -f lavfi -i testsrc=duration=3:size=320x240:rate=10 /tmp/lib/FC2-PPV-1234567/FC2-PPV-1234567.mp4
           cd "$R/app"
           VAULT_DATA=/tmp/vdata PATH="$R/bin:$PATH" "$R/python/bin/python3" serve.py --library /tmp/lib --port 8799 > /tmp/vdata/server.log 2>&1 &
+          SRV=$!
           for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:8799/ && break; sleep 1; done
           curl -sf http://127.0.0.1:8799/api/data | grep -q FC2-PPV-1234567 || { cat /tmp/vdata/server.log; exit 1; }
           echo "server answers and lists the test movie"
-          kill %1 || true
-          hdiutil detach /tmp/vaultdmg
-      - uses: actions/upload-artifact@v5
+          kill $SRV; wait $SRV || true
+          cd /; hdiutil detach /tmp/vaultdmg || hdiutil detach -force /tmp/vaultdmg
+      - uses: actions/upload-artifact@v7
         with:
           name: mac-installers
           path: ${{ runner.temp }}/out/*.dmg
@@ -105,7 +106,7 @@ jobs:
           Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
           if (-not $ok) { Get-Content "$env:RUNNER_TEMP\vdata\err.log"; throw "Vault did not answer" }
           "server answers and lists the test movie"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: ${{ runner.temp }}/out/Vault-*-windows-setup.exe
