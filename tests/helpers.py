@@ -16,9 +16,11 @@ def load(relpath, name=None):
     flat. Accept either, so the shipped suite runs where it is shipped."""
     path = os.path.join(ROOT, relpath)
     if not os.path.exists(path):
-        flat = os.path.join(ROOT, os.path.basename(relpath))
-        if os.path.exists(flat):
-            path = flat
+        for flat in (os.path.join(ROOT, relpath.split("webui/", 1)[-1]),   # webui/tools/x -> tools/x
+                     os.path.join(ROOT, os.path.basename(relpath))):
+            if os.path.exists(flat):
+                path = flat
+                break
     name = name or os.path.splitext(os.path.basename(relpath))[0] + "_t"
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

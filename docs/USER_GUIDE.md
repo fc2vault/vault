@@ -19,8 +19,10 @@ A feature‑by‑feature walkthrough. For install & setup see the main **[README
     - [Actresses & de‑duplication](#actresses--de-duplication)
     - [Sources & fc2ppv‑db](#sources--fc2ppv-db)
     - [Subtitles](#subtitles)
+    - [Nightly](#nightly)
 11. [Using Vault on your phone](#11-using-vault-on-your-phone)
 12. [Subtitles (Japanese → English)](#12-subtitles-japanese--english)
+13. [The nightly run](#13-the-nightly-run)
 
 ---
 
@@ -152,6 +154,7 @@ Point Vault at a **download folder** (Settings → Library), then pick **📥 Im
 - Library deletes (replacing an older copy) are gated behind a **confirmation checkbox** — leave it unticked to only add + clean. Nothing in the library is removed without it.
 - The move runs in the background (large cross‑drive copies can take a while). After *Run in background* the Tools button's gear turns; click **📥 Import** again to bring the progress back.
 - When the import finishes, Vault **scans the new movies' metadata by itself** (the same passes as Scan library, only for the movies just added).
+- The **nightly run** can do all of this for you every night, with the two choices made up front — see [The nightly run](#13-the-nightly-run).
 
 **Organize** (Settings → Library → *Organize library…*) tidies files already in the library — junk to `_vault_trash/`, duplicates to `_Duplicates/` (largest kept), names normalized to `…/<CODE>/<CODE>.ext`. It previews first and never deletes or overwrites. Rarely needed now that Import handles new files.
 
@@ -314,6 +317,13 @@ another.
   translates it with the conversation as context) or *Whisper only* (faster, rougher). On Windows /
   Linux, run Ollama or LM Studio and enter its **server address** and **model** here.
 
+### Nightly
+
+Switch the nightly run on, set the hours it may work in, and tick what it should do: import,
+metadata, scene markers, subtitles. **Run now** does the same at once, for at most the window's
+length; **Stop** ends it. *Status* shows the next run and what the last one did. Details in
+[The nightly run](#13-the-nightly-run).
+
 ---
 
 ## 11. Using Vault on your phone
@@ -372,3 +382,30 @@ are caught by a second, careful listen to the quiet stretches.
 **First time:** Settings → Subtitles → **Set up** (see [Settings](#subtitles)). It needs Python 3.10
 or newer and `ffmpeg`.
 
+## 13. The nightly run
+
+**Settings → Nightly** lets Vault look after the library by itself, once a night, while you sleep.
+
+- **When.** Pick the hours it may work in, e.g. *01:00 – 06:00* (a window can cross midnight).
+  The run starts when the window opens and every step stops when it closes; whatever is left is
+  picked up the next night. The computer has to be on — Vault keeps a Mac awake while the run
+  lasts, but it can't wake a sleeping one.
+- **📥 Import** — the download folder into the library, as with **Import** in the Tools menu. The
+  two choices the Import window asks are made here: a **bigger version** of a movie you already
+  have either *replaces the library copy* or is *left for you to decide*; a **duplicate** (the
+  library copy is as good or bigger) is either *deleted* or *left in the download folder*. Anything
+  left behind is in the Import window the next time you open it. Point the download folder at
+  finished downloads only.
+- **🔎 Metadata for new movies** — only movies added since you switched the nightly run on. When
+  the sources have nothing for a movie, it is asked again after a week at the earliest, so the
+  sites don't see the same misses every night (at most 200 movies a night). The rest of the
+  library stays with **Scan library**.
+- **🎬 Scene markers** — runs [vault-scene-tagger](https://github.com/fc2vault/vault-scene-tagger)
+  with the scene model, for the *new movies* or *working through the whole library*. Movies that
+  already have markers are skipped. Vault finds the tagger on its own if it is installed (or give
+  its command in the box).
+- **💬 Subtitles** — the same as 💬 Transcribe, for the *new movies* or *the whole library, newest
+  first*. When scene markers also work through the whole library, they get at most half of the
+  night, so the subtitles get their turn.
+
+The steps run in that order, one after the other — never two heavy jobs at once.

@@ -67,11 +67,12 @@ except Exception:
 import vault_model
 import final_tags        # which markers count as final tags outside training mode
 import subtitles as subsmod   # Whisper transcription queue (Japanese speech -> .en.srt)
+import nightly                # the nightly run (Settings -> Nightly)
 import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.8.2"
+VAULT_VERSION = "1.9.0"
 # Training mode (editing scene markers to make training data) is the author's own workflow, not part
 # of the public package: make_release.sh --public sets this to False, which hides the switch and
 # refuses marker/label edits. Viewing markers is unaffected.
@@ -600,6 +601,7 @@ _POST_KEEPS_DATA = frozenset({
     "/api/importprogress", "/api/dedupe", "/api/organize", "/api/foldactress",
     "/api/stash", "/api/sourcesave",
     "/api/transcribe", "/api/transcribe/cancel", "/api/whisper/save", "/api/whisper/setup",
+    "/api/nightly/save", "/api/nightly/run", "/api/nightly/stop",
 })
 
 # progress for the Import pipeline (rename+clean -> migrate/dedupe into library)
@@ -1924,10 +1926,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(dict(IMPORT_PROGRESS))
             if p == "/api/transcribe/progress":
                 return self._json(subsmod.snapshot())
+            if p == "/api/nightly":
+                return self._json(self._nightly_info())
             if p == "/api/whisper":
                 return self._whisper_status(q.get("fresh", [""])[0] == "1")
             if p.startswith("/subs/"):
-                return self._subs(p[len("/subs/"):], q.get("part", [None])[0])
+                return self._subs(p[len("/subs/"):], q.get("part", [None])[0], q.get("check", [""])[0] == "1")
             if p == "/api/model":
                 return self._json(_model_info(fetch_latest=True))
             if p == "/api/modelprogress":
@@ -2062,6 +2066,23 @@ class Handler(BaseHTTPRequestHandler):
             if body.get("preview"):
                 return self._import_preview()
             return self._import_run(bool(body.get("confirm_lib_deletes")))
+        if p == "/api/nightly/save":
+            cfg = load_config()
+            ns, err = nightly.clean(body, nightly.settings(cfg))
+            if err:
+                return self._json({"error": err}, 400)
+            cfg["nightly"] = ns
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(cfg, f, indent=2)
+            if ns["enabled"]:
+                NIGHTLY.ensure_baseline()
+            return self._json(self._nightly_info())
+        if p == "/api/nightly/run":
+            started = NIGHTLY.run_now()
+            return self._json(dict(self._nightly_info(), started=started))
+        if p == "/api/nightly/stop":
+            NIGHTLY.stop()
+            return self._json(self._nightly_info())
         if p == "/api/clearcache":
             return self._clear_cache(body.get("targets") or [])
         if p == "/api/sourcesave":
@@ -2800,12 +2821,22 @@ class Handler(BaseHTTPRequestHandler):
             idx = 0
         return parts[idx].get("path") if 0 <= idx < len(parts) else None
 
-    def _subs(self, ref, part):
+    def _subs(self, ref, part, check=False):
+        """The part's .en.srt as WebVTT. `check` only answers whether it exists (204 / 404) — the
+        player asks when the index says no subtitles, since a file made outside Vault's queue (the
+        command-line worker, a downloaded .srt) is only seen by the next library walk otherwise."""
         it = self._item_ref(ref.strip("/"))
         if not it:
             return self._send(404, "text/plain", "no code")
         vp = self._part_path(it, part)
         sp = subsmod.subs_path(vp) if vp else None
+        found = bool(sp) and os.path.isfile(sp)
+        for pp in it.get("parts") or []:              # keep the index's flag in step with the disk
+            if pp.get("path") == vp and bool(pp.get("subs")) != found:
+                pp["subs"] = found
+                STATE["data_json"] = None
+        if check:
+            return self._send(204 if found else 404, "text/plain", "")
         try:
             with open(sp, encoding="utf-8", errors="replace") as f:
                 vtt = subsmod.srt_to_vtt(f.read())
@@ -2940,55 +2971,99 @@ class Handler(BaseHTTPRequestHandler):
         p.wait()
         return p.returncode
 
-    def _import_run(self, confirm):
-        # Claim the slot here, in the request thread. Setting it inside the worker let two
-        # quick clicks both pass this test and start two import pipelines over one folder.
+    def _import_claim(self):
+        # Claim the slot in the calling thread. Setting it inside the worker let two quick
+        # clicks both pass this test and start two import pipelines over one folder.
         with _JOB_LOCK:
             if IMPORT_PROGRESS.get("running"):
-                return self._json({"error": "an import is already running",
-                                   "progress": dict(IMPORT_PROGRESS)}, 409)
+                return False
             IMPORT_PROGRESS.update(running=True, phase="Starting…", line="", done=0, total=0)
-        dl = STATE.get("download")
-        if not dl or not os.path.isdir(dl):
-            IMPORT_PROGRESS["running"] = False
-            return self._json({"error": "no download folder set"}, 400)
-        rn, mg = self._script("rename_fc2.py"), self._script("migrate_fc2.py")
-        if not rn or not mg:
-            IMPORT_PROGRESS["running"] = False
-            return self._json({"error": "pipeline scripts not found"}, 500)
-        env = dict(os.environ, VAULT_IMPORT_SRC=dl, VAULT_LIBRARY=STATE["library"])
+            return True
 
-        def run():
-            P = IMPORT_PROGRESS
-            P.update(running=True, phase="Renaming & cleaning…", line="", done=0, total=0)
-            before = {it.get("code") for it in STATE["items"]}   # to tell which movies are new
+    def _import_check(self):
+        """Why an import can't run now, or ''. Releases the claimed slot when it can't."""
+        dl = STATE.get("download")
+        why = ("no download folder set" if not dl or not os.path.isdir(dl)
+               else "library folder not set" if not STATE.get("library") or not os.path.isdir(STATE["library"])
+               else "pipeline scripts not found" if not (self._script("rename_fc2.py") and self._script("migrate_fc2.py"))
+               else "")
+        if why:
+            IMPORT_PROGRESS["running"] = False
+        return why
+
+    def _import_run(self, confirm, keep_dupes=False):
+        if not self._import_claim():
+            return self._json({"error": "an import is already running",
+                               "progress": dict(IMPORT_PROGRESS)}, 409)
+        why = self._import_check()
+        if why:
+            return self._json({"error": why}, 500 if "scripts" in why else 400)
+        threading.Thread(target=self._import_job, args=(confirm, keep_dupes), daemon=True).start()
+        return self._json({"ok": True, "started": True})
+
+    def _import_job(self, confirm, keep_dupes=False, scan_after=True):
+        """The import itself (the caller has claimed the slot). Runs to the end in this thread.
+        -> (codes added to the index, last line of the pipeline)."""
+        dl = STATE.get("download")
+        rn, mg = self._script("rename_fc2.py"), self._script("migrate_fc2.py")
+        env = dict(os.environ, VAULT_IMPORT_SRC=dl, VAULT_LIBRARY=STATE["library"])
+        P = IMPORT_PROGRESS
+        P.update(running=True, phase="Renaming & cleaning…", line="", done=0, total=0)
+        before = {it.get("code") for it in STATE["items"]}   # to tell which movies are new
+        new = []
+        try:
+            self._stream_cmd([sys.executable, rn, dl, "--apply"], env, "Renaming & cleaning…")
+            margs = [sys.executable, mg, "--apply"]
+            if confirm:
+                margs.append("--confirm-lib-deletes")
+            if keep_dupes:
+                margs.append("--keep-dupes")
+            self._stream_cmd(margs, env, "Migrating into library…")
+        except Exception as e:
+            P.update(line="error: %s" % e)
+        finally:
+            # stays `running` until the index is rebuilt, so the page reloads WITH the new movies
+            P.update(phase="Indexing the library…")
             try:
-                self._stream_cmd([sys.executable, rn, dl, "--apply"], env, "Renaming & cleaning…")
-                margs = [sys.executable, mg, "--apply"]
-                if confirm:
-                    margs.append("--confirm-lib-deletes")
-                self._stream_cmd(margs, env, "Migrating into library…")
-            except Exception as e:
-                P.update(line="error: %s" % e)
-            finally:
-                # stays `running` until the index is rebuilt, so the page reloads WITH the new movies
-                P.update(phase="Indexing the library…")
-                try:
-                    os.remove(INDEX_CACHE)
-                except OSError:
-                    pass
-                try:
-                    rebuild_index()
-                except Exception:
-                    pass
+                os.remove(INDEX_CACHE)
+            except OSError:
+                pass
+            try:
+                rebuild_index()
+            except Exception:
+                pass
+            new = sorted({it.get("code") for it in STATE["items"]
+                          if it.get("code") and not it.get("missing")} - set(before))
+            if scan_after:
                 n, why = self._scan_after_import(before)
                 if n or why:
                     msg = ("Fetching metadata for %d new movie%s in the background." % (n, "" if n == 1 else "s")
                            if n else "No metadata scan: " + why)
                     P["line"] = ((P.get("line") or "").rstrip() + "  " + msg).strip()
-                P.update(running=False, phase="Done")
-        threading.Thread(target=run, daemon=True).start()
-        return self._json({"ok": True, "started": True})
+            P.update(running=False, phase="Done")
+        return new, P.get("line") or ""
+
+    def _scan_codes(self, codes, label):
+        """Start THE scan (all sources) over `codes` in the background. -> (started, why not)."""
+        if not scanmod:
+            return False, "the scanner is unavailable"
+        if not claim_scan(label):
+            return False, "a scan is already running"
+        try:
+            fc2db_ready, why = self._fc2db_ready(fresh=True)
+            net_ready = "fc2db.net" in enabled_sources()
+            self._start_pipeline(titles=codes, pool=codes, fc2db_ready=fc2db_ready, net_ready=net_ready,
+                                 note="" if fc2db_ready else "fc2ppv-db pass skipped — " + why)
+        except Exception as e:
+            release_scan()
+            return False, "could not start (%s)" % e
+        return True, ""
+
+    def _nightly_info(self):
+        d = NIGHTLY.snapshot()
+        d["settings"] = nightly.settings(load_config())
+        d["download"] = STATE.get("download") or ""
+        return d
 
     def _scan_after_import(self, before):
         """After an import, run the Scan library passes over the movies it added (codes that
@@ -2998,18 +3073,11 @@ class Handler(BaseHTTPRequestHandler):
                       if it.get("code") and not it.get("missing")} - set(before))
         if not new:
             return 0, ""
-        if not scanmod:
-            return 0, "the scanner is unavailable"
-        if not claim_scan("(after import)"):
-            return 0, "a scan is already running — use Scan library for the new movies afterwards"
-        try:
-            fc2db_ready, why = self._fc2db_ready(fresh=True)
-            net_ready = "fc2db.net" in enabled_sources()
-            self._start_pipeline(titles=new, pool=new, fc2db_ready=fc2db_ready, net_ready=net_ready,
-                                 note="" if fc2db_ready else "fc2ppv-db pass skipped — " + why)
-        except Exception as e:
-            release_scan()
-            return 0, "could not start (%s)" % e
+        ok, why = self._scan_codes(new, "(after import)")
+        if not ok:
+            return 0, (why + " — use Scan library for the new movies afterwards"
+                       if "already running" in why else why)
+        NIGHTLY.note_meta(new)          # so the nightly run waits its week before asking again
         return len(new), ""
 
     def _clear_cache(self, targets):
@@ -4291,6 +4359,66 @@ def _subs_written(job):
     STATE["data_json"] = None
 
 
+class _NightlyHost:
+    """What nightly.Runner may call. Handler methods that never touch a request run on a
+    bare instance (no socket), the same code paths as the buttons."""
+    def __init__(self):
+        self.bg = Handler.__new__(Handler)
+
+    def config(self):
+        return load_config()
+
+    def items(self):
+        return STATE["items"]
+
+    def library(self):
+        return STATE.get("library") or ""
+
+    def item_parts(self, it):
+        return _item_parts(it)
+
+    def log_path(self, name):
+        return os.path.join(CACHE, name)
+
+    def run_import(self, replace, keep_dupes):
+        if not self.bg._import_claim():
+            return "skipped — an import is already running"
+        why = self.bg._import_check()
+        if why:
+            return "skipped — " + why
+        new, _line = self.bg._import_job(replace, keep_dupes, scan_after=False)
+        return ("%d new movie%s" % (len(new), "" if len(new) == 1 else "s")) if new else "nothing new"
+
+    def start_metadata(self, codes):
+        return self.bg._scan_codes(codes, "(nightly)")
+
+    def metadata_running(self):
+        return bool(scanmod and scanmod.PROGRESS.get("running"))
+
+    def whisper_python(self):
+        return subsmod.resolve_python(load_config(), WHISPER_ROOT)
+
+    def subs_ready(self):
+        chk = subsmod.check(self.whisper_python())
+        return ("Whisper isn't set up: " + chk["error"]) if chk.get("error") else ""
+
+    def subs_busy(self):
+        return bool(subsmod.PROGRESS.get("running"))
+
+    def subs_enqueue(self, jobs):
+        py = self.whisper_python()
+        return subsmod.enqueue(jobs, py, subsmod.options(load_config(), subsmod.check(py)), _subs_written)
+
+    def subs_cancel(self):
+        subsmod.cancel()
+
+    def subs_finished(self):
+        return len(subsmod.PROGRESS.get("finished") or [])
+
+
+NIGHTLY = nightly.Runner(_NightlyHost(), os.path.join(CACHE, "nightly.json"))
+
+
 def load_config():
     try:
         with open(CONFIG_PATH) as f:
@@ -4512,6 +4640,7 @@ def main():
     else:
         sys.stderr.write(f"[boot] first scan of {library} …\n")
         rebuild_index()
+    NIGHTLY.start_scheduler()
     srv = VaultServer(("0.0.0.0", port), Handler)
     tls = None
     if not (args.no_tls or os.environ.get("VAULT_NO_TLS")):
