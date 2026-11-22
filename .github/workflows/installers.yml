@@ -121,7 +121,21 @@ jobs:
           & "$app\python\python.exe" -c "import sys; sys.path.insert(0, r'$app\app'); import tlsgen; tlsgen.make_all(r'$env:RUNNER_TEMP\vtls')"
           if (-not (Test-Path "$env:RUNNER_TEMP\vtls\vault.crt")) { throw "no HTTPS certificate" }
           "HTTPS certificate made"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer
+          path: ${{ runner.temp }}/out/Vault-windows-setup.exe
+          retention-days: 14
+      - name: Attach to the release
+        if: env.ATTACH == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$env:TAG" (Get-ChildItem "$env:RUNNER_TEMP\out\Vault-windows-setup.exe").FullName --clobber -R "$env:GITHUB_REPOSITORY"
+
       - name: Self-update test (Vault downloads the newest release's setup and runs it)
+        # after the attach step: during a release build the newest release is this one, and its
+        # setup must already be on it
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -148,15 +162,3 @@ jobs:
           if (Test-Path "$data\update.log") { Get-Content "$data\update.log" -Tail 5 }
           if (-not $ok) { throw "the downloaded setup did not finish" }
           "the in-app update downloaded, verified and ran the setup"
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: windows-installer
-          path: ${{ runner.temp }}/out/Vault-windows-setup.exe
-          retention-days: 14
-      - name: Attach to the release
-        if: env.ATTACH == 'true'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$env:TAG" (Get-ChildItem "$env:RUNNER_TEMP\out\Vault-windows-setup.exe").FullName --clobber -R "$env:GITHUB_REPOSITORY"
