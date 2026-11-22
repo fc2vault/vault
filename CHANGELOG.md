@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.11.1 — Player keys for the left hand
+
+- **Player keys rearranged for the left hand** (the right one stays on the mouse):
+  - `Q` / `E` seek back / forward 10 s, with **Shift** 5 s (was `A` / `D`).
+  - `A` / `D` hop through the scene markers in time order — each marker's start, and its end where
+    it has one (replaces `Y` / `C` previous / next marker).
+  - `Y` / `C` previous / next subtitle line, no Shift needed.
+
 ## 1.11.0 — Updates inside the app
 
 - **Updates inside the app.** Settings → Updates shows the newest version and its notes; **Update**

@@ -470,7 +470,7 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .pv-mk.band{opacity:.45;top:-2px;height:9px;border-radius:2px;pointer-events:none}
 .pv-seek:hover .pv-mk.band{height:9px}
 /* training mode: the range of the marker at the playhead, with draggable in/out handles (like a
-   clip on an editor timeline). A dashed end = no range yet, drag it (or press E) to set one. */
+   clip on an editor timeline). A dashed end = no range yet, drag it (or press Shift+D) to set one. */
 .pv-rng{position:absolute;left:0;right:0;top:0;height:5px;pointer-events:none;z-index:5}
 .pv-rng .rb{position:absolute;top:-4px;height:13px;border-radius:2px;opacity:.3;pointer-events:none}
 .pv-rng .rb.ghost{opacity:.12}
@@ -812,7 +812,7 @@ let DATA={items:[],actresses:[],facets:{}};
 const PVSESS={ro:null,ac:null};
 function pvCleanup(){if(PVSESS.ro){try{PVSESS.ro.disconnect();}catch(_){}PVSESS.ro=null;}
   if(PVSESS.ac){try{PVSESS.ac.abort();}catch(_){}PVSESS.ac=null;}
-  PVSESS.rangeKey=null;}   // (toggleSubs / subsChanged: replaced by every new player, and they check it is still up)
+  PVSESS.rangeKey=null;}   // (toggleSubs / subsChanged / subLine / markHop: replaced by every new player, and they check it is still up)
 let META={};                       // code -> {duration,width,height}
 let ACTBYID={},ACTBYNAME={};
 let BYCODE=new Map();   // code -> item (avoids O(n) DATA.items.find on hot paths)
@@ -1752,7 +1752,7 @@ function renderSetSubs(pane){
     const modLab=v=>({"large-v3":"large-v3 — most accurate (~1.6 GB on a Mac, ~3 GB elsewhere)","medium":"medium — faster, rougher (~1.5 GB)","small":"small — quick drafts (~0.5 GB)"}[v]||v);
     pane.innerHTML=`
       <div class="setsec">English subtitles from the Japanese audio</div>
-      <div class="setnote"><b>💬 Transcribe</b> (Tools menu, or the movie panel) runs <b>Whisper</b> over a movie's audio and writes English subtitles next to the video as <code>&lt;name&gt;.en.srt</code>. The player's <b>CC</b> button (or <b>v</b>) shows them, <b>Shift+Y / Shift+C</b> jump between lines; Plex, VLC, Infuse and mpv find the file on their own. Everything runs offline, on this computer: a speech detector finds the talking, Whisper writes it down in Japanese, a small local model translates it, and lines that are only moans are left out.</div>
+      <div class="setnote"><b>💬 Transcribe</b> (Tools menu, or the movie panel) runs <b>Whisper</b> over a movie's audio and writes English subtitles next to the video as <code>&lt;name&gt;.en.srt</code>. The player's <b>CC</b> button (or <b>v</b>) shows them, <b>Y / C</b> jump between lines; Plex, VLC, Infuse and mpv find the file on their own. Everything runs offline, on this computer: a speech detector finds the talking, Whisper writes it down in Japanese, a small local model translates it, and lines that are only moans are left out.</div>
       <div class="setsec">Status</div>
       <div class="setnote">${ok?`<span style="color:var(--good)">✓ Ready</span> — engine${(c.engines||[]).length>1?'s':''}: <b>${esc((c.engines||[]).join(', '))}</b> · Python ${esc(c.python||'')} · ${esc(c.platform||'')}${c.ffmpeg?'':' · <span style="color:var(--warn)">ffmpeg not found — install it</span>'}`
         :`<span style="color:var(--warn)">${esc(c.error||'Not set up')}</span>`}<br><span style="color:var(--dim2)">${esc(w.python||'')}</span></div>
@@ -2792,7 +2792,7 @@ function openPlayer(it){
             <button class="pv-btn" id="pvmute" title="Mute (m)">${PV_ICON.volume}</button>
             <input type="range" id="pvvol" min="0" max="1" step="0.02" value="1" title="Volume (↑ / ↓)" aria-label="Volume">
           </div>
-          <button class="pv-btn cc" id="pvcc" title="Subtitles on / off (v) · Shift+Y / Shift+C: previous / next line" hidden><span><b>CC</b></span></button>
+          <button class="pv-btn cc" id="pvcc" title="Subtitles on / off (v) · Y / C: previous / next line" hidden><span><b>CC</b></span></button>
           <button class="pv-btn" id="pvtheater" title="Theater mode — widen the video (t)">${PV_ICON.theater}</button>
           <button class="pv-btn" id="pvfs" title="Fullscreen (f)">${PV_ICON.fullscreen}</button>
           <button class="pv-btn" id="pvclose" title="Close (Esc)">${PV_ICON.close}</button>
@@ -3092,8 +3092,8 @@ function setupScenes(p,it){
   const nearest=(t,win)=>{let best=null,bd=1e9;for(const m of SCN){const dd=Math.abs(m.t-t);if(dd<bd){bd=dd;best=m;}}
     return best&&bd<=win?best:null;};
   const currentAt=ct=>{let c=null;for(const m of SCN){if(m.t<=ct+0.05)c=m;else break;}return c;};
-  // The selected marker (training mode: range handles, Q / E). It is the one at the playhead, but it
-  // sticks while you scrub (seek bar, A / D, arrows) into the segment just before it (looking for an
+  // The selected marker (training mode: range handles, Shift+A / Shift+D). It is the one at the playhead, but it
+  // sticks while you scrub (seek bar, Q / E, arrows) into the segment just before it (looking for an
   // earlier start) or just after it (an end past the next marker's start). It moves on when playback
   // runs into another marker, when you scrub further away, or when you pick a marker.
   let selKey=null;
@@ -3272,7 +3272,7 @@ function setupScenes(p,it){
     const on=!subsOn();try{localStorage.setItem('vault_subs',on?'1':'0');}catch(_){}
     applySubs();toast(on?'Subtitles on':'Subtitles off');return true;};
   if(ccBtn)ccBtn.onclick=e=>{e.stopPropagation();PVSESS.toggleSubs();};
-  // Shift+C / Shift+Y: next / previous subtitle line (works with subtitles hidden too). Back goes to
+  // C / Y: next / previous subtitle line (works with subtitles hidden too). Back goes to
   // the start of the line being spoken when more than ~1 s into it, else to the line before.
   PVSESS.subLine=dir=>{if(!document.contains(vid))return false;
     const tt=vid.textTracks&&vid.textTracks[0],cues=tt&&tt.cues?[...tt.cues]:[];
@@ -3321,7 +3321,7 @@ function setupScenes(p,it){
     renderRange(true);
     layoutChips();
   }
-  // ---- range of the marker at the playhead: drag the in/out handles, or press Q (start) / E (end) ----
+  // ---- range of the marker at the playhead: drag the in/out handles, or press Shift+A (start) / Shift+D (end) ----
   const rng=p.querySelector('#pvrng');
   let rngKey=null,rngDrag=false;
   const nextAfter=m=>SCN.find(x=>x.t>m.t+0.05&&x!==m);
@@ -3347,8 +3347,8 @@ function setupScenes(p,it){
     if(!m||m.label==='scene'){rng.innerHTML='';return;}
     const d=D()||1,pc=v=>Math.max(0,Math.min(100,100*v/d)),has=hasRange(m),e=has?m.end:ghostEnd(m),col=labelColor(m.label);
     rng.innerHTML=`<div class="rb${has?'':' ghost'}" style="left:${pc(m.t)}%;width:${pc(e)-pc(m.t)}%;background:${col}"></div>`
-      +`<div class="rh" data-h="in" style="left:${pc(m.t)}%;background:${col}" title="Start of “${esc(m.label)}” ${fmtTC(m.t)} — drag (Shift: fine), or press Q at the playhead · Shift+Q jumps here"></div>`
-      +`<div class="rh${has?'':' ghost'}" data-h="out" style="left:${pc(e)}%;background:${col}" title="${has?'End '+fmtTC(e):'No range yet'} — drag (Shift: fine), or press E at the playhead${has?' · Shift+E jumps here':''}"></div>`;
+      +`<div class="rh" data-h="in" style="left:${pc(m.t)}%;background:${col}" title="Start of “${esc(m.label)}” ${fmtTC(m.t)} — drag (Shift: fine), or press Shift+A at the playhead · A / D hop between starts and ends"></div>`
+      +`<div class="rh${has?'':' ghost'}" data-h="out" style="left:${pc(e)}%;background:${col}" title="${has?'End '+fmtTC(e):'No range yet'} — drag (Shift: fine), or press Shift+D at the playhead"></div>`;
     rng.querySelectorAll('.rh').forEach(h=>{
       const isIn=h.dataset.h==='in',band=rng.querySelector('.rb');
       let down=false,moved=false,cur=isIn?m.t:e,pend=null,raf=0;const drg=dragT();
@@ -3373,18 +3373,25 @@ function setupScenes(p,it){
       h.addEventListener('click',ev=>ev.stopPropagation());
     });
   }
-  // Q = the marker at the playhead starts here, E = it ends here (left hand, next to A/S/D)
-  // Shift+Q / Shift+E (or Shift+R) = jump to that marker's start / end without changing anything
-  PVSESS.rangeKey=(k,shift)=>{if(!training)return false;
+  // A / D = previous / next marker boundary: every start, and every end of a marker with a range, in
+  // time order — so D walks start → end → next start … An end is landed on just inside the range,
+  // so that marker stays the active one (Shift+D right there moves its end).
+  PVSESS.markHop=dir=>{if(!document.contains(vid))return false;
+    const pts=[];
+    for(const m of SCN){pts.push({t:jumpT(m),m});if(hasRange(m))pts.push({t:Math.max(m.t,m.end-0.1),m});}
+    if(!pts.length){toast('No markers in this part');return true;}
+    pts.sort((a,b)=>a.t-b.t);
+    const ct=vid.currentTime||0;
+    const p=dir>0?pts.find(x=>x.t>ct+0.3):pts.filter(x=>x.t<ct-0.8).pop();   // back: like ⏮, a press just after a boundary goes past it
+    if(!p){if(dir<0)vid.currentTime=0;else toast('Last marker');return true;}
+    pick(p.m);vid.currentTime=p.t;return true;};
+  // Shift+A = the marker at the playhead starts here, Shift+D = it ends here (training mode)
+  PVSESS.rangeKey=k=>{if(!training)return false;
     const ct=vid.currentTime||0,m=activeMarker();
-    if(shift){if(!m){toast('No marker before the playhead');return true;}
-      if(k==='q'){vid.currentTime=m.t;return true;}
-      if(!hasRange(m)){toast(`“${m.label}” has no end yet`);return true;}
-      vid.currentTime=Math.max(m.t,m.end-0.1);return true;}   // just inside the range, so the same marker stays active
-    if(k==='e'){if(!m){toast('No marker before the playhead');return true;}
+    if(k==='end'){if(!m){toast('No marker before the playhead');return true;}
       if(ct<=m.t+0.5){toast('The end must come after the start');return true;}
       markerApi({op:'update',t:m.t,label:m.label,new_end:r1(ct)},`“${m.label}” ends at ${fmtTC(ct)}`);return true;}
-    if(k==='q'){
+    if(k==='start'){
       // the marker at the playhead, or the next one if it starts within 30 s (pull a late start back)
       // (the selected marker when the playhead is before it)
       const nx=SCN.find(x=>x.t>ct);const tgt=(m&&ct<m.t)?m:((nx&&nx.t-ct<=30)?nx:m);
@@ -3910,22 +3917,25 @@ function bindUI(){
     if(typing)return;
     const v=$("#modal").classList.contains("on")?$("#modal").querySelector("video"):null;
     if(!v)return;
-    const K=e.key.toLowerCase(),step=e.shiftKey?60:10,hand=e.shiftKey?5:10;   // arrows: 10 s / Shift 60 s; a/d: 10 s / Shift 5 s (fine steps)
-    // a / s / d = back / pause / forward (left-hand, so the right hand stays on the mouse)
+    const K=e.key.toLowerCase(),plain=!e.metaKey&&!e.ctrlKey&&!e.altKey;
+    const step=e.shiftKey?60:10,hand=e.shiftKey?5:10;   // arrows: 10 s / Shift 60 s; q/e: 10 s / Shift 5 s (fine steps)
+    // Left hand, so the right one stays on the mouse:
+    //   q / e  back / forward 10 s (Shift: 5 s)      s  play-pause
+    //   a / d  previous / next marker start or end (Shift: the marker at the playhead starts / ends here)
+    //   y / c  previous / next subtitle line
     if(K===" "||K==="s"){e.preventDefault();if(v.paused)v.play().catch(()=>{});else v.pause();}
-    else if(e.key==="ArrowRight"||K==="d"){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+(K==="d"?hand:step));}
-    else if(e.key==="ArrowLeft"||K==="a"){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-(K==="a"?hand:step));}
+    else if(e.key==="ArrowRight"||(K==="e"&&plain)){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+(K==="e"?hand:step));}
+    else if(e.key==="ArrowLeft"||(K==="q"&&plain)){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-(K==="q"?hand:step));}
+    else if((K==="a"||K==="d")&&plain){e.preventDefault();
+      if(e.shiftKey){if(PVSESS.rangeKey)PVSESS.rangeKey(K==="a"?"start":"end");}   // training mode only (nothing otherwise)
+      else if(PVSESS.markHop)PVSESS.markHop(K==="d"?1:-1);}
+    else if((K==="y"||K==="c")&&plain){e.preventDefault();if(PVSESS.subLine)PVSESS.subLine(K==="c"?1:-1);}
     else if(e.key==="ArrowUp"){e.preventDefault();v.volume=Math.min(1,v.volume+0.1);}
     else if(e.key==="ArrowDown"){e.preventDefault();v.volume=Math.max(0,v.volume-0.1);}
     else if(K==="m"){v.muted=!v.muted;}
     else if(K==="f"){const w=v.closest('.pv-wrap')||v;if(document.fullscreenElement)document.exitFullscreen();else w.requestFullscreen&&w.requestFullscreen();}
     else if(K==="t"){const tb=$("#pvtheater");if(tb)tb.click();}
     else if(K==="v"&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&PVSESS.toggleSubs){if(PVSESS.toggleSubs())e.preventDefault();}
-    // y / c = previous / next marker (like ⏮ / ⏭); Shift+y / Shift+c = previous / next subtitle line
-    else if((K==="y"||K==="c")&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();
-      if(e.shiftKey){if(PVSESS.subLine)PVSESS.subLine(K==="c"?1:-1);}
-      else{const b=$(K==="c"?"#pvnext":"#pvprev");if(b)b.click();}}
-    else if((K==="q"||K==="e"||(K==="r"&&e.shiftKey))&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&PVSESS.rangeKey&&PVSESS.rangeKey(K==="r"?"e":K,e.shiftKey)){e.preventDefault();}
     else if(K>="0"&&K<="9"){if(v.duration)v.currentTime=v.duration*(+K)/10;}
     else if(e.key===">"||e.key===".")  {v.playbackRate=Math.min(4,+(v.playbackRate+0.25).toFixed(2));toast("Speed "+v.playbackRate+"×");}
     else if(e.key==="<"||e.key===",")  {v.playbackRate=Math.max(0.25,+(v.playbackRate-0.25).toFixed(2));toast("Speed "+v.playbackRate+"×");}

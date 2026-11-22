@@ -80,12 +80,13 @@ Click any owned card to open the detail/player view.
   - **⇄** (next to the ✎ edit button) **reassigns just this movie** to another actress — see [§5](#5-editing-a-movie).
   - **Scenes on the seek bar:** the player uses a custom control bar with the scenes drawn on the scrubber — **clickable pictogram chips** above the bar (click to jump), **⏮ / ⏭** to step to the previous/next scene, colored **ticks** on the bar at each scene's start, a hover **label + time** tooltip, and a **"▶ now"** badge for the current scene. Vault places them with the scene model — **🎬 Place markers** in the right panel, Settings → Scene model, or the nightly run — and keeps them in a `<video>.scenes.json` sidecar next to the movie.
   - **Placed by the model:** a marker the scene model placed wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. The chip's bottom edge keeps its label colour, so you can still read *what* it is at a glance. The player shows one marker per change of action, so the bar stays readable.
-  - **Subtitles:** a movie with subtitles shows a **CC** button in the control bar (or press `v`); `shift`+`y` / `shift`+`c` jump to the previous / next line. The right panel's **💬 Transcribe (JA → EN)** makes them for this movie — see [§12](#12-subtitles-japanese--english).
+  - **Subtitles:** a movie with subtitles shows a **CC** button in the control bar (or press `v`); `y` / `c` jump to the previous / next line. The right panel's **💬 Transcribe (JA → EN)** makes them for this movie — see [§12](#12-subtitles-japanese--english).
   - **Volume:** hover the speaker icon and a slider unfolds next to it; the level and mute state are remembered across movies. Clicking the speaker mutes, clicking it again brings the previous level back.
 
-**Keyboard:** `space` or `s` play‑pause · `a` / `d` seek ∓10s (`shift`: ∓5s) · `←`/`→` seek ∓10s (`shift`: ∓60s) · `y` / `c` previous / next scene marker · `shift`+`y` / `shift`+`c` previous / next subtitle line · `v` subtitles on/off · `↑`/`↓` volume · `m` mute · `f` fullscreen · `t` theater · `0–9` jump to % · `<`/`>` speed.
+**Keyboard:** `space` or `s` play‑pause · `q` / `e` seek ∓10s (`shift`: ∓5s) · `a` / `d` previous / next marker start or end · `y` / `c` previous / next subtitle line · `←`/`→` seek ∓10s (`shift`: ∓60s) · `v` subtitles on/off · `↑`/`↓` volume · `m` mute · `f` fullscreen · `t` theater · `0–9` jump to % · `<`/`>` speed.
 
-> `a` `s` `d` sit under the left hand so the right one can stay on the mouse.
+
+> `q` `e`, `a` `s` `d` and `y` `c` all sit under the left hand (on a QWERTZ keyboard), so the right one can stay on the mouse.
 
 **Esc closes one thing at a time**, topmost first: fullscreen, then an actress sheet you opened from the movie, then the player itself. Opening a performer's overview from a movie and pressing `Esc` returns you **to the movie**, not to the grid.
 
@@ -393,7 +394,7 @@ computer. Nothing is uploaded anywhere.
   NVIDIA GPU.
 - Each part gets `<video>.en.srt` (and the Japanese `<video>.ja.srt`) next to the file. Plex, VLC,
   Infuse and mpv pick them up on their own.
-- In the player: **CC** (or `v`) turns them on/off, `shift`+`y` / `shift`+`c` jump between lines.
+- In the player: **CC** (or `v`) turns them on/off, `y` / `c` jump between lines.
   The sidebar's **Has subtitles** filter finds the movies that have them.
 
 ![Player with subtitles](images/player_subtitles.png)
