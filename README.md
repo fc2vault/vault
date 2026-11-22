@@ -148,7 +148,14 @@ Data lives in `~/Library/Application Support/Vault`.
 *"Windows protected your PC"*, click **More info → Run anyway** (once; the installer isn't signed).
 It installs for your user only, no administrator rights, with Start‑menu entries **Vault**,
 **Vault - Stop** and **Vault - Choose movie folder**, and optionally starts Vault at log on. Data
-lives in `%LOCALAPPDATA%\Vault`. To update, run the new setup over the old one.
+lives in `%LOCALAPPDATA%\Vault`.
+
+**Updating:** Vault looks for a new version once a day (Settings → Updates; you can switch that
+off). **Update** downloads it, checks it against GitHub's checksum and installs it — on Windows the
+setup runs silently and Vault restarts, on a Mac Vault swaps the app and reopens — your library,
+settings and data stay as they are. Running the new setup or dragging in the new Vault.app by hand
+works too. A newer catalog that comes with an update is merged into yours: new titles and
+actresses are added and empty fields filled, but nothing you set, own or deleted is touched.
 
 **From source** (Linux, or any OS):
 
@@ -414,7 +421,7 @@ release is published, and attached to it.
 
 ## Privacy & safety
 
-- **No cloud, no telemetry.** Vault has no accounts and phones home to nothing. It goes online only for: the metadata scans you start (and the nightly run's scan of new movies, if you switch it on), **Enrich from web**, a look at GitHub for the newest scene model when you open Settings → Scene model, and the downloads you ask for (the scene model; the packages and models that Set up and the first transcription fetch). Your movies, audio, subtitles and markers never leave the computer.
+- **No cloud, no telemetry.** Vault has no accounts and phones home to nothing. It goes online only for: the metadata scans you start (and the nightly run's scan of new movies, if you switch it on), **Enrich from web**, a look at GitHub for a newer Vault once a day (Settings → Updates can switch it off) and for the newest scene model when you open Settings → Scene model, and the downloads you ask for (the scene model; the packages and models that Set up and the first transcription fetch). Your movies, audio, subtitles and markers never leave the computer.
 - **It is not access‑controlled.** The server binds `0.0.0.0`, so anyone who can reach the port gets the whole library — there is **no login** (HTTPS, when you turn it on, encrypts the traffic but locks nobody out). Two endpoints act on the host machine rather than just returning data:
   - `POST /api/open` — opens a file in your desktop video player
   - `POST /api/reveal` — reveals it in Finder

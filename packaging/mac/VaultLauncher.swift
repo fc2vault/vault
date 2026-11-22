@@ -29,6 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var port = 8730
     var ready = false
     var quitting = false
+    // after an update the open page reloads itself: don't open a second tab
+    var openOnReady = !CommandLine.arguments.contains("--no-browser")
 
     var url: URL { URL(string: "http://127.0.0.1:\(port)/")! }
 
@@ -86,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         answers { up in
             if up {
                 self.ready = true
-                self.openBrowser()
+                if self.openOnReady { self.openBrowser() }
             } else if tries > 0, self.server?.isRunning == true {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.waitUntilUp(tries: tries - 1) }
             }

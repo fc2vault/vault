@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.11.0 — Updates inside the app
+
+- **Updates inside the app.** Settings → Updates shows the newest version and its notes; **Update**
+  downloads the installer, checks it against GitHub's checksum and installs it — on Windows the
+  setup runs silently and Vault starts again, on a Mac Vault swaps the app and reopens. The page
+  reloads by itself. Vault looks once a day (switch it off in the same tab); ☰ Tools shows
+  **⬆ Update available** when there is one. **Reinstall** repairs the current version.
+- **The catalog grows with updates.** A newer catalog shipped with a version is merged into your
+  copy once: new titles and actresses are added, empty fields filled — what you set, own, rated
+  or deleted is never touched (deletions are remembered from this version on). A backup of the catalog is
+  kept as `catalog.db.before-merge`.
+
 ## 1.10.0 — Scene markers built in, HTTPS in one click
 
 - **Vault places scene markers itself.** The scene tagger is now part of Vault — in the installers

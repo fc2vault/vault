@@ -21,6 +21,7 @@ A feature‑by‑feature walkthrough. To install, download Vault for Mac or Wind
     - [Sources & fc2ppv‑db](#sources--fc2ppv-db)
     - [Subtitles](#subtitles)
     - [HTTPS](#https)
+    - [Updates](#updates)
     - [Nightly](#nightly)
 11. [Using Vault on your phone](#11-using-vault-on-your-phone)
 12. [Subtitles (Japanese → English)](#12-subtitles-japanese--english)
@@ -232,7 +233,7 @@ The key idea is **verification**: it checks whether any code in her online filmo
 
 ## 10. Settings
 
-Open **Settings** from the **☰ Tools** menu. The tabs: Library, Tags, Actresses, Sources, Scene model, Subtitles, Nightly and HTTPS.
+Open **Settings** from the **☰ Tools** menu. The tabs: Library, Tags, Actresses, Sources, Scene model, Subtitles, Nightly, HTTPS and Updates.
 
 ### Scene model
 
@@ -328,6 +329,18 @@ once — the tab lists the steps for iPhone, Android, Mac and Windows, starting 
 `http://<this-machine>:8730/vault-ca.crt`. **Renew** after the computer got a new network address
 (the tab warns when it did); devices keep trusting it. **Turn off** goes back to plain HTTP. On the
 computer itself `http://127.0.0.1:8730/` always works.
+
+### Updates
+
+Shows this version and the newest one on GitHub, with its release notes. **Update** downloads the
+installer for this computer, checks it against GitHub's checksum and installs it: on Windows the
+setup runs silently and Vault starts again; on a Mac Vault replaces the app (it has to be in the
+Applications folder) and reopens. The page reloads by itself when the new version answers. Your
+library, settings and data stay as they are, and a newer catalog in the update is merged into
+yours without touching what you set, own or deleted. **Reinstall** puts the current version back
+— a repair. The daily check (on by default) only asks GitHub which version is newest; switch it
+off and Vault looks only when you press **Check now**. A **⬆ Update available** entry appears in
+the ☰ Tools menu when there is one. Running from source: `git pull`.
 
 ### Nightly
 

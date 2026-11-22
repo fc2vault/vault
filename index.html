@@ -275,6 +275,7 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
   border-radius:10px;padding:6px;z-index:60;box-shadow:0 12px 30px rgba(0,0,0,.5);min-width:200px;
   display:flex;flex-direction:column;gap:2px}
 .tmenu-pop[hidden]{display:none}
+#toolsbtn.hasupd::after{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle}
 .tmi{display:flex;align-items:center;gap:6px;width:100%;text-align:left;padding:7px 10px;border-radius:7px;
   font-size:13px;white-space:nowrap}
 .tmi:hover,.tmi:focus-visible{background:var(--panel);outline:none}
@@ -740,6 +741,7 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
           <button class="tmi" role="menuitem" id="transbtn" title="English subtitles from the Japanese audio (Whisper)">💬 Transcribe</button>
           <div class="tmsep"></div>
           <button class="tmi" role="menuitem" id="setbtn" title="Settings — manage actresses, tags, library folder, sources">⚙ Settings</button>
+          <button class="tmi" role="menuitem" id="updbtn" hidden title="A newer version of Vault is out">⬆ Update available</button>
         </div>
       </div>
       <div class="stat" id="stat"></div>
@@ -1564,7 +1566,7 @@ function refreshSettings(tab){if(tab)SETTAB=tab;
   fetch("/api/settings").then(r=>r.json()).then(j=>{SET=j;renderSettings();reloadData&&reloadData();});}
 function renderSettings(){
   const b=$("#setbox"),close=()=>$("#setmodal").classList.remove("on");
-  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["model","Scene model"],["subs","Subtitles"],["nightly","Nightly"],["https","HTTPS"]];
+  const tabs=[["library","Library"],["tags","Tags ("+SET.counts.tags+")"],["actresses","Actresses ("+SET.counts.actresses+")"],["sources","Sources"],["model","Scene model"],["subs","Subtitles"],["nightly","Nightly"],["https","HTTPS"],["updates","Updates"]];
   b.innerHTML=`<div class="orghd">Settings</div>
     <div class="settabs">${tabs.map(([t,l])=>`<div class="settab${SETTAB===t?' on':''}" data-t="${t}">${l}</div>`).join("")}</div>
     <div class="setpane" id="setpane"></div>
@@ -1572,7 +1574,7 @@ function renderSettings(){
   b.querySelectorAll(".settab").forEach(t=>t.onclick=()=>{SETTAB=t.dataset.t;renderSettings();});
   $("#setClose").onclick=close;
   const pane=$("#setpane");
-  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,model:renderSetModel,subs:renderSetSubs,nightly:renderSetNightly,https:renderSetHttps}[SETTAB]||renderSetLibrary)(pane);
+  ({library:renderSetLibrary,tags:renderSetTags,actresses:renderSetActresses,sources:renderSetSources,model:renderSetModel,subs:renderSetSubs,nightly:renderSetNightly,https:renderSetHttps,updates:renderSetUpdates}[SETTAB]||renderSetLibrary)(pane);
 }
 let nightlyTimer=null;
 function renderSetNightly(pane){
@@ -1632,6 +1634,68 @@ function renderSetNightly(pane){
     if(n.running)nightlyTimer=setTimeout(poll,3000);
   };
   fetch("/api/nightly").then(r=>r.json()).then(show).catch(()=>{pane.innerHTML='<div class="setnote">Vault could not be reached.</div>';});
+}
+// Settings → Updates: this version, the newest release, one-click install, the daily check switch.
+let UPD_TIMER=null;
+function updNotice(u){
+  const b=$("#updbtn");if(!b)return;
+  const i=(u&&u.info)||{};
+  b.hidden=!i.newer;
+  if(i.newer)b.textContent="⬆ Update to "+i.latest;
+  $("#toolsbtn").classList.toggle("hasupd",!!i.newer);
+}
+function renderSetUpdates(pane,check){
+  clearTimeout(UPD_TIMER);
+  if(!$("#updPane"))pane.innerHTML='<div id="updPane"><div class="setnote">Checking…</div></div>';
+  fetch("/api/update"+(check?"?check=1":"")).then(r=>r.json()).then(u=>{
+    const box=$("#updPane");if(!box||SETTAB!=="updates")return;
+    updNotice(u);
+    const i=u.info||{},p=u.progress||{},mb=n=>(n/1048576).toFixed(0)+" MB";
+    const when=i.published?new Date(i.published).toLocaleDateString():"";
+    let st;
+    if(i.error)st=`<span style="color:var(--warn)">${esc(i.error)}</span>`;
+    else if(!i.latest)st="Not checked yet.";
+    else if(i.newer)st=`<b>Vault ${esc(i.latest)}</b> is out${when?" ("+esc(when)+")":""}.`;
+    else st=`<span style="color:var(--good)">✓ Up to date</span> — ${esc(i.latest)} is the newest version.`;
+    const how={mac:"Vault downloads the new version, swaps the app and restarts — your library, settings and data stay as they are.",
+      windows:"Vault downloads the new setup and runs it; it stops Vault, installs and starts it again — your library, settings and data stay as they are.",
+      source:""}[u.kind]||"";
+    let act="";
+    if(p.running||p.state==="restarting"){
+      act=`<span class="setnote" style="margin:0">${p.state==="downloading"&&p.total?`Downloading… ${mb(p.done)} of ${mb(p.total)}`:p.state==="restarting"?"Installing and restarting — this page reloads by itself…":"Preparing…"}</span>`;
+    }else if(u.can_install){
+      act=`<span class="setnote" style="margin:0">${esc(u.can_install)}</span>${i.page?` <a href="${esc(i.page)}" target="_blank" rel="noopener">Release page</a>`:""}`;
+    }else if(i.newer&&i.asset){
+      act=`<button class="setbtn pri" id="updGo">Update to ${esc(i.latest)}</button>`;
+    }else if(i.asset){
+      act=`<button class="setbtn" id="updRe" title="Download and install the current version again — a repair">Reinstall ${esc(i.latest)}</button>`;
+    }
+    box.innerHTML=`
+      <div class="setsec">Updates</div>
+      <div class="setnote">This is <b>Vault ${esc(u.current)}</b>. ${st}</div>
+      ${i.newer&&i.notes?`<div class="setnote" style="max-height:220px;overflow:auto;white-space:pre-wrap;border:1px solid var(--line);border-radius:8px;padding:10px">${esc(i.notes)}</div>`:''}
+      ${how?`<div class="setnote">${how}</div>`:''}
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${act}
+        <button class="setbtn" id="updCheck">Check now</button></div>
+      ${p.state==="error"?`<div class="setnote" style="color:var(--warn)">Update failed: ${esc(p.error)}</div>`:''}
+      <div class="setsec">Daily check</div>
+      <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="updAuto"${u.enabled?' checked':''}> Look for a new version once a day</label>
+      <div class="setnote">Vault asks GitHub for the newest release — nothing about you or your library is sent. Off: only when you press <b>Check now</b>. The scene model has its own update in Settings → Scene model.</div>`;
+    const go=(re)=>post2("/api/update/install",{reinstall:!!re},j=>{if(j.error){toast(j.error);return;}renderSetUpdates(pane);});
+    const g=$("#updGo");if(g)g.onclick=()=>go(false);
+    const r=$("#updRe");if(r)r.onclick=()=>{if(confirm("Download and install Vault "+i.latest+" again?"))go(true);};
+    $("#updCheck").onclick=()=>renderSetUpdates(pane,true);
+    $("#updAuto").onchange=e=>post2("/api/update/save",{enabled:e.target.checked},()=>toast(e.target.checked?"Daily check on":"Daily check off"));
+    if(p.running)UPD_TIMER=setTimeout(()=>renderSetUpdates(pane),1500);
+    else if(p.state==="restarting")waitForRestart(u.current);
+  }).catch(()=>{const box=$("#updPane");if(box)box.innerHTML='<div class="setnote">Vault could not be reached.</div>';});
+}
+// after an update: wait for Vault to go away and come back with a new version, then reload
+function waitForRestart(old){
+  const poll=()=>fetch("/api/update",{cache:"no-store"}).then(r=>r.json()).then(u=>{
+    if(u.current!==old){location.reload();return;}
+    setTimeout(poll,2000);}).catch(()=>setTimeout(poll,2000));
+  setTimeout(poll,3000);
 }
 function renderSetHttps(pane){
   pane.innerHTML='<div class="setnote">Loading…</div>';
@@ -3828,6 +3892,8 @@ function bindUI(){
   $("#trmodal").onclick=e=>{if(e.target.id==="trmodal")$("#trmodal").classList.remove("on");};
   $("#impmodal").onclick=e=>{if(e.target.id==="impmodal"&&!IMPORT_RUNNING)$("#impmodal").classList.remove("on");};
   $("#setbtn").onclick=openSettings;
+  $("#updbtn").onclick=()=>{SETTAB="updates";openSettings();};
+  fetch("/api/update").then(r=>r.json()).then(updNotice).catch(()=>{});
   $("#orgmodal").onclick=e=>{if(e.target.id==="orgmodal")$("#orgmodal").classList.remove("on");};
   pollScanProgress();  // reflect an already-running scan on load
   $$("#viewseg button").forEach(b=>b.onclick=()=>{

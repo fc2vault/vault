@@ -46,6 +46,10 @@ Name: "{userstartup}\Vault"; Filename: "{app}\python\pythonw.exe"; Parameters: "
 [Run]
 Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launcher.pyw"""; WorkingDir: "{app}"; Description: "Open Vault now"; Flags: postinstall nowait skipifsilent
 
+; an update started from inside Vault (Settings → Updates) runs this setup silently with
+; /RELAUNCH=1: start Vault again when it is done (the open page reloads itself)
+Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launcher.pyw"" --background"; WorkingDir: "{app}"; Flags: nowait; Check: RelaunchRequested
+
 [UninstallRun]
 Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launcher.pyw"" --stop"; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; RunOnceId: "StopVault"
 
@@ -53,6 +57,11 @@ Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launcher.pyw"" --stop
 Type: filesandordirs; Name: "{app}\python\Lib\__pycache__"
 
 [Code]
+function RelaunchRequested: Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
+
 // Updating: stop a running Vault first so its files can be replaced.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var Code: Integer;
