@@ -2775,9 +2775,9 @@ function openPlayer(it){
         <div class="pv-menu" id="pvmenu" hidden></div>
         <div class="pv-skip" id="pvskip"></div>
         <div class="pv-ctrl">
-          <button class="pv-btn" id="pvprev" title="Previous scene (no scenes: back 10 s)">${PV_ICON.prev}</button>
+          <button class="pv-btn" id="pvprev" title="Previous scene (←) · no scenes: back 10 s">${PV_ICON.prev}</button>
           <button class="pv-btn" id="pvplay" title="Play / pause (space)">${PV_ICON.pause}</button>
-          <button class="pv-btn" id="pvnext" title="Next scene (no scenes: forward 30 s)">${PV_ICON.next}</button>
+          <button class="pv-btn" id="pvnext" title="Next scene (→) · no scenes: forward 30 s">${PV_ICON.next}</button>
           <span class="pv-time" id="pvcur">0:00</span>
           <div class="pv-seek" id="pvseek">
             <div class="pv-chips" id="pvchips"></div>
@@ -3293,13 +3293,25 @@ function setupScenes(p,it){
   // sticky sequential nav between scenes
   // ⏮ goes to the start of the current scene, or the previous one if we're within ~1 s of its start
   // (like chapters); before the first scene it goes to 0:00. ⏭ goes to the next scene start.
-  // Both step through jump times (lead-in applied outside training mode), which can reorder a creampie
-  // before a nearby marker.
+  // ← / → do the same. Both step through jump times (lead-in applied outside training mode), which can
+  // reorder a creampie before a nearby marker.
   // A movie without scenes: −10 s / +30 s.
   prevBtn.onclick=()=>{if(!SCN.length){skip(-1);return;}
     const t=(vid.currentTime||0)-1.2,j=SCN.map(jumpT).filter(x=>x<t);pick(null);seekToT(j.length?Math.max(...j):0);};
   nextBtn.onclick=()=>{if(!SCN.length){skip(1);return;}
     const t=(vid.currentTime||0)+0.4,j=SCN.map(jumpT).filter(x=>x>t);if(j.length){pick(null);seekToT(Math.min(...j));}};
+  // A / D (for tagging): step through the starts AND ends in time order — start, end, next start, end …
+  // A marker with a range has an end, landed on just inside the range so that marker stays the active
+  // one (Shift+D right there moves its end). Back goes to the boundary just passed, or the one before
+  // within ~1 s of it; before the first one, 0:00. No playback start: you are placing things.
+  function hop(dir){
+    const pts=[];
+    for(const m of SCN){pts.push({t:jumpT(m),m});if(hasRange(m))pts.push({t:Math.max(m.t,m.end-0.1),m});}
+    pts.sort((a,b)=>a.t-b.t);
+    const ct=vid.currentTime||0;
+    const p=dir>0?pts.find(x=>x.t>ct+0.3):pts.filter(x=>x.t<ct-1.2).pop();
+    if(!p&&dir>0){toast('Last marker');return;}
+    pick(p?p.m:null);vid.currentTime=p?p.t:0;}
   // theater mode (persisted) + close
   const pl=$('#player'),thBtn=p.querySelector('#pvtheater'),clBtn=p.querySelector('#pvclose');
   const applyTheater=on=>{pl.classList.toggle('theater',on);if(thBtn)thBtn.classList.toggle('on',on);
@@ -3373,18 +3385,10 @@ function setupScenes(p,it){
       h.addEventListener('click',ev=>ev.stopPropagation());
     });
   }
-  // A / D = previous / next marker boundary: every start, and every end of a marker with a range, in
-  // time order — so D walks start → end → next start … An end is landed on just inside the range,
-  // so that marker stays the active one (Shift+D right there moves its end).
+  // A / D: see hop()
   PVSESS.markHop=dir=>{if(!document.contains(vid))return false;
-    const pts=[];
-    for(const m of SCN){pts.push({t:jumpT(m),m});if(hasRange(m))pts.push({t:Math.max(m.t,m.end-0.1),m});}
-    if(!pts.length){toast('No markers in this part');return true;}
-    pts.sort((a,b)=>a.t-b.t);
-    const ct=vid.currentTime||0;
-    const p=dir>0?pts.find(x=>x.t>ct+0.3):pts.filter(x=>x.t<ct-0.8).pop();   // back: like ⏮, a press just after a boundary goes past it
-    if(!p){if(dir<0)vid.currentTime=0;else toast('Last marker');return true;}
-    pick(p.m);vid.currentTime=p.t;return true;};
+    if(!SCN.length){toast('No markers in this part');return true;}
+    hop(dir);return true;};
   // Shift+A = the marker at the playhead starts here, Shift+D = it ends here (training mode)
   PVSESS.rangeKey=k=>{if(!training)return false;
     const ct=vid.currentTime||0,m=activeMarker();
@@ -3918,12 +3922,14 @@ function bindUI(){
     const v=$("#modal").classList.contains("on")?$("#modal").querySelector("video"):null;
     if(!v)return;
     const K=e.key.toLowerCase(),plain=!e.metaKey&&!e.ctrlKey&&!e.altKey;
-    const step=e.shiftKey?60:10,hand=e.shiftKey?5:10;   // arrows: 10 s / Shift 60 s; q/e: 10 s / Shift 5 s (fine steps)
+    const step=60,hand=e.shiftKey?5:10;   // ← / →: previous / next scene, Shift 60 s; q/e: 10 s / Shift 5 s (fine steps)
     // Left hand, so the right one stays on the mouse:
     //   q / e  back / forward 10 s (Shift: 5 s)      s  play-pause
     //   a / d  previous / next marker start or end (Shift: the marker at the playhead starts / ends here)
     //   y / c  previous / next subtitle line
     if(K===" "||K==="s"){e.preventDefault();if(v.paused)v.play().catch(()=>{});else v.pause();}
+    else if((e.key==="ArrowRight"||e.key==="ArrowLeft")&&!e.shiftKey){e.preventDefault();   // like ⏮ / ⏭
+      const b=$(e.key==="ArrowRight"?"#pvnext":"#pvprev");if(b)b.click();}
     else if(e.key==="ArrowRight"||(K==="e"&&plain)){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+(K==="e"?hand:step));}
     else if(e.key==="ArrowLeft"||(K==="q"&&plain)){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-(K==="q"?hand:step));}
     else if((K==="a"||K==="d")&&plain){e.preventDefault();

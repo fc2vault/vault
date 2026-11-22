@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.2 — Arrow keys jump between scenes
+
+- **← / → jump to the previous / next scene**, like ⏮ / ⏭ (Shift+← / → still seek 60 s; plain
+  10 s steps are on `Q` / `E` since 1.11.1).
+- `A` steps back like ⏮: within about a second of a start or end it goes to the one before. `D`
+  after the last marker says so.
+
 ## 1.11.1 — Player keys for the left hand
 
 - **Player keys rearranged for the left hand** (the right one stays on the mouse):
