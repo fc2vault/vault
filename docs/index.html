@@ -282,12 +282,27 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
       <article>
         <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
         <span class="k">Import</span><h3>From the download folder in one step</h3>
-        <p>Renames and cleans new downloads, moves them into the library, replaces older copies with better ones — after a preview — and then fetches the new movies' metadata by itself.</p>
+        <p>Recognises each release by its code (FC2 PPV and OMU, 10musume, Tokyo‑Hot, studio codes), renames it to <code>&lt;CODE&gt;/&lt;CODE&gt;.mp4</code>, drops spam clips and junk, moves it into the library and replaces an older copy with a bigger one — after a preview — then fetches the new movies' metadata by itself.</p>
       </article>
       <article>
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
         <span class="k">Metadata</span><h3>Titles, casts and covers, filled in</h3>
         <p>fc2ppv‑db, fc2db.net, 123av and ffjav in priority order, each only filling what the ones before it left empty. Your own edits are never overwritten.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+        <span class="k">Nightly</span><h3>Looks after the library while you sleep</h3>
+        <p>In the hours you pick, Vault imports new downloads, fetches metadata for the new movies, places scene markers and writes subtitles. Whatever doesn't fit in one night is picked up the next.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+        <span class="k">Updates</span><h3>New versions in one click</h3>
+        <p>Vault tells you when there is a new version and installs it from Settings → Updates, checked against GitHub's checksum. Your library and settings stay; a newer catalog is merged into yours.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span class="k">HTTPS</span><h3>Encrypted on your network</h3>
+        <p>One button makes Vault's own certificate and switches HTTPS on, no restart. Each phone trusts it once; the steps for iPhone, Android, Mac and Windows are in the app.</p>
       </article>
     </div>
 
@@ -326,7 +341,7 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
           <h2>Trained on real reviews.<br>Updated every round.</h2>
         </div>
         <div class="text">
-          <p>Vault places scene markers itself, with a video classifier fine‑tuned on thousands of hand‑reviewed scene markers. It watches a movie in 6.4‑second windows and proposes where each act starts: <strong>blowjob, doggy, cowgirl, missionary, fingering, toy, creampie</strong> and more. The markers land on the seek bar.</p>
+          <p>Vault places scene markers itself, with a video classifier fine‑tuned on thousands of hand‑reviewed scene markers. It watches a movie in 6.4‑second windows and proposes where each act starts. Ten labels: <strong>blowjob, fingering, titjob, toy, creampie</strong> and the positions <strong>missionary, doggy, cowgirl, standing, scoop‑up</strong>. Toy, standing and creampie are new: the off‑the‑shelf model it started from could not see them at all. The markers land on the seek bar, one per change of action.</p>
           <p>The model is <strong>actively maintained</strong>: each round is trained on a larger reviewed set and measured against the same held‑out performers, so every release is a verified step up. The newest build is a <strong>free download</strong> in Settings → Scene model, and the app tells you when there is a new one.</p>
           <p>One <strong>Set up</strong> click installs what it needs to run, then <strong>Place markers</strong> works through the library — or a movie at a time, or each night for new arrivals. It runs offline on a Mac with Apple Silicon or any machine with an NVIDIA GPU. Nothing from your library leaves your network.</p>
           <div class="labels" aria-label="Round-1 recall per label">
@@ -380,8 +395,10 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
           <li>Streaming player, multi‑part, shortcuts</li>
           <li>Scene markers on the seek bar, placed by the scene model</li>
           <li>English subtitles from the Japanese audio, made offline</li>
-          <li>Tags, actress edits, import, organize &amp; dedupe</li>
+          <li>Import that renames, cleans and folders new downloads</li>
+          <li>Tags, actress edits, organize by code or actress, dedupe</li>
           <li>Nightly run: import, metadata, markers and subtitles in a time window you set</li>
+          <li>One‑click updates and HTTPS</li>
           <li>Metadata from fc2db.net, 123av, ffjav and fc2ppv‑db</li>
           <li>Enrich from web, verified by code overlap</li>
           <li>The scene model, and every new build after it</li>
@@ -439,13 +456,13 @@ footer small{flex-basis:100%;font-size:13px;max-width:80ch}
     </div>
 
     <div class="steps" data-panel="mac">
-      <div class="step"><div><h3>Download</h3><p><a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-apple-silicon.dmg"><b>Vault for Apple Silicon</b></a> (M1 and later, ~90 MB) or <a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-intel.dmg"><b>Vault for Intel</b></a> (~100 MB). Not sure? Apple menu → About This Mac: "Chip: Apple M…" is Apple Silicon.</p></div></div>
+      <div class="step"><div><h3>Download</h3><p><a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-apple-silicon.dmg"><b>Vault for Apple Silicon</b></a> (M1 and later, ~110 MB) or <a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-mac-intel.dmg"><b>Vault for Intel</b></a> (~120 MB). Not sure? Apple menu → About This Mac: "Chip: Apple M…" is Apple Silicon.</p></div></div>
       <div class="step"><div><h3>Drag it into Applications and open it</h3><p>Open the downloaded file and drag <b>Vault</b> onto <b>Applications</b>. The first time you open it, macOS says it can't check the app for malware: Vault isn't signed with a paid Apple certificate. Click <b>Done</b>, then in <b>System Settings → Privacy &amp; Security</b> scroll down and click <b>Open Anyway</b>. Only once.</p></div></div>
       <div class="step"><div><h3>Choose your movie folder</h3><p>Vault asks for the folder that holds your movies, then opens in your browser. It runs while the app is open: click its Dock icon to bring the page back, quit it to stop. To have it start with your Mac, add Vault under <b>System Settings → General → Login Items</b>. From your phone: <code>http://&lt;this-mac&gt;:8730/</code>. New versions install from Settings → Updates.</p></div></div>
     </div>
 
     <div class="steps" data-panel="win" hidden>
-      <div class="step"><div><h3>Download</h3><p><a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-windows-setup.exe"><b>Vault for Windows</b></a> (Windows 10 / 11, 64‑bit, ~120 MB).</p></div></div>
+      <div class="step"><div><h3>Download</h3><p><a href="https://github.com/fc2vault/vault/releases/latest/download/Vault-windows-setup.exe"><b>Vault for Windows</b></a> (Windows 10 / 11, 64‑bit, ~125 MB).</p></div></div>
       <div class="step"><div><h3>Run the setup</h3><p>Windows may say <em>"Windows protected your PC"</em>: Vault isn't signed with a paid certificate. Click <b>More info → Run anyway</b>, only this once. Setup installs for your user only, no administrator rights; tick <em>Start Vault when I log on</em> to keep it running in the background.</p></div></div>
       <div class="step"><div><h3>Choose your movie folder</h3><p>Vault asks for the folder that holds your movies, then opens in your browser. The Start menu has <b>Vault</b> (open it), <b>Vault - Stop</b> and <b>Vault - Choose movie folder</b>. Updating later: Settings → Updates installs a new version with one click, your settings stay.</p></div></div>
     </div>

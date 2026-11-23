@@ -9,7 +9,7 @@ A feature‑by‑feature walkthrough. To install, download Vault for Mac or Wind
 3. [The wishlist](#3-the-wishlist)
 4. [Playing a movie](#4-playing-a-movie)
 5. [Editing a movie](#5-editing-a-movie)
-6. [Multi‑select: bulk‑assign an actress](#6-multi-select-bulk-assign-an-actress)
+6. [Multi-select: bulk-assign an actress](#6-multi-select-bulk-assign-an-actress)
 7. [Import from your download folder](#7-import-from-your-download-folder)
 8. [Scan metadata from the web](#8-scan-metadata-from-the-web)
 9. [Enrich an actress (verified)](#9-enrich-an-actress-verified)
@@ -17,8 +17,8 @@ A feature‑by‑feature walkthrough. To install, download Vault for Mac or Wind
     - [Scene model & placing markers](#scene-model)
     - [Library & cache](#library--cache)
     - [Tags & translations](#tags--translations)
-    - [Actresses & de‑duplication](#actresses--de-duplication)
-    - [Sources & fc2ppv‑db](#sources--fc2ppv-db)
+    - [Actresses & de-duplication](#actresses--de-duplication)
+    - [Sources & fc2ppv-db](#sources--fc2ppv-db)
     - [Subtitles](#subtitles)
     - [HTTPS](#https)
     - [Updates](#updates)
@@ -47,11 +47,12 @@ Switch to **By actress** to group the wall under each performer (with her portra
 Everything in the left sidebar narrows the view live:
 
 - **Library:** all / identified / amateur‑unknown / **favorite movies** / **favorite actresses**
-- **Watched state, HD only, uncensored only, has subtitles**
+- **Show wishlist**, **watched state, HD only, uncensored only, has subtitles**
 - **Actress** and **Studio** type‑ahead boxes (actress matches aliases and Japanese names too)
-- **Resolution, Duration, Cup size, Age** ranges
+- **Resolution, Duration** (with **Multi‑part only**), **Cup size, Age** ranges
+- **Tags** — click any number of tag chips; the box above them narrows the list
 
-The **sort dropdown** offers Newest added, Release date, Size, Duration, Rating, Favorites, Actress, Code, and Shuffle. “Newest added” uses a **true first‑seen** timestamp, so a folder you just dropped in sits at the top even if its file dates are old.
+The **sort dropdown** offers Newest added, Release date, Largest, Longest, Top rated, Most favorited, Actress A–Z, Code, and Shuffle (the 🎲 next to it reshuffles). “Newest added” uses a **true first‑seen** timestamp, so a folder you just dropped in sits at the top even if its file dates are old.
 
 > Your **played state, favorites and ratings are saved on the server** (a `userdata.json` beside the database), so they persist across browsers and survive a cache wipe or a catalog rebuild. Existing per‑browser data is migrated up automatically the first time each browser connects.
 
@@ -79,7 +80,7 @@ Click any owned card to open the detail/player view.
   - **Click her name** (the **›** caret) to fold out her full **overview** — portrait, bio, and everything owned + missing — without leaving the movie.
   - **⇄** (next to the ✎ edit button) **reassigns just this movie** to another actress — see [§5](#5-editing-a-movie).
   - **Scenes on the seek bar:** the player uses a custom control bar with the scenes drawn on the scrubber — **clickable pictogram chips** above the bar (click to jump), **⏮ / ⏭** (or `←` / `→`) to step to the previous/next scene, colored **ticks** on the bar at each scene's start, a hover **label + time** tooltip, and a **"▶ now"** badge for the current scene. Vault places them with the scene model — **🎬 Place markers** in the right panel, Settings → Scene model, or the nightly run — and keeps them in a `<video>.scenes.json` sidecar next to the movie.
-  - **Placed by the model:** a marker the scene model placed wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. The chip's bottom edge keeps its label colour, so you can still read *what* it is at a glance. The player shows one marker per change of action, so the bar stays readable.
+  - **Placed by the model:** a marker the scene model placed wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. The chip's bottom edge keeps its label colour — pink for acts (blowjob, fingering, titjob, toy, creampie), violet for positions (missionary, doggy, cowgirl, standing, scoop‑up) — so you can read *what* it is at a glance. The player shows one marker per change of action, so the bar stays readable, and jumping to a **creampie** lands 15 s before it so you see it happen.
   - **Subtitles:** a movie with subtitles shows a **CC** button in the control bar (or press `v`); `y` / `c` jump to the previous / next line. The right panel's **💬 Transcribe (JA → EN)** makes them for this movie — see [§12](#12-subtitles-japanese--english).
   - **Volume:** hover the speaker icon and a slider unfolds next to it; the level and mute state are remembered across movies. Clicking the speaker mutes, clicking it again brings the previous level back.
 
@@ -139,7 +140,7 @@ folder while a file inside it is open. If something *else* still holds the file 
 **"… is still open — close the player and try again"** rather than a long wait: a trash move is
 either instant or an error, never a silent multi‑gigabyte copy.
 
-## 6. Multi‑select: bulk‑assign an actress
+## 6. Multi-select: bulk-assign an actress
 
 In Grid or List view, tick the **select box** at a card’s top‑left, **⌘‑click** (or Ctrl‑click) to toggle individual cards, or **shift‑click** to select a range. Once anything is selected the select boxes stay visible on every card; selected cards get a pink outline and a filled box, and a bar appears at the bottom:
 
@@ -149,9 +150,24 @@ Type an actress name (autocompletes) and hit **Assign actress** to attach her to
 
 ## 7. Import from your download folder
 
-Point Vault at a **download folder** (Settings → Library), then pick **📥 Import** in the **☰ Tools** menu. It previews the whole pipeline first, then: renames & cleans the downloads (strips source prefixes, removes junk/spam clips), and moves each release into the library — **adding** new ones and **replacing** older copies with better versions.
+Point Vault at a **download folder** (Settings → Library), then pick **📥 Import** in the **☰ Tools** menu. It previews the whole pipeline first, then: renames & cleans the downloads, and moves each release into the library — **adding** new ones and **replacing** older copies with better versions.
 
 ![Import from download folder](images/import.png)
+
+**What happens to a download:**
+
+| Step | Example |
+|---|---|
+| The release is recognised by its code, whatever the uploader called it | `(無修正) FC2 PPV 1790483 …`, `fc2-ppv-1790483-HD` → `FC2-PPV-1790483` |
+| | `[FC2-OMU] - 340671 - …` → `FC2-OMU-340671` |
+| | `081726_01-10MU` → `10musume-081726_01` · `[Uncensored HD] N0852 …` → `N0852` · `ABC-123 - name` → `ABC-123` |
+| Junk goes: text and HTML files, images, spam folders, and sample/spam clips under 80 MB | |
+| The movie is renamed to its code; a release in parts becomes `-1`, `-2`, … | `FC2-PPV-1790483-1.mp4`, `FC2-PPV-1790483-2.mp4` |
+| Loose files in the download folder are grouped into one folder per release | |
+| It lands in the library as `…/<CODE>/<CODE>.mp4` | |
+| A copy you already have: the **bigger** one wins, if you allow it | the smaller one is the duplicate |
+
+A folder Vault can't find a code in is skipped and listed, not touched.
 
 - Library deletes (replacing an older copy) are gated behind a **confirmation checkbox** — leave it unticked to only add + clean. Nothing in the library is removed without it.
 - The move runs in the background (large cross‑drive copies can take a while). After *Run in background* the Tools button's gear turns; click **📥 Import** again to bring the progress back.
@@ -241,7 +257,10 @@ Open **Settings** from the **☰ Tools** menu. The tabs: Library, Tags, Actresse
 ![Settings — Scene model](images/settings_model.png)
 
 - Shows the installed model and the newest build on GitHub, with one button to **Download** or
-  **Update** (about 450 MB). The model lands in a per‑user folder
+  **Update** (about 450 MB). The model knows 10 labels — the acts *blowjob, fingering, titjob,
+  toy, creampie* and the positions *missionary, doggy, cowgirl, standing, scoop‑up*. **Toy,
+  standing and creampie** were taught to it on Vault's own reviewed markers; the open action model
+  it started from could not see them. Each new round is trained on more reviewed movies. The model lands in a per‑user folder
   (`~/Library/Application Support/Vault/models` on macOS, `%LOCALAPPDATA%\Vault\models` on
   Windows, `~/.local/share/vault/models` on Linux).
 - **Placing markers:** **Set up** once — it installs what the model needs to run (PyTorch, about
@@ -272,13 +291,13 @@ Open **Settings** from the **☰ Tools** menu. The tabs: Library, Tags, Actresse
 
 > **Merges and cleanups stick — for every future scan, and for everyone.** When you merge two tags, Vault records the mapping (old → new) in the translation table, so the next time a scraper sees the old name it stores the merged one instead. The scrapers canonicalize every incoming tag through this table: a Japanese tag becomes its English label, a merged name becomes its target, and an **untranslated Japanese tag is dropped** rather than added — which keeps one‑off junk out of your set without any manual pruning. English tags that have no mapping are kept as‑is. Because the mapping lives in the catalog, a shared build carries your cleanups to other users too.
 
-### Actresses & de‑duplication
+### Actresses & de-duplication
 
 - Rename any actress (English + Japanese); the old spelling is kept as an alias.
 - Tick two or more rows and **Merge** them (the record you own most titles under is kept; works, aliases, links, and body‑info fold in — no movie is ever deleted).
 - **Find duplicates** scans the whole catalog for same‑person records (identical Japanese name or reversed romaji) and offers to merge them all.
 
-### Sources & fc2ppv‑db
+### Sources & fc2ppv-db
 
 ![Settings — Sources](images/settings_sources.png)
 

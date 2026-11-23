@@ -24,6 +24,8 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 - [A quick tour](#a-quick-tour)
 - [User guide](#user-guide)
 - [How metadata works](#how-metadata-works)
+- [Scene markers](#scene-markers-sidecars)
+  - [Placing markers](#placing-markers)
 - [Subtitles (Whisper)](#subtitles-whisper)
 - [Project layout](#project-layout)
 - [Privacy & safety](#privacy--safety)
@@ -47,35 +49,59 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 
 **Watch**
 - In‑browser streaming with HTTP range requests + `sendfile` (fast seeks over SMB)
-- Multi‑part playback with auto‑advance
-- Keyboard shortcuts (space/s play, a/d and ←→ seek, y/c scene markers, v subtitles, ↑↓ volume, m, f, t theater, 0–9, `< >` speed)
+- Multi‑part playback with auto‑advance; a thumbnail preview when you hover the seek bar
+- Keyboard shortcuts made for one hand on the keyboard and one on the mouse: `space`/`s` play, `q`/`e` seek 10 s, `a`/`d` hop between scene markers, `y`/`c` subtitle lines, `←`/`→` previous / next scene, `v` subtitles, `↑↓` volume, `m`, `f`, `t` theater, `0–9`, `< >` speed (all of them in the [user guide](docs/USER_GUIDE.md#4-playing-a-movie))
 - HEVC handled natively where the browser supports it, with a clear fallback panel where it doesn’t
 
-**Curate**
+**Scene markers**
+- The player draws scenes as icon chips and ticks **right on the seek bar**, tube‑site style — hover for the label, click to jump, ⏮ / ⏭ (or `←` / `→`) to step from scene to scene
+- **Vault places them itself** with its free scene model, offline: **10 labels** — *blowjob, fingering, titjob, toy, creampie* and the positions *missionary, doggy, cowgirl, standing, scoop‑up*. **Toy, standing and creampie** are Vault's own: the off‑the‑shelf model it started from could not see them at all
+- Settings → Scene model → **Place markers** does the library, **🎬 Place markers** one movie, the nightly run the new arrivals. The markers live next to the video as `<video>.scenes.json` — see [Scene markers](#scene-markers-sidecars)
+- The player shows **one marker per change of action** (the model's repeats and brief blips are left out), and jumping to a *creampie* starts 15 s early so you see it happen
+
+**Subtitles**
+- **English subtitles from the Japanese audio**, made offline on your computer: Whisper writes the Japanese, a small local model translates it with the conversation as context. Saved as `.en.srt` (and `.ja.srt`) next to the video, so Plex, VLC, Infuse and mpv use them too — see [Subtitles](#subtitles-whisper)
+
+**Import, rename, folder**
+- **Scan library** finds new and removed movies on disk; a cached index makes later starts instant
+- **📥 Import** takes your **download folder** and does the whole job after one preview: **renames** each release to its code (`FC2-PPV-1234567`, `FC2-OMU-…`, `10musume-…`, Tokyo‑Hot `N0123`, studio codes like `ABC-123`; parts become `-1`, `-2`), **cleans** out spam clips and junk files, moves it into the library as `…/<CODE>/<CODE>.mp4`, and **replaces** an older copy with a bigger one only if you tick the box — then fetches the new movies' metadata
+- **Organize** the library itself: normalize `…/<CODE>/<CODE>.ext`, quarantine junk, flag/relocate duplicates — preview first, nothing deleted
+- **Organize by actress**: fold every movie into `…/<Actress>/<CODE>/` to match the catalog (so the disk follows reassignments) — preview first, only moves, never deletes
+
+**Metadata & actresses**
+- **Scan metadata** from the web (English/Japanese titles, covers, dates, tags, the cast) — four sources in priority order, each only filling what the ones before left empty
+- **Enrich from web** per actress: body info, JP name, aliases — **verified by FC2‑code overlap** so you don’t attach the wrong same‑name person, and it fills her **wishlist** from her filmography
+- Japanese tags shown in English, with your own renames and merges remembered for every future scan
 - Rich edit panel: actress (EN + JP, with autocomplete), age, cup, height, measurements, censorship toggle, EN/JP titles
 - **Reassign** a single misgrouped movie to another actress straight from the player (**⇄**) — relinks just that title, never renames the actress it left
 - **Multi‑select** (shift / ⌘‑click, or the card's select box) → bulk‑assign one actress to many movies, or bulk‑delete them
+- **Find duplicates** and merge actress records that are the same person
 - **Delete** a movie (from the player), several at once (multi‑select), or a whole actress and her movies (from her overview) — always confirmed; files are **moved to a recoverable trash**, never hard‑deleted. Deleting an actress trashes only titles where she is the sole performer; shared co‑star titles are kept
-- **Scene markers**: the player draws scenes (e.g. *blowjob*, *doggy*, *cumshot*) as icon chips and ticks **right on the seek bar**, tube‑site style — hover for the label, click to jump. Vault places them itself with the free scene model (Settings → Scene model → **Place markers**, a 🎬 button per movie, or the nightly run) and keeps them next to the video as `<video>.scenes.json`. See **Scene markers** below
-- **Organize** the folder on disk: normalize `…/<CODE>/<CODE>.ext`, quarantine junk, flag/relocate duplicates — preview first, nothing deleted
-- **Organize by actress**: fold every movie into `…/<Actress>/<CODE>/` to match the catalog (so the disk follows reassignments) — preview first, only moves, never deletes
-- **Nightly run** (Settings → Nightly): inside a time window you choose, Vault imports new downloads (with the Import window's choices made up front), looks up metadata for **new** movies only (a miss is retried after a week, not every night), places scene markers and writes subtitles — each step stops when the window ends and carries on the next night
-- **Settings** hub: library and download folders, tags (rename/merge + **JP→EN translation**), actresses (rename, merge, **find duplicates**), sources, the scene model, subtitles, the nightly run and **HTTPS**
 
-**Enrich**
-- **Scan metadata** from the web (English/Japanese titles, covers, dates, tags) across your library
-- **Enrich from web** per actress: body info, JP name, aliases — **verified by FC2‑code overlap** so you don’t attach the wrong same‑name person, and it fills her **wishlist** from her filmography
+**Runs by itself**
+- **Nightly run** (Settings → Nightly): inside a time window you choose, Vault imports new downloads (with the Import window's choices made up front), looks up metadata for **new** movies only (a miss is retried after a week, not every night), places scene markers and writes subtitles — each step stops when the window ends and carries on the next night
+- **Updates inside the app** (Settings → Updates): Vault checks GitHub once a day, and **Update** downloads, verifies and installs the new version, then reopens — your library and settings stay. A newer catalog that comes with it is merged into yours
+- **HTTPS in one click** (Settings → HTTPS) for phones and other computers, with Vault's own certificate
+- On a Mac or Windows, it can start at log in; from source, `--install-service` does the same on Linux too
 
 ## Free, and the scene model
 
 Vault is **freeware**: the whole app, every source, the catalog and the scene model, with no
 movie limit, no key and no account. The terms are in [LICENSE.md](LICENSE.md).
 
-**The scene model** is the trained video classifier that recognises scenes (blowjob, doggy,
-cowgirl, missionary, creampie …) so Vault can mark them on the seek bar. It is a ~450 MB download
-from the project's GitHub releases: open **Settings → Scene model** and press **Download**; every
-improved build shows up in the same tab as an **Update**. Placing the markers is built into Vault
-— see [Placing markers](#placing-markers).
+**The scene model** is the trained video classifier that recognises scenes so Vault can mark them
+on the seek bar. It started from an open action model and is retrained, round after round, on
+thousands of hand‑reviewed markers; it knows 10 labels:
+
+| Acts | Positions |
+|---|---|
+| blowjob, fingering, titjob, **toy**, **creampie** | missionary, doggy, cowgirl, **standing**, scoop‑up |
+
+The ones in bold are new in Vault's model — the original could not recognise a toy, a standing
+position or a creampie (it only knew a generic climax, which here is almost always a creampie). It
+is a ~450 MB download from the project's GitHub releases: open **Settings → Scene model** and
+press **Download**; every improved build shows up in the same tab as an **Update**. Placing the
+markers is built into Vault — see [Placing markers](#placing-markers).
 
 **Support:** Vault is developed in the open and stays free. If it earns a place in your setup, a
 contribution on [Patreon](https://www.patreon.com/FC2vault) helps cover the tools and the hours
@@ -266,11 +292,11 @@ The detailed, screenshot‑driven guide lives in **[`docs/USER_GUIDE.md`](docs/U
 - Editing a movie’s actress & metadata
 - Reassigning a misgrouped movie to another actress
 - Multi‑select bulk actress assignment
+- Importing from your download folder: renaming, cleaning, replacing older copies
 - Organizing the library folder (by `<CODE>` and **by actress**)
-- Scanning & enriching from the web (and the verification model)
-- Importing from your download folder
-- English subtitles, scene markers and the nightly run
-- Settings: library, **tags + translations**, **actresses + dedup**, sources, scene model, subtitles, nightly, HTTPS
+- Scanning & enriching from the web (and how an actress is verified)
+- Scene markers, English subtitles and the nightly run
+- Settings: library, **tags + translations**, **actresses + dedup**, sources, scene model, subtitles, nightly, HTTPS, updates
 - Connecting the optional **fc2ppv‑db** source
 
 ## How metadata works
@@ -288,7 +314,10 @@ Highlights:
 The player draws scene markers **on the seek bar** from **`<video>.scenes.json`** sidecar files
 next to each video. Vault writes them with its built-in scene tagger ([Placing markers](#placing-markers)),
 and any other tool that follows the format can too; Vault reads them and caches them in a
-`markers` table. Markers are shown as start points, view-only.
+`markers` table. Markers are shown as start points, view-only. The sidecar keeps everything the
+model found; the player picks one marker per change of action from it (a short, unsure blip that
+would split one act in two is left out, as is a creampie with no position before it), so the bar
+stays readable and the pick follows the model's next run.
 
 Format (`schema: "vault-scenes/1"`), timestamps in seconds, relative to that one video file:
 
@@ -301,7 +330,7 @@ Format (`schema: "vault-scenes/1"`), timestamps in seconds, relative to that one
   "generated_at": "2026-11-20T16:50:19Z",
   "markers": [
     { "t": 120.0, "end": 300.0, "label": "blowjob", "confidence": 0.82, "source": "ml" },
-    { "t": 900.0, "label": "cumshot", "source": "manual" }
+    { "t": 900.0, "label": "creampie", "source": "manual" }
   ]
 }
 ```
@@ -343,7 +372,7 @@ The tagger also runs on its own, for scripting: `python scene_tagger.py "/path/t
 **Tools → 💬 Transcribe** (or **💬 Transcribe (JA → EN)** in a movie's panel) writes English
 subtitles from the Japanese audio — offline, on your computer. Each part gets `<video name>.en.srt`
 (and the Japanese `<video name>.ja.srt`) next to the file, the names Plex, VLC, Infuse and mpv pick
-up on their own. Vault's player shows them with the **CC** button (or **v**); **Shift+Y / Shift+C**
+up on their own. Vault's player shows them with the **CC** button (or **v**); **Y / C**
 jump to the previous / next line, and the sidebar's **Has subtitles** filter finds the movies that
 have them. Jobs run one part at a time in the background; the Tools menu shows the progress.
 
@@ -405,14 +434,17 @@ tools/transcribe.py  # the Whisper worker (runs with the Whisper Python)
 vault_model.py       # the scene model download (Settings → Scene model)
 scenetag.py          # placing markers (Settings → Scene model → Place markers)
 scene_tagger.py, vault_scene_tagger/   # the scene tagger itself
-final_tags.py        # which markers become tags
+final_tags.py        # which of the model's markers the player shows (one per change of action)
 nightly.py           # the nightly run (Settings → Nightly)
 tlsgen.py            # HTTPS certificates (Settings → HTTPS)
+updater.py           # in-app updates (Settings → Updates)
+catalogmerge.py      # merges a newer shipped catalog into yours
 vault_service.py     # --install-service (launchd / systemd / Task Scheduler)
 packaging/           # how the Mac and Windows installers are built
 data/catalog.db      # preloaded catalog (SQLite): actresses, works, tags, aliases, links
 config.json          # your library path + port (gitignored)
-docs/                # the user guide + screenshots
+docs/                # the user guide, screenshots and the website
+tests/               # stdlib unit tests: python3 -m unittest discover -s tests
 ```
 
 The Mac disk images and the Windows setup are built by GitHub Actions from `packaging/` when a
@@ -445,7 +477,9 @@ release is published, and attached to it.
 | Vault doesn't start (installers) | The log is `~/Library/Application Support/Vault/server.log` (Mac — or the app menu → **Show Server Log**) or `%LOCALAPPDATA%\Vault\server.log` (Windows). |
 | Slow first boot | Normal over SMB — it caches after the first walk and boots instantly next time. |
 | A movie didn’t appear after copying it in | **Scan library** re‑indexes the filesystem first; new folders show up then. |
-| A movie you own still shows Status **missing** | Its catalog row is stale. Any scan/rescan reconciles it — the log prints `[db] N work(s) marked available`. The import pipeline now marks them as it goes. |
+| A movie you own still shows Status **missing** | Its catalog row is stale. Any scan/rescan reconciles it — the log prints `[db] N work(s) marked available`. Import marks the movies it brings in as it goes. |
+| An update fails or stops halfway | Settings → Updates → **Reinstall** puts the current version back; or download the installer again from the release page. Your data folder is never touched. |
+| A movie has no scene markers | Settings → Scene model: the model must be downloaded and **Set up** done once; then **🎬 Place markers** in the movie's panel. Without an Apple Silicon Mac or an NVIDIA card it runs on the processor and takes hours. |
 | Can’t reach it from your phone | Use the machine’s LAN IP, not `127.0.0.1`; check both devices are on the same network (or the VPN is up) and that a firewall isn’t blocking the port. |
 | Phone tab reloads or dies on a huge library | Should not happen — the grid renders in batches. If it does, narrow the view with a filter and file it as a bug. |
 | Newly added folder not on top of “Newest added” | Vault sorts by **first‑seen**; a freshly‑dropped `<CODE> - Name` folder is treated as new. |

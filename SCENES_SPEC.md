@@ -30,7 +30,7 @@ reasons.)
     { "t": 12.0,  "label": "scene",   "source": "cut" },
     { "t": 73.5,  "end": 210.0, "label": "blowjob", "confidence": 0.82, "source": "ml" },
     { "t": 210.0, "end": 540.0, "label": "doggy",   "confidence": 0.71, "source": "ml" },
-    { "t": 545.0, "end": 560.0, "label": "cumshot", "confidence": 0.90, "source": "ml" }
+    { "t": 545.0, "end": 560.0, "label": "creampie", "confidence": 0.90, "source": "ml" }
   ]
 }
 ```
@@ -49,7 +49,7 @@ Marker object:
 | field | req | meaning |
 |------|-----|---------|
 | `t` | ✓ | start time, seconds (float ≥ 0). |
-| `end` | – | end time, seconds. Omit for an instantaneous marker (e.g. a raw cut, a cumshot). If present, `end > t`. |
+| `end` | – | end time, seconds. Omit for an instantaneous marker (e.g. a raw cut). If present, `end > t`. |
 | `label` | ✓ | lowercase-kebab, from the vocabulary in §4 (unknown labels are allowed; the reader shows them verbatim). |
 | `confidence` | – | 0.0–1.0. Omit for deterministic/manual markers. |
 | `source` | ✓ | one of `"cut"`, `"heuristic"`, `"ml"`, `"manual"` (see §5). |
@@ -79,7 +79,12 @@ allowed** (a reader shows them raw), but prefer these so different installs agre
 - **state:** `clothed`, `undressing`, `topless`, `nude`
 - **act:** `kissing`, `foreplay`, `fingering`, `handjob`, `blowjob`, `deepthroat`, `titjob`,
   `cunnilingus`, `69`, `sex`, `anal`, `masturbation`, `toy`, `facial`, `cumshot`, `creampie`
-- **position:** `missionary`, `doggy`, `cowgirl`, `reverse-cowgirl`, `standing`, `spooning`, `sideways`
+- **position:** `missionary`, `doggy`, `cowgirl`, `reverse-cowgirl`, `standing`, `scoop-up`, `spooning`, `sideways`
+
+**What Vault's own scene model writes** (`source: "ml"`): the acts `blowjob`, `fingering`,
+`titjob`, `toy`, `creampie` and the positions `missionary`, `doggy`, `cowgirl`, `standing`,
+`scoop-up`. The other labels above stay valid for other writers and older sidecars; Vault
+shows them as they are.
 
 Notes:
 - `scene` markers (Phase A) are just boundaries — instantaneous, no `end`, `source:"cut"`.
