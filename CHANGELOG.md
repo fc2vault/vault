@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.12.0 — Standardize tags
+
+- **Settings → Tags → Standardize tags** (off by default). The sources tag the same thing many
+  ways (Raw / Bareback, Cuckold / NTR, 3P written three ways), add shop wording ("Sold Out",
+  "With Bonus"), repeat fields Vault already has (Uncensored, cup sizes, ages) and leave
+  untranslated Japanese one-offs. Switched on, about 1,000 tags become about 190 — the ones in
+  your catalog at once, and every tag a scan or an update's catalog brings in from then on.
+  Switching it off puts the original tags back. Tags you type yourself are left alone.
+- Tags that imply a minor are removed from the catalog and never stored again.
+- Documentation: every feature in one place — import and renaming, the scene model's 10 labels
+  (toy, standing and creampie are new in Vault's model), the nightly run, in-app updates, HTTPS.
+
 ## 1.11.2 — Arrow keys jump between scenes
 
 - **← / → jump to the previous / next scene**, like ⏮ / ⏭ (Shift+← / → still seek 60 s; plain

@@ -286,6 +286,21 @@ Open **Settings** from the **☰ Tools** menu. The tabs: Library, Tags, Actresse
 
 ![Settings — Tags translations](images/settings_tags.png)
 
+**Standardize tags** (top of the tab, **off** by default). The sources tag the same thing many
+ways — *Raw* and *Bareback*, *Cuckold* and *NTR*, *3P* written three ways — add shop wording
+(*Sold Out*, *With Bonus*), repeat what Vault already shows as a field (*Uncensored*, cup sizes,
+ages) and leave Japanese one-offs that nobody translated. Switched **on**, Vault folds them into
+one set of about 190 tags:
+
+- the tags already in your catalog are rewritten at once, and the tab says how many tags and
+  movies that touches (*The rules for this catalog* lists every merge and removal);
+- every tag a later scan, the nightly run or an update's catalog brings in is standardized the
+  same way; tags you type on a movie yourself stay as you typed them;
+- your own renames and merges below still apply first;
+- **Off** puts the original tags back (tags stored while it was on stay standardized).
+
+Tags that imply a minor are removed either way.
+
 - **In use:** every tag in your library with its count. **Rename** a tag (renaming to an existing one **merges** them — e.g. fix a typo), or remove it.
 - **Translations:** a JP→EN dictionary (seeded with common FC2 tags). Set the **English label** a raw/Japanese tag displays under — e.g. `中出し → Creampie`. Japanese tags coming from the scrapers show under these labels automatically.
 

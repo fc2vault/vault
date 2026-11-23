@@ -1453,6 +1453,12 @@ def scan_fc2db(con, codes, cookie, ua, thumb_dir=None, progress=None, solver_url
 
 
 # ---- orchestrator ----------------------------------------------------------
+try:
+    import tagrules as _tagrules     # optional: Standardize tags
+except ImportError:
+    _tagrules = None
+
+
 def _canon_tag(con, tag, drop_jp=True):
     """Canonical stored form of a scraped tag, honored on every run and for every user:
       * map via tag_translations (JP->EN and English merge-aliases we recorded), so merged
@@ -1465,9 +1471,11 @@ def _canon_tag(con, tag, drop_jp=True):
     row = con.execute("SELECT display FROM tag_translations WHERE raw=? COLLATE NOCASE",
                       (t,)).fetchone()
     if row and row[0]:
-        return row[0].strip()
-    if drop_jp and re.search(r'[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]', t):
+        t = row[0].strip()
+    elif drop_jp and re.search(r'[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]', t):
         return None                     # untranslated Japanese one-off -> don't store
+    if drop_jp and _tagrules:
+        return _tagrules.canon(con, t)  # Settings → Tags → Standardize tags (when on)
     return t
 
 

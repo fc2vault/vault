@@ -1934,9 +1934,39 @@ function renderModel(){
   };
   api("/api/model",show);
 }
+function renderTagRules(box){
+  // Settings → Tags → Standardize tags (tagrules.py): an opt-in switch, reversible
+  fetch("/api/tagrules").then(x=>x.json()).then(r=>{
+    if(!box||!box.isConnected)return;
+    const n=x=>(x||0).toLocaleString();
+    const merges=(r.merges||[]).map(m=>`<div class="setrow" style="align-items:flex-start"><b style="width:160px;flex:none">${esc(m.target)}</b><span class="grow" style="color:var(--dim)">← ${m.sources.map(([t,c])=>`${esc(t)} <span style="color:var(--dim2)">${c}</span>`).join(", ")}</span></div>`).join("");
+    const removed=(r.removed||[]).map(([t,c])=>`${esc(t)} <span style="color:var(--dim2)">${c}</span>`).join(", ");
+    box.innerHTML=`
+      <div class="setsec" style="margin-top:0">Standardize tags</div>
+      <div class="setnote">The sources tag the same thing many ways (Raw / Bareback, Cuckold / NTR, 3P written three ways), add shop wording (“Sold Out”, “With Bonus”), repeat what Vault already shows (Uncensored, cup sizes, ages) and leave Japanese one-offs nobody translated. <b>Standardize</b> folds all that into one clean set${r.tags_before?`: <b>${n(r.tags_before)} tags → ${n(r.tags_after)}</b> in this catalog, on ${n(r.movies)} movies`:""}. While it is on, every tag a scan or an update brings in is standardized too; tags you type on a movie stay as you typed them. <b>Off</b> puts the original tags back.</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="seg" id="trSeg" style="width:max-content;flex:none"><button data-v="0" class="${r.on?'':'on'}">Off — tags as the sources give them</button><button data-v="1" class="${r.on?'on':''}">On — standardized</button></div>
+        <span class="setnote" id="trMsg" style="margin:0"></span></div>
+      ${(merges||removed)?`<details style="margin:10px 0 4px"><summary class="setnote" style="cursor:pointer;margin:0">The rules for this catalog — ${(r.merges||[]).length} merged tags, ${(r.removed||[]).length} removed</summary>
+        <div style="max-height:320px;overflow-y:auto;margin-top:8px">${merges}
+        ${removed?`<div class="setrow" style="align-items:flex-start"><b style="width:160px;flex:none">Removed</b><span class="grow" style="color:var(--dim)">${removed}</span></div>`:""}</div></details>`:""}
+      <div class="setsec">All tags</div>`;
+    box.querySelectorAll("#trSeg button").forEach(b=>b.onclick=()=>{
+      const on=b.dataset.v==="1";if(on===!!r.on)return;
+      box.querySelectorAll("#trSeg button").forEach(x=>x.disabled=true);
+      $("#trMsg").textContent=on?"Standardizing…":"Putting the original tags back…";
+      post2("/api/tagrules",{on},j=>{
+        if(j.error){toast(j.error);renderTagRules(box);return;}
+        const x=j.result||{};
+        toast(on?`Standardized — ${n(j.tags_before)} tags → ${n(j.tags_after)}`:`Original tags back (${n(x.restored)} restored)`);
+        refreshSettings("tags");});
+    });
+  }).catch(()=>{if(box)box.innerHTML="";});
+}
 function renderSetTags(pane){
   const rows=SET.tags||[];   // [{en, jp, count}]
   pane.innerHTML=`
+    <div id="tagRules"><div class="setnote">Loading…</div></div>
     <input class="setsearch" id="tagQ" placeholder="filter tags…">
     <div class="setnote">Each tag has an <b>English</b> (left) and <b>Japanese</b> (right) form — either may be blank. Movies show the English; if only Japanese is set, they show the Japanese. Edit a field and press Enter (or click away) to save; renaming an English tag to an existing one <b>merges</b> them.</div>
     <div class="setrow" style="border:none;font-weight:700;color:var(--dim2);font-size:11px;text-transform:uppercase;letter-spacing:.5px">
@@ -1947,6 +1977,7 @@ function renderSetTags(pane){
        <span class="cnt" style="width:38px;text-align:right">${t.count||0}</span>
        <button class="setbtn danger" data-del title="remove tag from all movies">×</button>
      </div>`).join("")||'<div class="setnote">No tags yet.</div>'}</div>`;
+  renderTagRules($("#tagRules"));
   $("#tagQ").oninput=e=>{const q=e.target.value.toLowerCase();pane.querySelectorAll("#tagList .setrow").forEach(r=>r.style.display=r.dataset.name.includes(q)?"":"none");};
   pane.querySelectorAll("#tagList .setrow").forEach((row,idx)=>{
     const t=rows[idx],key=row.dataset.key,en=row.querySelector(".tgen"),jp=row.querySelector(".tgjp");

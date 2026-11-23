@@ -72,6 +72,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 - **Scan metadata** from the web (English/Japanese titles, covers, dates, tags, the cast) — four sources in priority order, each only filling what the ones before left empty
 - **Enrich from web** per actress: body info, JP name, aliases — **verified by FC2‑code overlap** so you don’t attach the wrong same‑name person, and it fills her **wishlist** from her filmography
 - Japanese tags shown in English, with your own renames and merges remembered for every future scan
+- **Standardize tags** (Settings → Tags, off by default): folds the sources' ~1,000 overlapping tags into about 190 — Raw into Bareback, Cuckold into NTR, shop wording and Japanese one-offs out — for the tags you have and every tag a later scan brings in. Switching it off puts the originals back
 - Rich edit panel: actress (EN + JP, with autocomplete), age, cup, height, measurements, censorship toggle, EN/JP titles
 - **Reassign** a single misgrouped movie to another actress straight from the player (**⇄**) — relinks just that title, never renames the actress it left
 - **Multi‑select** (shift / ⌘‑click, or the card's select box) → bulk‑assign one actress to many movies, or bulk‑delete them
@@ -439,6 +440,7 @@ nightly.py           # the nightly run (Settings → Nightly)
 tlsgen.py            # HTTPS certificates (Settings → HTTPS)
 updater.py           # in-app updates (Settings → Updates)
 catalogmerge.py      # merges a newer shipped catalog into yours
+tagrules.py          # Standardize tags (Settings → Tags)
 vault_service.py     # --install-service (launchd / systemd / Task Scheduler)
 packaging/           # how the Mac and Windows installers are built
 data/catalog.db      # preloaded catalog (SQLite): actresses, works, tags, aliases, links

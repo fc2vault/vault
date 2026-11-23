@@ -86,11 +86,12 @@ import tlsgen                 # HTTPS certificates (Settings -> HTTPS)
 import scenetag               # placing scene markers (Settings -> Scene model)
 import updater                # Settings -> Updates
 import catalogmerge           # newer shipped catalog -> your copy
+import tagrules               # Settings -> Tags -> Standardize tags
 import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.11.2"
+VAULT_VERSION = "1.12.0"
 # Training mode (editing scene markers to make training data) is the author's own workflow, not part
 # of the public package: make_release.sh --public sets this to False, which hides the switch and
 # refuses marker/label edits. Viewing markers is unaffected.
@@ -1952,6 +1953,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(self._nightly_info())
             if p == "/api/update":
                 return self._json(_update_info(q.get("check", [""])[0] == "1"))
+            if p == "/api/tagrules":
+                return self._json(_tagrules_info())
             if p == "/api/tagger":
                 return self._json(_tagger_info(q.get("fresh", [""])[0] == "1", q.get("count", [""])[0] == "1"))
             if p == "/api/tls":
@@ -2062,6 +2065,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._tag_edit(body.get("key"), body.get("en"), body.get("jp"))
         if p == "/api/tagdelete":
             return self._tag_delete(body.get("tag"))
+        if p == "/api/tagrules":
+            return self._tagrules_set(body.get("on"))
         if p == "/api/actressedit":
             return self._actress_edit(body)
         if p == "/api/actressrename":
@@ -2673,6 +2678,20 @@ class Handler(BaseHTTPRequestHandler):
         _tagtx = None
         rebuild_index(_load_fs_index(STATE["library"]))
         return self._json({"ok": True, "en": en, "jp": jp})
+
+    def _tagrules_set(self, on):
+        """Settings → Tags → Standardize tags: on rewrites the stored tags (and remembers the
+        originals), off puts the originals back."""
+        if not os.path.exists(DB_PATH):
+            return self._json({"error": "no catalog db"}, 500)
+        con = sqlite3.connect(DB_PATH, timeout=60)
+        con.execute("PRAGMA busy_timeout=8000")
+        try:
+            res = tagrules.apply(con) if on else tagrules.restore(con)
+        finally:
+            con.close()
+        rebuild_index(_load_fs_index(STATE["library"]))
+        return self._json(dict(_tagrules_info(), ok=True, result=res))
 
     def _tag_delete(self, tag):
         tag = (tag or "").strip()
@@ -4693,6 +4712,17 @@ def _merge_shipped_catalog():
         sys.stderr.write("[catalog] merge skipped: %s\n" % e)
 
 
+def _tagrules_info():
+    """Settings → Tags → Standardize tags: the switch and what it does to this catalog."""
+    if not os.path.exists(DB_PATH):
+        return {"on": False, "tags_before": 0, "tags_after": 0, "movies": 0, "merges": [], "removed": []}
+    con = sqlite3.connect(DB_PATH, timeout=30)
+    try:
+        return tagrules.preview(con)
+    finally:
+        con.close()
+
+
 def _tagger_info(fresh=False, count=False):
     """Settings → Scene model → Placing markers: runtime, setup, the running job."""
     py = subsmod.resolve_python(load_config(), WHISPER_ROOT)
@@ -4865,9 +4895,17 @@ def main():
             _con = sqlite3.connect(DB_PATH)
             _ensure_tagtx(_con)
             n = _canonicalize_tags(_con)
+            gone = tagrules.cleanup_always(_con)
+            if tagrules.is_on(_con):            # catch-up: anything stored around the rules
+                r = tagrules.apply(_con)
+                if r["removed"]:
+                    sys.stderr.write(f"[boot] standardized {r['removed']} tag(s)\n")
+            _con.commit()
             _con.close()
             if n:
                 sys.stderr.write(f"[boot] canonicalized {n} tag(s) JP->EN\n")
+            if gone:
+                sys.stderr.write(f"[boot] removed {gone} tag(s) that imply a minor\n")
         except Exception:
             pass
     cached = _load_fs_index(library)

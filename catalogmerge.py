@@ -15,11 +15,17 @@ then on works on that copy. When a later version ships a newer catalog, merge() 
 Never touched: what you own (in_library / availability), favourites, ratings and watched state
 (those live in userdata.json anyway), censorship, any field that already has a value, a cast you
 set by hand. Things you deleted (a movie, an actress, a tag) are remembered as tombstones from
-1.11 on and never come back with a merge."""
+1.11 on and never come back with a merge. With Settings → Tags → Standardize tags on, the
+shipped tags go through the same rules as a scan's."""
 import hashlib
 import os
 import re
 import sqlite3
+
+try:
+    import tagrules as _tagrules   # Settings → Tags → Standardize tags (optional module)
+except ImportError:
+    _tagrules = None
 
 TOMBSTONES = "CREATE TABLE IF NOT EXISTS catalog_tombstones (kind TEXT NOT NULL, key TEXT NOT NULL, PRIMARY KEY(kind, key))"
 META = "CREATE TABLE IF NOT EXISTS catalog_meta (key TEXT PRIMARY KEY, value TEXT)"
@@ -181,6 +187,8 @@ def merge(user_db, shipped_db):
             if code not in have or not tag:
                 continue
             t = (tx.get(tag.strip().lower()) or tag).strip()
+            if t and _tagrules:
+                t = _tagrules.canon(con, t)          # Standardize tags, when switched on
             if not t or _JP.search(t) or ("tag", t.lower()) in dead:
                 continue
             st["tags_added"] += con.execute("INSERT OR IGNORE INTO tags (code, tag) VALUES (?, ?)", (code, t)).rowcount
