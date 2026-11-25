@@ -98,8 +98,27 @@ class BuildTest(unittest.TestCase):
             self.assertTrue(path and os.path.getsize(path) > 0)
             self.assertIn(ctype, ("image/webp", "image/jpeg"))
             self.assertEqual(st["pages"], 1)
+            fp, _ = s.flick_path(vid)                        # the grid's 12-frame hover image
+            self.assertTrue(fp and os.path.getsize(fp) > 0)
+            self.assertEqual(s.flick_path(vid)[0], fp)       # made once, then reused
+            other = os.path.join(d, "none.mp4")
+            open(other, "wb").close()
+            self.assertEqual(s.flick_path(other), (None, None))   # no strip: nothing, no build
+            self.assertEqual(s.queue_len(), 0)
+            self.assertEqual(s.index(), {s.key(vid): scrub.flick_count(s._read(vid))})
         finally:
             shutil.rmtree(d, ignore_errors=True)
+
+
+class FlickCountTest(unittest.TestCase):
+    def test_about_one_frame_per_five_minutes(self):
+        m = lambda minutes, n=1000: {"n": n, "total": minutes * 6, "interval": 10.0}
+        self.assertEqual(scrub.flick_count(m(30)), 6)
+        self.assertEqual(scrub.flick_count(m(60)), 12)
+        self.assertEqual(scrub.flick_count(m(120)), 24)
+        self.assertEqual(scrub.flick_count(m(300)), 24)       # capped
+        self.assertEqual(scrub.flick_count(m(10)), 6)          # at least 6…
+        self.assertEqual(scrub.flick_count(m(60, n=4)), 4)    # …but never more than there are
 
 
 if __name__ == "__main__":

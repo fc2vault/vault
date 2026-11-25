@@ -36,6 +36,16 @@ FMT = 2                   # bump when the layout changes: older strips are made 
 W, H = 320, 180
 COLS = 10
 PER_PAGE = 100            # frames per image (10 x 10 = 3200 x 1800 px)
+# The grid's flick-through: about one frame every 5 minutes of the movie (6 to 24 of them), as one
+# image of 4 columns. A half-hour movie flicks through 6, an hour 12, two hours 24.
+FLICK_EVERY, FLICK_MIN, FLICK_MAX, FLICK_COLS = 300.0, 6, 24, 4
+
+
+def flick_count(meta):
+    n = int(meta.get("n") or 0)
+    dur = float(meta.get("total") or 0) * float(meta.get("interval") or 0)
+    k = int(round(dur / FLICK_EVERY)) if dur else FLICK_MIN
+    return max(1, min(n, max(FLICK_MIN, min(FLICK_MAX, k))))
 SLOT_S = 10.0             # one frame every 10 s…
 MAX_SLOTS = 1800          # …up to 5 hours; longer movies get a wider spacing (WebP caps at 16383 px)
 WORKERS = 3               # parallel seeks: 3 is the sweet spot on a NAS (6 is no faster)
@@ -69,10 +79,47 @@ class Scrubber:
         self._fmt = None
         self._bg = set()              # queued by the nightly run (may wait, may be called off)
         self._cancel = set()
+        self._index = {}              # meta file -> (mtime, flick count) for index()
         self.hold = lambda: False     # serve.py: True while a video is streaming
         os.makedirs(self.dir, exist_ok=True)
 
     # ---------------------------------------------------------------- files
+    def key(self, path):
+        return self._key(path)
+
+    def index(self):
+        """{key: flick count} for every strip with frames — which movies the grid can flick
+        through. Reads only the meta files that changed since the last call."""
+        out, seen = {}, set()
+        try:
+            names = os.listdir(self.dir)
+        except OSError:
+            return out
+        for f in names:
+            if not f.endswith(".json"):
+                continue
+            p = os.path.join(self.dir, f)
+            seen.add(p)
+            try:
+                mt = os.path.getmtime(p)
+            except OSError:
+                continue
+            hit = self._index.get(p)
+            if not hit or hit[0] != mt:
+                try:
+                    with open(p, encoding="utf-8") as fh:
+                        m = json.load(fh)
+                    k = flick_count(m) if m.get("fmt") == FMT and m.get("n") else 0
+                except (OSError, ValueError):
+                    k = 0
+                hit = self._index[p] = (mt, k)
+            if hit[1]:
+                out[f[:-5]] = hit[1]
+        for p in list(self._index):
+            if p not in seen:
+                del self._index[p]
+        return out
+
     def _key(self, path):
         return hashlib.sha1(os.path.abspath(path).encode("utf-8", "replace")).hexdigest()[:20]
 
@@ -362,6 +409,63 @@ class Scrubber:
         publish(final=True)
         shutil.rmtree(work, ignore_errors=True)
         self.log("scrub: %s: %d frames in %.0f s" % (os.path.basename(path), meta["n"], time.time() - t0))
+
+    # ---------------------------------------------------------------- grid flick-through
+    def flick_path(self, path):
+        """A small 4x3 image of 12 frames spread over the movie, for hovering a poster in the grid.
+        Cut from the strip's pages the first time it is asked for (and again after the strip
+        got sharper); None when the movie has no strip — asking never starts a build.
+        -> (file, content type) or (None, None)"""
+        st = self.status(path)
+        m = self._read(path)
+        if st["state"] not in ("done", "partial", "working", "queued", "failed") or not m or not m.get("n"):
+            return None, None
+        ext = m["ext"]
+        key = self._key(path)
+        k = flick_count(m)
+        out = os.path.join(self.dir, "%s.flick%s_%d.%s" % (key, m["v"], k, ext))
+        ctype = "image/webp" if ext == "webp" else "image/jpeg"
+        if os.path.isfile(out):
+            return out, ctype
+        n, per, cols, w, h = m["n"], m["per"], m["cols"], m["w"], m["h"]
+        idx = [min(n - 1, int((j + 0.5) * n / k)) for j in range(k)]
+        pages = sorted({i // per for i in idx})
+        args = [self.ffmpeg, "-hide_banner", "-nostdin", "-y"]
+        for pg in pages:
+            args += ["-i", self._page_file(path, pg, ext)]
+        uses = {pg: [i for i in idx if i // per == pg] for pg in pages}
+        graph = []
+        for n_in, pg in enumerate(pages):
+            outs = "".join("[s%d_%d]" % (pg, j) for j in range(len(uses[pg])))
+            graph.append("[%d:v]split=%d%s" % (n_in, len(uses[pg]), outs))
+        seen = {pg: 0 for pg in pages}
+        cells = []
+        for c, i in enumerate(idx):
+            pg, j = i // per, i % per
+            graph.append("[s%d_%d]crop=%d:%d:%d:%d,setsar=1[c%d]" % (pg, seen[pg], w, h, (j % cols) * w,
+                                                                   (j // cols) * h, c))
+            seen[pg] += 1
+            cells.append("[c%d]" % c)
+        rows = (k + FLICK_COLS - 1) // FLICK_COLS
+        graph.append("%sconcat=n=%d:v=1:a=0,tile=%dx%d" % ("".join(cells), k, FLICK_COLS, rows))
+        enc = (["-c:v", "libwebp", "-quality", "60"] if ext == "webp" else ["-c:v", "mjpeg", "-q:v", "4"])
+        tmp = out + ".tmp." + ext
+        try:
+            r = subprocess.run(args + ["-filter_complex", ";".join(graph), "-frames:v", "1"] + enc + [tmp],
+                               capture_output=True, timeout=60)
+        except (OSError, subprocess.TimeoutExpired):
+            return None, None
+        if r.returncode != 0 or not os.path.isfile(tmp):
+            self.log("scrub: flick failed: %s" % r.stderr.decode("utf-8", "replace")[-200:])
+            return None, None
+        os.replace(tmp, out)
+        for f in os.listdir(self.dir):                    # older flicks of this movie
+            if f.startswith(key + ".flick") and os.path.join(self.dir, f) != out:
+                try:
+                    os.remove(os.path.join(self.dir, f))
+                except OSError:
+                    pass
+        return out, ctype
 
     # ---------------------------------------------------------------- housekeeping
     def size(self):

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.1 — Flick through a movie on its poster
+
+- **Flick through a movie on its poster.** In the grid, a movie with scrub previews shows frames
+  from across the movie in turn — about one per 5 minutes of the movie (6 to 24). With a mouse:
+  rest the pointer on the poster, move it left or right to pick a frame. On a phone: the poster
+  your finger touches plays (with a frame around it) — only that one, until you touch another
+  or it scrolls off the screen — and a sideways swipe over it picks the frame; a tap still opens
+  the movie. This never starts making previews —
+  a movie gets them when it is opened or from the nightly run.
+
 ## 1.13.0 — Scrub previews
 
 - **Scrub previews in the player.** Hover over the seek bar and a frame from that moment shows

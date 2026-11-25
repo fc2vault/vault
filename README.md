@@ -43,6 +43,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 
 **Use it anywhere**
 - One responsive page — no separate mobile site and no UA sniffing; the layout keys off window width and pointer type, so a narrow desktop window behaves like a phone
+- Posters flick through their movie (about one frame per 5 minutes) when you rest the mouse on them — or, on a phone, the one you touch
 - Phone layout: two‑column poster wall, filters in a slide‑over **☰ Filters** drawer, and a player that stacks the video above **Info** / **Parts · Related** tabs
 - Reachable from any device on your LAN or over a VPN back to it (**no authentication** — see [Privacy & safety](#privacy--safety))
 - The grid renders in batches as you scroll, so a multi‑thousand‑item library stays inside mobile Safari's memory budget
@@ -274,7 +275,7 @@ Nothing here is authenticated — see [Privacy & safety](#privacy--safety).
 
 ## A quick tour
 
-**Grid** is the home view — a poster wall with actress, code, tags, and size/age/cup pills. Click a card to play; **shift/⌘‑click** to select several.
+**Grid** is the home view — a poster wall with actress, code, tags, and size/age/cup pills. Click a card to play; **shift/⌘‑click** to select several. A movie with scrub previews flicks through its frames on the poster: while the mouse rests on it (move left/right to pick one), or on a phone the poster you touch (swipe sideways to pick).
 
 **Detail / player** shows the movie with the actress up top (English → Japanese → code), her stats as pills, full technical metadata, tags, rating, and a filmography rail of her other titles (owned + wishlist).
 

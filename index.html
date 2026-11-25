@@ -138,6 +138,20 @@ main{flex:1;overflow-y:auto;padding:16px 18px 60px;position:relative}
   display:flex;align-items:center;justify-content:center;overflow:hidden}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .thumb .ph{color:var(--dim2);font-size:12px}
+/* hover flick-through: 12 frames from the movie's scrub preview (a 4x3 image), cycling; moving the
+   pointer across the poster picks the frame under it */
+.flick{position:absolute;inset:0;background:#000 no-repeat;background-size:400% 300%;opacity:0;transition:opacity .15s;pointer-events:none}
+.flick.on{opacity:1}
+.flickbar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:2px;padding:0 4px 2px;opacity:0;transition:opacity .15s;pointer-events:none}
+.flick.on+.flickbar{opacity:1}
+.flickbar i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.35)}
+.flickbar i.on{background:#fff}
+.thumb.flicking .play{opacity:0!important}
+@media (hover:none){#grid .thumb{touch-action:pan-y}
+  /* a phone keeps :hover on whatever was touched last; only the playing poster gets the frame */
+  .card:hover{transform:none;border-color:var(--line);box-shadow:none}
+  .card:hover .play{opacity:0}
+  .card.flickcard{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2)}}
 .badges{position:absolute;bottom:7px;left:7px;right:7px;display:flex;gap:5px;flex-wrap:wrap;
   justify-content:flex-start;pointer-events:none}
 .bdg{background:rgba(0,0,0,.72);backdrop-filter:blur(3px);border-radius:6px;padding:2px 6px;
@@ -2713,6 +2727,96 @@ function applyMeta(code){
 }
 const cssEsc=s=>s.replace(/["\\]/g,"\\$&");
 
+/* -------- grid: flick through a movie on its poster -------- */
+// Uses the image of frames cut from the movie's scrub preview (/scrub/<uid>?flick=1): about one every
+// 5 minutes, 6 to 24, in 4 columns. /api/scrubbed says which movies have one and how many frames, so
+// posters without a preview are never asked for (and nothing here ever starts making one).
+//   mouse: rest on a poster → it cycles; move across it to pick the frame under the pointer
+//   phone: the poster that stops in the middle of the screen after a scroll cycles by itself; a
+//          sideways swipe over a poster picks the frame (a tap still opens the movie)
+const TOUCH_UI=matchMedia('(hover: none)').matches||(navigator.maxTouchPoints>0&&matchMedia('(pointer: coarse)').matches);
+let SCRUBBED={},scrubbedAt=0;
+function refreshScrubbed(){scrubbedAt=Date.now();
+  return fetch('/api/scrubbed').then(r=>r.json()).then(j=>{SCRUBBED=j||{};}).catch(()=>{});}
+refreshScrubbed();setInterval(refreshScrubbed,180000);
+let FLK=null;                     // {t, uid, n, el, bar, k, timer, dwell, moved}
+function flickStop(){
+  if(!FLK)return;
+  clearTimeout(FLK.dwell);clearInterval(FLK.timer);
+  if(FLK.el){FLK.el.remove();FLK.bar&&FLK.bar.remove();}
+  FLK.t.classList.remove('flicking');const c=FLK.t.closest('.card');c&&c.classList.remove('flickcard');FLK=null;}
+function flickShow(k){
+  if(!FLK||!FLK.el)return;FLK.k=k;
+  const rows=Math.ceil(FLK.n/4);
+  FLK.el.style.backgroundPosition=`${(k%4)*100/3}% ${rows>1?((k/4)|0)*100/(rows-1):0}%`;
+  FLK.bar.querySelectorAll('i').forEach((b,i)=>b.classList.toggle('on',i===k));}
+const thumbUid=t=>t.dataset.uid||t.dataset.code;
+function flickStart(t,{delay=280,every=700,at=null}={}){
+  const uid=thumbUid(t),n=SCRUBBED[uid];
+  if(!uid||!n)return false;
+  if(FLK&&FLK.t===t)return true;
+  flickStop();
+  const f=FLK={t,uid,n,k:0};
+  f.dwell=setTimeout(()=>{                         // a pointer just passing over doesn't load anything
+    if(FLK!==f)return;
+    const url=`/scrub/${encodeURIComponent(uid)}?part=0&flick=1`,img=new Image();
+    img.onload=()=>{
+      if(FLK!==f||!t.isConnected)return;
+      const el=document.createElement('div');el.className='flick';el.style.backgroundImage=`url("${url}")`;
+      el.style.backgroundSize=`400% ${Math.ceil(n/4)*100}%`;
+      const bar=document.createElement('div');bar.className='flickbar';bar.innerHTML='<i></i>'.repeat(n);
+      const before=t.querySelector('.badges');t.insertBefore(el,before);t.insertBefore(bar,before);
+      f.el=el;f.bar=bar;t.classList.add('flicking');t.closest('.card')&&t.closest('.card').classList.add('flickcard');flickShow(f.at!=null?f.at:0);
+      void el.offsetWidth;el.classList.add('on');        // reflow first, so it fades in
+      f.timer=setInterval(()=>{if($("#modal").classList.contains("on"))return;   // the player is open
+        if(Date.now()-(f.moved||0)>1500)flickShow((f.k+1)%n);},every);};
+    img.onerror=()=>{delete SCRUBBED[uid];};
+    img.src=url;},delay);
+  if(at!=null)f.at=at;
+  return true;}
+const frameUnder=(t,x)=>{const r=t.getBoundingClientRect(),n=SCRUBBED[thumbUid(t)]||1;
+  return Math.max(0,Math.min(n-1,Math.floor((x-r.left)/r.width*n)));};
+// ---- mouse ----
+document.addEventListener('pointerover',e=>{
+  if(e.pointerType!=='mouse')return;
+  const t=e.target.closest&&e.target.closest('#grid .thumb');
+  if(FLK&&FLK.t!==t)flickStop();
+  if(t&&!FLK)flickStart(t);});
+document.addEventListener('pointermove',e=>{
+  if(!FLK||!FLK.el||e.pointerType!=='mouse')return;
+  const r=FLK.t.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
+  const k=frameUnder(FLK.t,e.clientX);FLK.moved=Date.now();if(k!==FLK.k)flickShow(k);});
+document.addEventListener('pointerleave',flickStop);
+window.addEventListener('blur',flickStop);
+// ---- phone: only the poster your finger touched plays (it gets the blue frame); one at a time ----
+if(TOUCH_UI){
+  let scrollT=0;
+  // keep playing while you scroll on, until that poster leaves the screen
+  document.addEventListener('scroll',()=>{clearTimeout(scrollT);scrollT=setTimeout(()=>{
+    if(!FLK)return;const r=FLK.t.getBoundingClientRect();
+    if(!FLK.t.isConnected||r.bottom<0||r.top>innerHeight)flickStop();},200);},true);
+  // ---- sideways swipe over a poster picks the frame; vertical stays scrolling ----
+  let sw=null,swipedAt=0;
+  document.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse')return;
+    const t=e.target.closest&&e.target.closest('#grid .thumb');
+    sw=t&&SCRUBBED[thumbUid(t)]?{t,x:e.clientX,y:e.clientY,on:false}:null;
+    if(sw)flickStart(t,{delay:150,every:1000});
+    else if(t&&FLK&&FLK.t!==t)flickStop();},true);
+  document.addEventListener('pointermove',e=>{
+    if(!sw||e.pointerType==='mouse')return;
+    const dx=e.clientX-sw.x,dy=e.clientY-sw.y;
+    if(!sw.on){if(Math.abs(dx)<10||Math.abs(dx)<Math.abs(dy)*1.5)return;
+      sw.on=true;flickStart(sw.t,{delay:0,every:1000,at:frameUnder(sw.t,e.clientX)});}
+    if(FLK&&FLK.t===sw.t){FLK.moved=Date.now();const k=frameUnder(sw.t,e.clientX);
+      if(FLK.el){if(k!==FLK.k)flickShow(k);}else FLK.at=k;}},true);
+  const swEnd=()=>{if(sw&&sw.on)swipedAt=Date.now();sw=null;};
+  document.addEventListener('pointerup',swEnd,true);document.addEventListener('pointercancel',()=>{sw=null;},true);
+  // a swipe isn't a tap: don't open the movie at the end of one
+  document.addEventListener('click',e=>{if(Date.now()-swipedAt<400&&e.target.closest&&e.target.closest('#grid .card')){
+    e.stopPropagation();e.preventDefault();}},true);
+}
+
 /* ---------------- player modal (3-column) ---------------- */
 function relatedTo(it){
   let rel;
@@ -3475,6 +3579,7 @@ function setupScenes(p,it){
     if(part!==scrubPart){SCRUB=null;scrubPart=part;}
     fetch(`/api/scrub/${scrubRef}?part=${part}`).then(r=>r.json()).then(st=>{
       if(!document.body.contains(seek)||partOf()!==part)return;
+      if(st.n&&!SCRUBBED[it.uid||it.code]&&Date.now()-scrubbedAt>10000)refreshScrubbed();   // the grid may flick through it now
       if(st.n&&st.pages&&(!SCRUB||SCRUB.v!==st.v)){     // swap in only once every page is loaded
         const urls=Array.from({length:st.pages},(_,pg)=>`/scrub/${scrubRef}?part=${part}&page=${pg}&v=${st.v}`);
         Promise.all(urls.map(u=>new Promise((ok,no)=>{const im=new Image();im.onload=ok;im.onerror=no;im.src=u;})))

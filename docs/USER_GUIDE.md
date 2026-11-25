@@ -38,6 +38,7 @@ A feature‑by‑feature walkthrough. To install, download Vault for Mac or Wind
 ![Tools menu](images/tools_menu.png)
 - **Left sidebar:** all your filters (see below).
 - **Main area:** poster cards. Each shows the actress (or code if unidentified), the FC2 code + Japanese name, tags, and pills for size · age · cup. Along the **bottom** of each thumbnail, badges mark multi‑part (`2×`), resolution, duration, and a red **CENSORED** flag (in that order).
+- **Flick through a movie:** once a movie has scrub previews (see [§4](#4-playing-a-movie)), its poster shows frames from across the movie in turn — about one per 5 minutes, 6 to 24. With a mouse, rest the pointer on the poster; move it left or right to pick a frame. On a phone, the poster you touch plays (it gets a frame around it) until you touch another or scroll it away; swipe sideways over it to pick a frame. A tap still opens the movie.
 - Hover a card for its **top‑left** controls, left→right: a **select** box (for multi‑select), the **✓ played** toggle, and the **♥ favorite** toggle.
 
 Switch to **By actress** to group the wall under each performer (with her portrait and stats), or **List** for a dense, sortable table.

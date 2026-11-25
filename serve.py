@@ -92,7 +92,7 @@ import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.13.0"
+VAULT_VERSION = "1.13.1"
 # Training mode (editing scene markers to make training data) is the author's own workflow, not part
 # of the public package: make_release.sh --public sets this to False, which hides the switch and
 # refuses marker/label edits. Viewing markers is unaffected.
@@ -1975,11 +1975,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(_model_info())
             if p.startswith("/thumb/"):
                 return self._thumb(p[len("/thumb/"):])
+            if p == "/api/scrubbed":
+                return self._scrubbed()
             if p.startswith("/api/scrub/"):
                 return self._scrub_status(p[len("/api/scrub/"):], q.get("part", [None])[0])
             if p.startswith("/scrub/"):
                 return self._scrub_sheet(p[len("/scrub/"):], q.get("part", [None])[0],
-                                         q.get("page", ["0"])[0])
+                                         q.get("page", ["0"])[0], q.get("flick", [""])[0] == "1")
             if p.startswith("/portrait/"):
                 return self._portrait(p[len("/portrait/"):])
             if p.startswith("/video/"):
@@ -2927,13 +2929,39 @@ class Handler(BaseHTTPRequestHandler):
             st = SCRUB.request(vp, front=True)
         return self._json(st)
 
-    def _scrub_sheet(self, ref, part, page="0"):
+    def _scrubbed(self):
+        """{uid: frames to flick through} for every movie whose first part has a scrub preview —
+        so the grid only animates (and only asks for) posters that have one."""
+        have = SCRUB.index()
+        out = {}
+        if have:
+            for it in STATE.get("items") or []:
+                if it.get("missing"):
+                    continue
+                parts = _item_parts(it)
+                vp = parts[0].get("path") if parts else None
+                k = have.get(SCRUB.key(vp)) if vp else None
+                if k:
+                    out[it.get("uid") or it["code"]] = k
+        return self._json(out)
+
+    def _scrub_sheet(self, ref, part, page="0", flick=False):
+        """A page of the strip, or (flick) the 12-frame image the grid flicks through on hover.
+        Neither starts a build: a movie gets its strip when it is opened or by the nightly run."""
         it = self._item_ref(ref.strip("/"))
         vp = self._part_path(it, part) if it else None
         try:
             page = max(0, int(page or 0))
         except ValueError:
             page = 0
+        if flick:
+            sp, ctype = SCRUB.flick_path(vp) if vp else (None, None)
+            if not sp:
+                return self._send(404, "text/plain", "no scrub preview")
+            with open(sp, "rb") as f:
+                body = f.read()
+            # not versioned in the URL: short cache, so a sharper strip shows up soon
+            return self._send(200, ctype, body, {"Cache-Control": "private, max-age=300"})
         sp, ctype = SCRUB.sheet_path(vp, page) if vp else (None, None)
         if not sp:
             return self._send(404, "text/plain", "no scrub preview")
