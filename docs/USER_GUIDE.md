@@ -80,6 +80,13 @@ Click any owned card to open the detail/player view.
   - **Click her name** (the **›** caret) to fold out her full **overview** — portrait, bio, and everything owned + missing — without leaving the movie.
   - **⇄** (next to the ✎ edit button) **reassigns just this movie** to another actress — see [§5](#5-editing-a-movie).
   - **Scenes on the seek bar:** the player uses a custom control bar with the scenes drawn on the scrubber — **clickable pictogram chips** above the bar (click to jump), **⏮ / ⏭** (or `←` / `→`) to step to the previous/next scene, colored **ticks** on the bar at each scene's start, a hover **label + time** tooltip, and a **"▶ now"** badge for the current scene. Vault places them with the scene model — **🎬 Place markers** in the right panel, Settings → Scene model, or the nightly run — and keeps them in a `<video>.scenes.json` sidecar next to the movie.
+  - **Scrub previews:** hover over the seek bar and a frame from that moment shows above it, with
+    the time and the scene. **Drag** the bar and the frame fills the video — the video itself only
+    jumps when you let go, so scrubbing stays smooth even when the movie streams from a NAS. The
+    first time you open a movie Vault makes its preview in the background: rough after a few
+    seconds, sharper while you watch, complete after about a minute per hour of video. Until the
+    first frames are in, dragging seeks the video directly. The nightly run can make them ahead of
+    time.
   - **Placed by the model:** a marker the scene model placed wears an **amber dashed ring**, its tick on the bar gets an amber outline, and the label overlay shows a small **AI** badge. The chip's bottom edge keeps its label colour — pink for acts (blowjob, fingering, titjob, toy, creampie), violet for positions (missionary, doggy, cowgirl, standing, scoop‑up) — so you can read *what* it is at a glance. The player shows one marker per change of action, so the bar stays readable, and jumping to a **creampie** lands 15 s before it so you see it happen.
   - **Subtitles:** a movie with subtitles shows a **CC** button in the control bar (or press `v`); `y` / `c` jump to the previous / next line. The right panel's **💬 Transcribe (JA → EN)** makes them for this movie — see [§12](#12-subtitles-japanese--english).
   - **Volume:** hover the speaker icon and a slider unfolds next to it; the level and mute state are remembered across movies. Clicking the speaker mutes, clicking it again brings the previous level back.
@@ -280,7 +287,7 @@ Open **Settings** from the **☰ Tools** menu. The tabs: Library, Tags, Actresse
 - **Library source folder:** change where Vault scans (triggers a full re‑scan).
 - **Download / import folder:** where **📥 Import** (Tools menu) picks up new downloads.
 - **Library maintenance:** **🧹 Organize library…** normalizes names / quarantines junk / flags duplicates; **📁 Organize by actress…** folds movies into `…/<Actress>/<CODE>/` to match the catalog (see [§7](#7-import-from-your-download-folder)). Both preview first and never delete a movie.
-- **Cache:** see and clear the scan index, video probes, and thumbnails (all safe to clear — they regenerate). **Rebuild index now** re‑reads the catalog.
+- **Cache:** see and clear the scan index, video probes, thumbnails and scrub previews (all safe to clear — they regenerate; *Clear all cache* leaves the scrub previews alone, as they take longest to make again). **Rebuild index now** re‑reads the catalog.
 
 ### Tags & translations
 
@@ -380,7 +387,7 @@ the ☰ Tools menu when there is one. Running from source: `git pull`.
 ### Nightly
 
 Switch the nightly run on, set the hours it may work in, and tick what it should do: import,
-metadata, scene markers, subtitles. **Run now** does the same at once, for at most the window's
+metadata, scene markers, subtitles, scrub previews. **Run now** does the same at once, for at most the window's
 length; **Stop** ends it. *Status* shows the next run and what the last one did. Details in
 [The nightly run](#13-the-nightly-run).
 
@@ -435,7 +442,9 @@ computer. Nothing is uploaded anywhere.
 
 **What to expect.** The Japanese transcript is usually accurate; the English is good for following
 the conversation, with roughly one line in five off — mostly where the speech was misheard, or who
-is talking to whom got mixed up. Each release improves the translator's glossary. Lines that are only moans, sighs or
+is talking to whom got mixed up. Vault tells the man's voice from the woman's by its pitch and
+tells the translator who says each line, which fixes part of that. Each release improves the
+translator's glossary. Lines that are only moans, sighs or
 laughter are left out; short answers and questions (はい, いや, え?) stay. Words said while moaning
 are caught by a second, careful listen to the quiet stretches.
 
@@ -467,5 +476,10 @@ everything else; from source it needs Python 3.10 or newer and `ffmpeg` on the c
 - **💬 Subtitles** — the same as 💬 Transcribe, for the *new movies* or *the whole library, newest
   first*. When scene markers also work through the whole library, they get at most half of the
   night, so the subtitles get their turn.
+- **🎞 Scrub previews** — the frames for the player's seek bar, for the *new movies* or *the whole
+  library, favourites first, then newest*. About a minute per hour of video; it waits while
+  you're watching something, and a movie the window ends on keeps its frames and is finished the
+  next night. When subtitles also work through the whole library, they leave a third of the night
+  for this.
 
 The steps run in that order, one after the other — never two heavy jobs at once.

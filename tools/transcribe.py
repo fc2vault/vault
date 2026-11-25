@@ -113,11 +113,12 @@ def duration_of(video):
 VOICE_FILTER = "highpass=f=150,lowpass=f=4000,dynaudnorm=f=150:g=15"
 
 
-def load_chunk(video, start, length, voice=True):
+def load_chunk(video, start, length, voice=True, af=None):
     """Mono 16 kHz float32 audio of [start, start+length) as a numpy array."""
     import numpy as np
+    af = af or (VOICE_FILTER if voice else None)
     cmd = ["ffmpeg", "-nostdin", "-v", "error", "-ss", "%.3f" % start, "-t", "%.3f" % length,
-           "-i", video, "-vn", "-ac", "1", "-ar", str(SR)] + (["-af", VOICE_FILTER] if voice else []) + [
+           "-i", video, "-vn", "-ac", "1", "-ar", str(SR)] + (["-af", af] if af else []) + [
            "-f", "s16le", "-"]
     raw = subprocess.run(cmd, capture_output=True, check=True).stdout
     return np.frombuffer(raw, np.int16).astype(np.float32) / 32768.0
@@ -415,12 +416,26 @@ def drop_foreign(text):
     return re.sub(r"\s{2,}", " ", FOREIGN_WORD.sub("", text)).strip()
 
 
+def collapse_loops(text):
+    """"ううう…" x400 -> six; a word Whisper looped ("あげたあげた…" x150) -> three times."""
+    text = re.sub(r"(.)\1{5,}", r"\1\1\1\1\1\1", text)
+    return re.sub(r"(.{2,8}?)\1{3,}", r"\1\1\1", text)
+
+
+# Everyone in these videos is an adult. A line that states an age under 18 is a mishearing
+# (10回 "ten times" heard as 10歳) and must never reach the screen: the cue is dropped.
+_NUM = r"(?:[1-9]|1[0-7]|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen)"
+MINOR_AGE = re.compile(r"(?i)\b%s[- ]?(?:years?[- ]old|year-olds?|yo)\b|\baged? %s\b|\b%s(?: years)? of age\b"
+                       r"|\b(?:I'?m|I am|she'?s|she is|you'?re|you are|turned|turning) %s(?=\s*(?:[.!?,…]|$|now|this|next))"
+                       % (_NUM, _NUM, _NUM, _NUM))
+
+
 def clean(segs):
     """Drop hallucinations, collapse runs of the same line, fix overlaps."""
     out = []
     for a, b, t, ns, lp in segs:
         t = re.sub(r"\s+", " ", t).strip()
-        t = re.sub(r"(.)\1{5,}", r"\1\1\1\1\1\1", t)        # "ううう…" x400 -> six
+        t = collapse_loops(t)
         if not keep(t, ns, lp) or (FILTER_MOANS and is_moan(t)):
             continue
         if out and out[-1][2].lower() == t.lower() and a - out[-1][1] < 5:
@@ -443,6 +458,110 @@ def clean(segs):
     return out
 
 
+# ---------------------------------------------------------------- who is talking: man or woman
+# Japanese leaves out who does what, and the translator's worst habit is turning the man's
+# questions into "I" ("Can I see my back?"). The voice tells them apart: men speak at about
+# 85-155 Hz, women at 165-350 Hz. Each cue's pitch frames vote, against a man/woman cut found
+# per movie (the valley between the two voices, kept within 140-200 Hz). Cues that are unclear
+# (mixed, too quiet, whispered) get no tag. Hand-checked on two interviews (2026-11-23): 53 right,
+# 5 wrong, 23 untagged.
+PITCH_AF = "highpass=f=60,highpass=f=60,lowpass=f=1000,lowpass=f=1000"
+PITCH_THRESHOLD = 0.4          # YIN dip: the man's voice through a camera mic is rarely cleaner
+PITCH_SLACK = 0.05
+SPEAKERS = True
+
+
+def pitch_frames(x):
+    """F0 (Hz) of the voiced 40 ms frames of a mono 16 kHz clip (YIN-style, 10 ms hop)."""
+    import numpy as np
+    W, H = 640, 160
+    lmin, lmax = SR // 450, SR // 65
+    if len(x) < W + H:
+        return np.zeros(0)
+    n = (len(x) - W) // H
+    fr = np.lib.stride_tricks.as_strided(x, (n, W), (x.strides[0] * H, x.strides[0])).astype(np.float64)
+    fr = fr - fr.mean(axis=1, keepdims=True)
+    fr = fr[(fr * fr).sum(axis=1) >= 0.02]             # silence has no pitch
+    if not len(fr):
+        return np.zeros(0)
+    spec = np.fft.rfft(fr, 2 * W, axis=1)
+    ac = np.fft.irfft(spec * spec.conj(), 2 * W, axis=1)[:, :lmax + 1]
+    d = 2 * (ac[:, :1] - ac)                             # difference function
+    cm = d[:, 1:] / (np.cumsum(d[:, 1:], axis=1) / np.arange(1, lmax + 1) + 1e-9)
+    cm = np.concatenate([np.ones((len(cm), 1)), cm], axis=1)
+    seg = cm[:, lmin:lmax]
+    # the first dip that is nearly as deep as the deepest one: a shallow early dip is a harmonic
+    # (the man heard at 2-3x his pitch), the period itself dips deepest
+    th = np.minimum(PITCH_THRESHOLD, seg.min(axis=1, keepdims=True) + PITCH_SLACK)
+    below = seg < th
+    ok = below.any(axis=1)
+    k = below.argmax(axis=1) + lmin                      # the first dip under the threshold...
+    out = []
+    for row, kk, good in zip(cm, k, ok):
+        if not good:
+            continue
+        while kk + 1 < lmax and row[kk + 1] < row[kk]:   # ...down to its bottom
+            kk += 1
+        out.append(SR / kk)
+    return np.array(out)
+
+
+def speaker_cut(frames):
+    """The man/woman pitch boundary for this movie (Otsu on log F0), or None if there aren't two voices."""
+    import numpy as np
+    f = np.concatenate([x[(x >= 70) & (x < 450)] for x in frames]) if frames else np.zeros(0)
+    if len(f) < 200:
+        return None
+    lf = np.log(f)
+    h, edges = np.histogram(lf, 60)
+    c = (edges[:-1] + edges[1:]) / 2
+    best, cut = -1.0, None
+    for i in range(1, 60):
+        w0, w1 = h[:i].sum(), h[i:].sum()
+        if not w0 or not w1:
+            continue
+        m0, m1 = (h[:i] * c[:i]).sum() / w0, (h[i:] * c[i:]).sum() / w1
+        v = w0 * w1 * (m0 - m1) ** 2
+        if v > best:
+            best, cut = v, edges[i]
+    cut = min(max(float(np.exp(cut)), 140.0), 200.0)
+    low, high = f[f < cut], f[f >= cut]
+    # one voice only (a woman alone, or a man alone) splits into two halves of the same voice
+    if len(low) < 0.05 * len(f) or len(high) < 0.05 * len(f) or np.median(low) > 160 or np.median(high) < 170:
+        return None
+    return cut
+
+
+def speaker_label(f, cut):
+    m = int(((f >= 70) & (f < cut * 0.95)).sum())
+    w = int(((f >= cut * 1.05) & (f < 450)).sum())
+    if m + w < 5:
+        return ""
+    return "M" if m > 2 * w else ("F" if w > 2 * m else "")
+
+
+def speaker_tags(video, cues, chunk=600.0):
+    """'M', 'F' or '' for each cue [start, end, text], from the movie's audio."""
+    import numpy as np
+    frames = [np.zeros(0)] * len(cues)
+    if not cues:
+        return []
+    t, end = 0.0, max(c[1] for c in cues)
+    while t < end:
+        idx = [i for i, c in enumerate(cues) if t <= c[0] < t + chunk]
+        if idx:
+            hi = max(cues[i][1] for i in idx)
+            audio = load_chunk(video, t, hi - t + 0.1, af=PITCH_AF)
+            for i in idx:
+                frames[i] = pitch_frames(audio[int((cues[i][0] - t) * SR):int((cues[i][1] - t) * SR)])
+            del audio
+        t += chunk
+    cut = speaker_cut(frames)
+    if cut is None:
+        return [""] * len(cues)
+    return [speaker_label(f, cut) for f in frames]
+
+
 # ---------------------------------------------------------------- LLM translation (two-step mode)
 # Whisper's own `translate` hears Japanese and writes English in one go: the gist is right, but it
 # guesses who is talking about whom (Japanese leaves the subject out) and confuses words that sound
@@ -457,38 +576,68 @@ LLM_SYSTEM = (
     "Who is meant: Japanese leaves it out, so work it out from the conversation. The man mostly asks "
     "and gives instructions, the woman answers: his questions, commands and remarks (〜の?, 〜んだ, "
     "〜でしょ, 〜てくれた, 脱いで, 緊張してる) are about her (\"you\"), not \"I\"; おじさん said by "
-    "the man means himself. Copy numbers exactly. "
+    "the man means himself. He is often just as polite as she is: his 〜んですか?, 〜ますか?, "
+    "〜てもいいですか?, 〜ですね about her, echo questions repeating her words (21歳?, 自分の髪で?), "
+    "お子さん, 旦那さん, 奥さん, いらっしゃる and her name + さん are him talking to her (\"you\", \"your\"); "
+    "her short answers come right after his questions. 自分 = oneself (usually her), not \"my\". "
+    "Names stay romanised as names (ひなさん = Hina) — never translate their kanji; titles of shows "
+    "and films: the official English title, or \"it\", never a romanised guess. "
+    "Keep negatives and questions as they are: 〜じゃない?/〜ないの? asks for agreement (\"isn't it…?\"), "
+    "and もちろん/うん after it agrees. "
+    "A sentence can run over several lines: translate only each line's own part, never move words "
+    "to another number. "
+    "Everyone is an adult: never write an age under 18 — a number + 歳 under 18 in sex talk is "
+    "misheard 回 (times). Copy numbers exactly. "
     "The Japanese comes from speech recognition and contains misheard words: translate what was most "
     "likely said. A word that makes no sense here is probably misheard — guess the likely word from "
     "the scene; never write misheard nonsense or romanised gibberish (\"Tomato\", \"Gundam\", \"still "
     "life\"). If a line is unclear, keep it short and plain; don't invent sex words that aren't there. "
     "Moans and sounds stay short (\"Ah!\", \"Mm...\"). "
     "Glossary — sex: エッチ = sexy, naughty, sex; 気持ちいい = feels good; "
-    "イク/イっちゃう/行く/行って/行きそう/行っちゃう (in sex) = cum, I'm cumming, about to cum; 行かせる = make (her) cum; "
-    "出る/出ちゃう/出すよ/出そう (a man, in sex) = cum, I'm gonna cum; 出る/出ちゃう (a woman) = squirting; "
+    "イク/イっちゃう/行く/行って/行きそう/行っちゃう/いった (in sex, or talking about masturbating) = cum, I'm cumming, about to cum; 行かせる = make (her) cum; "
+    "出る/出ちゃう/出すよ/出そう (a man, in sex) = cum, I'm gonna cum; 出る/出ない/出ちゃう/吹いた (a woman, "
+    "fingering, a toy) = squirt, squirting — never \"cum\" for her; 出る of milk (母乳) = milk comes out; "
+    "出て/上がる (from a bath or room) = get out; "
     "射精/精子 (misheard 写生, 写真) = cumming, cum; 外に出して = pull out (cum outside), only for 外; "
     "中に出した/中に出ちゃった = came inside; 中に出す/中出し = cum inside; 口に出して = cum in my mouth; "
     "何発 = how many loads; かき出す (misheard 書き出す) = scoop it (the cum) out; "
-    "抜く = make him cum, jerk off (or pull it out, by context); 生 (in sex) = raw, bareback, no condom — never \"fresh\"; "
-    "ゴム = condom; 立つ/立ってる/立ってきた/立っちゃった (of a cock) = get hard, hard; 硬い = hard (only of a cock; "
+    "抜く = make him cum, jerk off (or pull it out, by context) — but 抜いて with clothes is misheard 脱いで = "
+    "take it off; 生 (in sex) = raw, bareback, no condom — never \"fresh\"; "
+    "ゴム = condom; ゴムつける = put on a condom; 取る/外す (a condom) = take it off; 外す (a ring, mask) = take off; "
+    "感じる/感じやすい/感じるところ = sensitive, turned on; "
+    "前から = from the front; 後ろから (misheard 後から) = from behind; 正常位 = missionary; 騎乗位 = cowgirl; "
+    "バック = doggy; 飲んじゃった (cum) = swallowed; 焦らす = tease; 変態 = pervert, kinky; "
+    "欲求不満 = sexually frustrated; する/してる (with someone) = have sex; "
+    "漏れちゃう = leaking; 大洪水 = soaked; "
+    "立つ/立ってる/立ってきた/立っちゃった (of a cock) = get hard, hard; 硬い = hard (only of a cock; "
     "of a person: serious); 舐める (misheard ラメ) = lick; 咥える (misheard 加える, 食われる) = suck; フェラ = blowjob; "
-    "入れる/挿れて = put it in; 濡れてる = wet; 垂れてる = dripping; 潮/潮吹き (misheard 塩) = squirt, squirting; "
+    "入れる/入れて/挿れて = put it in (never \"insert\"); 濡れてる/濡れてきた (misheard 寝てる) = wet, getting wet; 垂れてる = dripping; 潮/潮吹き (misheard 塩) = squirt, squirting; "
     "吹いてる (misheard 吐いてる) = squirting; 締まり (misheard 縛り), キツい (in sex) = tight; "
     "四つん這い = on all fours; 手をついて = put your hands on (it); 腰 = hips; 当てる (a toy) = press it on; "
-    "電マ (misheard テンマン, トマト) = vibrator, wand; ムラムラ = horny; 興奮する = turned on; "
+    "電マ (misheard 電話, テンマン, トマト) = vibrator, wand — never \"phone\"; ローター = bullet vibrator; ムラムラ = horny; 興奮する = turned on; "
     "やらしい/いやらしい = dirty, lewd; 性感帯 = erogenous zones; 経験人数 = how many guys she's slept with; "
     "何本 = how many cocks; 乱交 (misheard 乱行, 韓国) = orgy; 痴漢 = groper; 痴漢に遭う = get groped. "
     "Body: ちんちん/ちんこ/おちんちん/ちんぽ = cock, dick; 裏筋 = underside of the cock; まんこ (misheard マンゴー, マント, あんこ) = "
     "pussy; まん毛 = pubic hair; クリ (misheard 栗, クリーム) = clit; おっぱい = tits, boobs; 乳首 (misheard ちくみ, チクメ) "
-    "= nipples; ケツ = ass; 唾 (misheard 粒) = spit; ベロ/舌 = tongue; 谷間 = cleavage. "
+    "= nipples; ケツ = ass; 唾 (misheard 粒) = spit; ベロ/舌 = tongue; 谷間 = cleavage; 奥 = deep (inside); "
+    "Eカップ (misheard いいカップ; a lone letter or 塩 after 何カップ) = E cup, the bra size; 母乳 = breast milk. "
     "Clothes and poses: パンツ = panties (not pants); Tバック = thong; 下着になって = strip to your underwear; "
     "脱いで = take it off; 剃ってる = shaved; ピース = make a peace sign (for the camera). "
     "Everyday: この子/子 = girl (never \"kid\"); 恥ずかしい = I'm embarrassed, this is embarrassing; "
     "くすぐったい = ticklish; スタイルいい = great body; くさい = stinks; 違う/違います = no, that's not it; "
     "へー = huh, oh?; 嘘 = no way, really?; 聞いてない = you never told me; やばい = so good / oh no (by context); "
-    "だめ = no, don't; もっと = more; 出す (a video) = put it out, publish. "
+    "だめ = no, don't (だめ before イく/出る = \"No, I'm cumming!\"); もっと = more; 出す (a video) = put it out, publish; "
+    "撮る/回してる = film, the camera's rolling; はじめまして = nice to meet you; 久しぶり = first time in ages; "
+    "出会い = chances to meet guys; 気が合う = hit it off; 気になる = curious about; 聞いてる = have been told; "
+    "憧れ = dream of; 旦那 = husband; バレる = get found out; ゆっくりできる = have time; 喉乾いた = thirsty; "
+    "イケメン = hot guy. "
     "Keep every line short like a subtitle. Answer with exactly one line per numbered input line, "
     "in the form `N: English`, same numbers, nothing else.")
+SPEAKER_NOTE = (" Lines may start with a speaker tag from the voice: [M] = the man says it, [F] = the woman "
+                "says it (no tag = unknown; a tag can be wrong now and then). Write each line from that speaker's "
+                "point of view: [M] questions and remarks about her are \"you\"; [F] lines about herself are \"I\". "
+                "Never put the tag in your answer.")
+_TAG_ECHO = re.compile(r"^\s*\[(?:M|F|W)\]\s*")
 # only the assistant voice: "I can't" alone is everyday dialogue ("I can't say that")
 REFUSAL_RE = re.compile(r"\b(I (can'?t|cannot|won'?t|am not able to|'m not able to) (help|assist|translate|provide|"
                         r"comply|do that|fulfil)|I'?m sorry, but|as an AI|this content|explicit content)\b", re.I)
@@ -500,6 +649,7 @@ class Translator:
 
     def __init__(self, backend, model, url=None, mem_frac=0.4):
         self.backend, self.model, self.url = backend, model, (url or "").rstrip("/")
+        self.system = LLM_SYSTEM
         self.mx = None
         if backend == "mlx":
             import mlx.core as mx
@@ -516,7 +666,7 @@ class Translator:
         if self.backend == "mlx":
             from mlx_lm import generate
             from mlx_lm.sample_utils import make_sampler
-            msgs = [{"role": "system", "content": LLM_SYSTEM}, {"role": "user", "content": user}]
+            msgs = [{"role": "system", "content": self.system}, {"role": "user", "content": user}]
             kw = {}
             try:   # Qwen3 and friends: no "thinking" preamble
                 prompt = self.tok.apply_chat_template(msgs, add_generation_prompt=True, tokenize=False,
@@ -533,15 +683,22 @@ class Translator:
             return re.sub(r"(?s)<think>.*?</think>", "", out).strip()
         import urllib.request
         body = json.dumps({"model": self.model, "temperature": 0.2, "max_tokens": max_tokens,
-                           "messages": [{"role": "system", "content": LLM_SYSTEM},
+                           "messages": [{"role": "system", "content": self.system},
                                         {"role": "user", "content": user}]}).encode()
         req = urllib.request.Request(self.url + "/v1/chat/completions", body,
                                      {"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=600) as r:
             return json.loads(r.read())["choices"][0]["message"]["content"].strip()
 
-    def translate(self, lines, progress=None, batch=15, context=6):
-        """Japanese lines -> English lines (same length). Returns (english, refused_count)."""
+    def translate(self, lines, progress=None, batch=15, context=6, speakers=None):
+        """Japanese lines -> English lines (same length). Returns (english, refused_count).
+        speakers: 'M' / 'F' / '' per line (who says it), or None."""
+        raw = lines
+        if speakers and any(speakers):
+            self.system = LLM_SYSTEM + SPEAKER_NOTE
+            lines = [("[%s] " % sp if sp else "") + ln for sp, ln in zip(speakers, lines)]
+        else:
+            self.system = LLM_SYSTEM
         out = [None] * len(lines)
         refused = 0
         for b0 in range(0, len(lines), batch):
@@ -559,12 +716,12 @@ class Translator:
                     one = self._parse(self.chat("Translate:\n1: %s\n" % lines[i], 80), 1).get(1)
                     if not one or not re.search(r"[A-Za-z]", one):     # echoed again: ask plainly
                         one = self._parse(self.chat("Translate this Japanese subtitle line into "
-                                                    "English. Reply with the English only.\n%s" % lines[i], 80), 1).get(1)
+                                                    "English. Reply with the English only.\n%s" % raw[i], 80), 1).get(1)
                     if one and not REFUSAL_RE.search(one) and re.search(r"[A-Za-z]", one):
                         out[i] = one
                     else:
                         refused += 1
-                        out[i] = lines[i]          # keep the Japanese rather than nothing
+                        out[i] = raw[i]            # keep the Japanese rather than nothing
             if progress:
                 progress(min(1.0, (b0 + len(idx)) / max(1, len(lines))))
         return out, refused
@@ -575,9 +732,9 @@ class Translator:
         for ln in text.splitlines():
             m = re.match(r"\s*(\d+)\s*[:.)\]]\s*(.*\S)", ln)
             if m and 1 <= int(m.group(1)) <= n and int(m.group(1)) not in got:
-                got[int(m.group(1))] = m.group(2).strip().strip('"')
+                got[int(m.group(1))] = _TAG_ECHO.sub("", m.group(2)).strip().strip('"')
         if not got and n == 1 and text.strip():
-            got[1] = text.strip().splitlines()[0].strip().strip('"')
+            got[1] = _TAG_ECHO.sub("", text.strip().splitlines()[0]).strip().strip('"')
         return got
 
     def release(self):
@@ -624,10 +781,13 @@ def main():
                     help="feed the raw audio instead of the voice band evened out in level")
     ap.add_argument("--no-quiet-pass", dest="quiet_pass", action="store_false",
                     help="skip the second listen to chunks where the speech detector heard nothing")
+    ap.add_argument("--no-speakers", dest="speakers", action="store_false",
+                    help="llm mode: don't tag lines as the man's or the woman's (from the voice pitch)")
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args()
-    global FILTER_MOANS, RELISTEN
+    global FILTER_MOANS, RELISTEN, SPEAKERS
     FILTER_MOANS = not a.keep_moans
+    SPEAKERS = a.speakers
     RELISTEN = a.relisten or RELISTEN
     if a.check:
         print(json.dumps(check()))
@@ -656,7 +816,7 @@ def main():
         pass
     t0 = time.time()
     if llm_mode and a.ja_in:
-        cues = [c[:2] + [drop_foreign(c[2])] for c in read_srt(a.ja_in)]
+        cues = [c[:2] + [collapse_loops(drop_foreign(c[2]))] for c in read_srt(a.ja_in)]
         cues = [c for c in cues if keep(c[2], 0.0, 0.0)]
         emit(progress=share, phase="translating", elapsed=0.0)
         return finish_llm(a, cues, t0, share, None)
@@ -716,9 +876,18 @@ def read_srt(path):
 
 def finish_llm(a, cues, t0, share, whisper_peak):
     backend = "http" if a.llm_url else "mlx"
+    speakers = None
+    if SPEAKERS:
+        emit(phase="speakers", progress=share, elapsed=round(time.time() - t0, 1))
+        try:
+            speakers = speaker_tags(a.video, cues)
+        except Exception as e:                         # no tags is fine: the translator guesses as before
+            emit(warning="speaker detection failed: %s" % e)
+        if speakers:
+            emit(speakers={"M": speakers.count("M"), "F": speakers.count("F"), "unknown": speakers.count("")})
     emit(phase="translating", progress=share, line_count=len(cues), elapsed=round(time.time() - t0, 1))
     tr = Translator(backend, a.llm, a.llm_url)
-    en, refused = tr.translate([c[2] for c in cues],
+    en, refused = tr.translate([c[2] for c in cues], speakers=speakers,
                                progress=lambda f: emit(progress=round(share + (1 - share) * f, 4),
                                                        phase="translating",
                                                        elapsed=round(time.time() - t0, 1)))
@@ -730,7 +899,8 @@ def finish_llm(a, cues, t0, share, whisper_peak):
             pass
     tr.release()
     pairs = [(c, t) for c, t in zip(cues, en)
-             if t and keep(t, 0.0, 0.0) and not (FILTER_MOANS and (is_moan(t) or is_moan(c[2])))]
+             if t and keep(t, 0.0, 0.0) and not MINOR_AGE.search(t)
+             and not (FILTER_MOANS and (is_moan(t) or is_moan(c[2])))]
     out = [[c[0], c[1], t] for c, t in pairs]
     write_srt(a.out, out)
     if a.ja_out and len(pairs) < len(cues):

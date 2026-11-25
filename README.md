@@ -49,7 +49,8 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 
 **Watch**
 - In‑browser streaming with HTTP range requests + `sendfile` (fast seeks over SMB)
-- Multi‑part playback with auto‑advance; a thumbnail preview when you hover the seek bar
+- Multi‑part playback with auto‑advance
+- **Scrub previews:** hover the seek bar for a frame from that moment; drag it and the frame fills the video, which jumps once when you let go — smooth even over a NAS. Made the first time a movie is opened (rough in seconds, complete in about a minute per hour of video) or ahead of time by the nightly run, and kept in Vault's cache
 - Keyboard shortcuts made for one hand on the keyboard and one on the mouse: `space`/`s` play, `q`/`e` seek 10 s, `a`/`d` hop between scene markers, `y`/`c` subtitle lines, `←`/`→` previous / next scene, `v` subtitles, `↑↓` volume, `m`, `f`, `t` theater, `0–9`, `< >` speed (all of them in the [user guide](docs/USER_GUIDE.md#4-playing-a-movie))
 - HEVC handled natively where the browser supports it, with a clear fallback panel where it doesn’t
 
@@ -80,7 +81,7 @@ Runs entirely on your machine. No cloud, no accounts, no telemetry — a single 
 - **Delete** a movie (from the player), several at once (multi‑select), or a whole actress and her movies (from her overview) — always confirmed; files are **moved to a recoverable trash**, never hard‑deleted. Deleting an actress trashes only titles where she is the sole performer; shared co‑star titles are kept
 
 **Runs by itself**
-- **Nightly run** (Settings → Nightly): inside a time window you choose, Vault imports new downloads (with the Import window's choices made up front), looks up metadata for **new** movies only (a miss is retried after a week, not every night), places scene markers and writes subtitles — each step stops when the window ends and carries on the next night
+- **Nightly run** (Settings → Nightly): inside a time window you choose, Vault imports new downloads (with the Import window's choices made up front), looks up metadata for **new** movies only (a miss is retried after a week, not every night), places scene markers, writes subtitles and makes scrub previews — each step stops when the window ends and carries on the next night
 - **Updates inside the app** (Settings → Updates): Vault checks GitHub once a day, and **Update** downloads, verifies and installs the new version, then reopens — your library and settings stay. A newer catalog that comes with it is merged into yours
 - **HTTPS in one click** (Settings → HTTPS) for phones and other computers, with Vault's own certificate
 - On a Mac or Windows, it can start at log in; from source, `--install-service` does the same on Linux too
@@ -385,14 +386,19 @@ have them. Jobs run one part at a time in the background; the Tools menu shows t
    the times are mapped back onto the movie, so lines appear when they are spoken. Pauses of 6 s
    or more where the detector wasn't sure get a second, careful listen in 6 s pieces (words said
    while moaning, which the detector misses), keeping only lines Whisper is confident about.
-3. **Translate.** Whisper is unloaded and a small local LLM translates the Japanese 15 lines at a
-   time, with the conversation around them and a glossary of the usual vocabulary, so explicit
-   lines stay explicit. Apple Silicon: mlx-lm with `mlx-community/Qwen3-4B-Instruct-2507-4bit`
+3. **Who's talking.** Each line's voice pitch is measured (men about 85–155 Hz, women 165–350 Hz,
+   the boundary found per movie) and the line is marked as the man's or the woman's; unclear lines
+   (both talking, whispers) stay unmarked. Japanese leaves out who does what, and this stops the
+   man's questions turning into "I" ("Can I see my back?"). About 20 s per hour of video.
+4. **Translate.** Whisper is unloaded and a small local LLM translates the Japanese 15 lines at a
+   time, with the conversation around them, the speaker marks and a glossary of the usual
+   vocabulary, so explicit lines stay explicit. Apple Silicon: mlx-lm with `mlx-community/Qwen3-4B-Instruct-2507-4bit`
    (2.3 GB). Windows / Linux: run Ollama or LM Studio and enter its address and model in
    Settings → Subtitles. *Whisper only* (Settings) skips the LLM: faster, rougher English.
-4. **Clean up.** Invented lines ("thank you for watching", loops), lines that are only moans,
+5. **Clean up.** Invented lines ("thank you for watching", loops), lines that are only moans,
    sighs or laughter, and anything not confidently speech are dropped; short answers (はい, いや,
-   うん) and questions stay.
+   うん) and questions stay. A line that states an age under 18 is always a mishearing and is
+   never written.
 
 Expect roughly 15–30 minutes per hour of video on an 8 GB M1 Mac (the second listen costs the most on
 movies with long sex scenes). Memory stays capped — Whisper at a third of the RAM, the translator
@@ -437,6 +443,7 @@ scenetag.py          # placing markers (Settings → Scene model → Place marke
 scene_tagger.py, vault_scene_tagger/   # the scene tagger itself
 final_tags.py        # which of the model's markers the player shows (one per change of action)
 nightly.py           # the nightly run (Settings → Nightly)
+scrub.py             # scrub previews (frames along the player's seek bar)
 tlsgen.py            # HTTPS certificates (Settings → HTTPS)
 updater.py           # in-app updates (Settings → Updates)
 catalogmerge.py      # merges a newer shipped catalog into yours

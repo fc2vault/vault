@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.13.0 — Scrub previews
+
+- **Scrub previews in the player.** Hover over the seek bar and a frame from that moment shows
+  above it, with the time and the scene. Drag the bar and the frame fills the video while the
+  video itself stays put — it jumps once, when you let go, instead of stuttering through a
+  hundred seeks over the network. The first time you open a movie Vault starts making its
+  preview: rough after a few seconds, a frame every 10 seconds after about a minute per hour of
+  video, and there for good the next time. The frames are 320 × 180 WebP, about 1–2 MB a movie,
+  kept in Vault's cache (Settings → Library → Cache has its own row; *Clear all cache* leaves
+  them, since they take a while to make again) — never next to your videos.
+- **Nightly run → 🎞 Scrub previews** makes them ahead of time: for new movies, or working
+  through the whole library (favourites first, then newest). It waits while you're watching
+  something, and a movie the window ends on keeps its frames and is finished the next night.
+- **Selected tags move to the top** of the sidebar's tag list, and a rare one you picked through
+  the search stays there after you clear it.
+- Standardize tags keeps **Unauthorized Creampie** as its own tag (with Accidental discharge and
+  the Japanese 暴発中出し / 無申告中出し folded into it) instead of merging it into Creampie.
+- Subtitles: the translator's glossary learned the polite interviewer's questions, breast milk and
+  squirting vs. cumming, condoms, bra sizes, positions, and more mishearings (電話 for 電マ, 寝てる for
+  濡れてる). A word Whisper loops ("あげたあげた…" ×150) is cut to three before translating, and a line
+  that states an age under 18 (a mishearing) is never written.
+- Subtitles: **who's talking.** Before translating, Vault measures each line's voice pitch and marks
+  it as the man's or the woman's (lines where it can't tell stay unmarked), so the translator stops
+  turning his questions into "I" ("Can I see my back?" → "Can I see your back?"). Adds about 20 s
+  per hour of video; `--no-speakers` turns it off for the command-line worker.
+
 ## 1.12.0 — Standardize tags
 
 - **Settings → Tags → Standardize tags** (off by default). The sources tag the same thing many

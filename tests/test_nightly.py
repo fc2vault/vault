@@ -74,6 +74,26 @@ class FakeHost:
     def subs_finished(self):
         return len(self.queued)
 
+    # scrub previews: a video "needs" one until it was queued once
+    favs = set()
+    scrubbed = None
+
+    def favourites(self):
+        return self.favs
+
+    def scrub_needed(self, path):
+        return path not in (self.scrubbed or [])
+
+    def scrub_enqueue(self, paths):
+        self.scrubbed = (self.scrubbed or []) + list(paths)
+        return len(paths)
+
+    def scrub_busy(self):
+        return False
+
+    def scrub_stop(self):
+        self.cancelled += 1
+
 
 def movie(root, code, added, srt=False, scenes=False):
     d = os.path.join(root, code)
@@ -177,6 +197,20 @@ class RunTest(unittest.TestCase):
         self.h.queued = []
         self.run_steps(subs=True, subs_scope="library")
         self.assertEqual(sorted(j["code"] for j in self.h.queued), ["A", "OLD"])
+
+    def test_scrub_previews_favourites_first_then_newest(self):
+        base = int(time.time()) - 10
+        self.r.st["baseline"] = base
+        self.h._items = [movie(self.root, "OLD", base - 100), movie(self.root, "NEW", base + 5),
+                         movie(self.root, "FAV", base - 200), dict(movie(self.root, "GONE", base), missing=True)]
+        self.h.favs = {"FAV"}
+        log = self.run_steps(scrub=True)                       # default scope: the whole library
+        self.assertEqual([os.path.basename(p) for p in self.h.scrubbed], ["FAV.mp4", "NEW.mp4", "OLD.mp4"])
+        self.assertIn("Scrub previews: 3 done", log)
+        self.assertIn("Scrub previews: every movie has them", self.run_steps(scrub=True))
+        self.h.scrubbed = []
+        self.run_steps(scrub=True, scrub_scope="new")
+        self.assertEqual([os.path.basename(p) for p in self.h.scrubbed], ["NEW.mp4"])
 
     def test_scene_markers_run_the_tagger_per_new_video(self):
         base = int(time.time()) - 10

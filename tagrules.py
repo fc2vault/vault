@@ -120,8 +120,10 @@ MERGE = {
         "Reverse Cowgirl", "Piston Cowgirl", "スパイダー騎乗位", "馬乗り",
     ],
     "Creampie": [
-        "Unauthorized Creampie", "暴発中出し", "無申告中出し", "膣奥射精", "精液流し込み", "生中だし", "中出し懇願",
-        "Accidental discharge",
+        "膣奥射精", "精液流し込み", "生中だし", "中出し懇願",
+    ],
+    "Unauthorized Creampie": [          # its own category (user, 2026-11-23): accidental or unannounced
+        "Accidental discharge", "暴発中出し", "無申告中出し",
     ],
     "Crying": [
         "Teary", "Sobbing", "涙", "お目目うるうる",

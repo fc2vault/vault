@@ -84,6 +84,7 @@ import subtitles as subsmod   # Whisper transcription queue (Japanese speech -> 
 import nightly                # the nightly run (Settings -> Nightly)
 import tlsgen                 # HTTPS certificates (Settings -> HTTPS)
 import scenetag               # placing scene markers (Settings -> Scene model)
+import scrub as scrubmod      # scrub previews: frames along the seek bar
 import updater                # Settings -> Updates
 import catalogmerge           # newer shipped catalog -> your copy
 import tagrules               # Settings -> Tags -> Standardize tags
@@ -91,7 +92,7 @@ import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.12.0"
+VAULT_VERSION = "1.13.0"
 # Training mode (editing scene markers to make training data) is the author's own workflow, not part
 # of the public package: make_release.sh --public sets this to False, which hides the switch and
 # refuses marker/label edits. Viewing markers is unaffected.
@@ -581,6 +582,11 @@ VIDEO_EXT = {".mp4", ".mkv", ".avi", ".wmv", ".mov", ".ts", ".webm", ".flv",
              ".m4v", ".rmvb", ".mpg", ".mpeg"}
 
 os.makedirs(THUMB_DIR, exist_ok=True)
+# Scrub previews (cache/scrub): made when a movie is opened in the player, coarse to fine.
+SCRUB = scrubmod.Scrubber(os.path.join(CACHE, "scrub"),
+                          log=lambda m: sys.stderr.write("[scrub] %s\n" % m))
+LAST_STREAM = [0.0]        # when a video byte range was last served (the nightly scrub waits)
+SCRUB.hold = lambda: time.time() - LAST_STREAM[0] < 90
 
 # ---------------------------------------------------------------- global state
 STATE = {
@@ -1969,6 +1975,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(_model_info())
             if p.startswith("/thumb/"):
                 return self._thumb(p[len("/thumb/"):])
+            if p.startswith("/api/scrub/"):
+                return self._scrub_status(p[len("/api/scrub/"):], q.get("part", [None])[0])
+            if p.startswith("/scrub/"):
+                return self._scrub_sheet(p[len("/scrub/"):], q.get("part", [None])[0],
+                                         q.get("page", ["0"])[0])
             if p.startswith("/portrait/"):
                 return self._portrait(p[len("/portrait/"):])
             if p.startswith("/video/"):
@@ -2420,6 +2431,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         if self.command == "HEAD":
             return
+        LAST_STREAM[0] = time.time()
         with open(path, "rb") as f:
             # hint the OS we'll read this range sequentially (no-op on filesystems
             # that don't support it, e.g. SMB)
@@ -2634,6 +2646,10 @@ class Handler(BaseHTTPRequestHandler):
             cache["thumbs_n"] = len(os.listdir(THUMB_DIR)) if os.path.isdir(THUMB_DIR) else 0
         except OSError:
             cache["thumbs"] = cache["thumbs_n"] = 0
+        try:
+            cache["scrub_n"], cache["scrub"] = SCRUB.size()
+        except OSError:
+            cache["scrub_n"] = cache["scrub"] = 0
         return self._json({"ok": True, "library": STATE["library"],
                            "download": STATE.get("download", ""),
                            "training_mode": bool(STATE.get("training")),
@@ -2897,6 +2913,34 @@ class Handler(BaseHTTPRequestHandler):
         except (TypeError, ValueError):
             idx = 0
         return parts[idx].get("path") if 0 <= idx < len(parts) else None
+
+    def _scrub_status(self, ref, part):
+        """The part's scrub preview index; starts building it (first in line) when there is none.
+        The player polls this while the state is queued / working, and reloads the sheet when
+        `v` changes (a sharper level is in)."""
+        it = self._item_ref(ref.strip("/"))
+        vp = self._part_path(it, part) if it else None
+        if not vp or not os.path.isfile(vp):
+            return self._json({"state": "none"}, 404)
+        st = SCRUB.status(vp)
+        if st["state"] in ("none", "partial", "failed"):
+            st = SCRUB.request(vp, front=True)
+        return self._json(st)
+
+    def _scrub_sheet(self, ref, part, page="0"):
+        it = self._item_ref(ref.strip("/"))
+        vp = self._part_path(it, part) if it else None
+        try:
+            page = max(0, int(page or 0))
+        except ValueError:
+            page = 0
+        sp, ctype = SCRUB.sheet_path(vp, page) if vp else (None, None)
+        if not sp:
+            return self._send(404, "text/plain", "no scrub preview")
+        with open(sp, "rb") as f:
+            body = f.read()
+        # the URL carries ?v=<version>, so a cached copy is always the right one
+        return self._send(200, ctype, body, {"Cache-Control": "private, max-age=31536000"})
 
     def _subs(self, ref, part, check=False):
         """The part's .en.srt as WebVTT. `check` only answers whether it exists (204 / 404) — the
@@ -3207,6 +3251,11 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError:
                     pass
             removed.append("thumbs(%d)" % n)
+        if "scrub" in targets:                      # never part of "Clear all": slow to rebuild
+            SCRUB.clear()
+            removed.append("scrub")
+            if targets == {"scrub"}:
+                return self._json({"ok": True, "cleared": removed, "rescanning": False})
         threading.Thread(target=rebuild_index, daemon=True).start()
         return self._json({"ok": True, "cleared": removed, "rescanning": True})
 
@@ -4526,6 +4575,23 @@ class _NightlyHost:
 
     def subs_finished(self):
         return len(subsmod.PROGRESS.get("finished") or [])
+
+    def favourites(self):
+        return set(_load_userdata().get("fav") or [])
+
+    def scrub_needed(self, path):
+        return SCRUB.needed(path)
+
+    def scrub_enqueue(self, paths):
+        for p in paths:
+            SCRUB.request(p, front=False, background=True)
+        return len(paths)
+
+    def scrub_busy(self):
+        return SCRUB.background_busy()
+
+    def scrub_stop(self):
+        SCRUB.stop_background()
 
 
 NIGHTLY = nightly.Runner(_NightlyHost(), os.path.join(CACHE, "nightly.json"))

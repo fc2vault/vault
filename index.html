@@ -503,10 +503,13 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
 .pv-menu button{background:none;border:none;color:#fff;text-align:left;padding:7px 10px;border-radius:6px;
   font-size:12.5px;cursor:pointer;white-space:nowrap}
 .pv-menu button:hover{background:rgba(255,255,255,.12)}
-/* hover thumbnail preview above the seek bar (uses analyzer sprites if present) */
-.pv-thumb{position:absolute;bottom:26px;transform:translateX(-50%);border:2px solid rgba(255,255,255,.8);
-  border-radius:5px;background:#000 no-repeat;z-index:8;opacity:0;transition:opacity .1s;pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.6)}
+/* scrub previews (cache/scrub, see scrub.py): a frame above the seek bar on hover, and a big one over
+   the video while dragging — the video itself only seeks when you let go */
+.pv-thumb{position:absolute;bottom:46px;transform:translateX(-50%);border:2px solid rgba(255,255,255,.85);
+  border-radius:6px;background:#000 no-repeat;z-index:8;opacity:0;transition:opacity .1s;pointer-events:none;box-shadow:0 3px 14px rgba(0,0,0,.65)}
 .pv-thumb.on{opacity:1}
+.pv-big{position:absolute;background:#000 no-repeat;z-index:3;pointer-events:none;display:none;image-rendering:auto}
+.pv-big.on{display:block}
 .pv-wrap:fullscreen{width:100vw;height:100vh}
 .pv-wrap:fullscreen video{max-height:100vh}
 /* theater mode: hide the side rails so the video (and the scene bar) go full-width */
@@ -1034,7 +1037,7 @@ function buildSidebar(){
 
    <h4>Tags <span class="stat" style="text-transform:none;font-weight:400">${tags.filter(([t,n])=>n>=TAG_MIN).length} of ${tags.length}</span></h4>
    <input class="side-input" id="tagfilter" placeholder="filter tags (search reaches all)…" autocomplete="off" style="margin-bottom:6px">
-   <div class="chips tagbox" id="tagchips">${tags.map(([t,n])=>`<span class="chip${n<TAG_MIN?' rare':''}" data-tag="${esc(t)}" data-tl="${esc(t.toLowerCase())}"${n<TAG_MIN?' style="display:none"':''}>${esc(t)} <em style="color:var(--dim2)">${n}</em></span>`).join("")||'<span class="stat">no tags in db yet</span>'}</div>
+   <div class="chips tagbox" id="tagchips">${tags.map(([t,n],i)=>`<span class="chip${n<TAG_MIN?' rare':''}" data-i="${i}" data-tag="${esc(t)}" data-tl="${esc(t.toLowerCase())}"${n<TAG_MIN?' style="display:none"':''}>${esc(t)} <em style="color:var(--dim2)">${n}</em></span>`).join("")||'<span class="stat">no tags in db yet</span>'}</div>
   `;
   // events
   $$('.frow[data-k]',s).forEach(el=>el.onclick=()=>{
@@ -1057,10 +1060,16 @@ function buildSidebar(){
   $("#afavrow").onclick=()=>{F.afavonly=!F.afavonly;$("#afavrow").classList.toggle('on',F.afavonly);render();};
   $$('#cupchips .chip').forEach(c=>c.onclick=()=>{tog(F.cups,c.dataset.cup);c.classList.toggle('on');render();});
   $$('#reschips .chip').forEach(c=>c.onclick=()=>{tog(F.res,c.dataset.res);c.classList.toggle('on');render();});
-  $$('#tagchips .chip').forEach(c=>{if(F.tags.has(c.dataset.tag))c.classList.add('on');c.onclick=()=>{tog(F.tags,c.dataset.tag);c.classList.toggle('on');render();};});
-  const tf=$("#tagfilter");if(tf)tf.oninput=e=>{const q=e.target.value.toLowerCase();
-    // no query -> default view (only common tags, count>=TAG_MIN); query -> search ALL
-    $$('#tagchips .chip').forEach(c=>{c.style.display=(q?c.dataset.tl.includes(q):!c.classList.contains('rare'))?"":"none";});};
+  // selected tags sit at the top of the list and stay visible (a rare one too); the rest keep
+  // their order, most used first. No query: common tags only (count>=TAG_MIN); a query searches all.
+  const tagView=()=>{const box=$("#tagchips");if(!box)return;
+    const q=(($("#tagfilter")||{}).value||"").toLowerCase();
+    const all=[...box.querySelectorAll('.chip')];
+    all.sort((a,b)=>(b.classList.contains('on')-a.classList.contains('on'))||(a.dataset.i-b.dataset.i)).forEach(c=>box.appendChild(c));
+    all.forEach(c=>{c.style.display=(c.classList.contains('on')||(q?c.dataset.tl.includes(q):!c.classList.contains('rare')))?"":"none";});};
+  $$('#tagchips .chip').forEach(c=>{if(F.tags.has(c.dataset.tag))c.classList.add('on');c.onclick=()=>{tog(F.tags,c.dataset.tag);c.classList.toggle('on');tagView();render();};});
+  const tf=$("#tagfilter");if(tf)tf.oninput=tagView;
+  tagView();
   $("#actressInput").oninput=e=>{F.actress=e.target.value.trim();renderSoon();};
   $("#studioInput").oninput=e=>{F.studio=e.target.value.trim();renderSoon();};
   const dmi=$("#durmin"),dma=$("#durmax");
@@ -1588,7 +1597,7 @@ function renderSetNightly(pane){
     const ck=(id,on,label)=>`<label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin:14px 0 4px;font-weight:600"><input type="checkbox" id="${id}"${on?' checked':''}> ${label}</label>`;
     pane.innerHTML=`
       <div class="setsec">Nightly run</div>
-      <div class="setnote">Once a night, inside the time window below, Vault works through the library on its own: imports new downloads, looks up metadata for new movies, places scene markers and writes subtitles — whatever you switch on, in that order. Each step stops when the window ends and the next night carries on. The computer has to be on (Vault keeps a Mac awake while it runs, but can't wake one that is asleep).</div>
+      <div class="setnote">Once a night, inside the time window below, Vault works through the library on its own: imports new downloads, looks up metadata for new movies, places scene markers, writes subtitles and makes scrub previews — whatever you switch on, in that order. Each step stops when the window ends and the next night carries on. The computer has to be on (Vault keeps a Mac awake while it runs, but can't wake one that is asleep).</div>
       ${seg("nOn",s.enabled?"1":"0",[["0","Off"],["1","On"]])}
       <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
         <span class="setnote" style="margin:0">Allowed between</span><input class="setin" type="time" id="nStart" value="${esc(s.start)}" style="width:110px">
@@ -1610,6 +1619,9 @@ function renderSetNightly(pane){
       ${ck("nSub",s.subs,"💬 Subtitles")}
       ${seg("nSubScope",s.subs_scope,[["new","New movies"],["library","Work through the whole library (newest first)"]])}
       <div class="setnote" style="margin-top:6px">The same as 💬 Transcribe, with the Settings → Subtitles setup. When scene markers work through the whole library too, they get at most half of the night, so the subtitles get their turn.</div>
+      ${ck("nScrub",s.scrub,"🎞 Scrub previews")}
+      ${seg("nScrubScope",s.scrub_scope,[["new","New movies"],["library","Work through the whole library (favourites first)"]])}
+      <div class="setnote" style="margin-top:6px">The frames you see when you hover or drag the player's seek bar. A movie you open gets them right away anyway; this makes them ahead of time. About a minute per hour of video; it pauses while you're watching something, and a movie the window ends on is finished the next night. Kept in Vault's cache (Settings → Library → Cache), not next to your videos. When subtitles work through the whole library too, they leave a third of the night for this.</div>
       <div class="pactions" style="justify-content:flex-start;margin-top:14px"><button class="btn pri" id="nSave">Save</button>
         ${n.running?'<button class="btn" id="nStop">■ Stop</button>':'<button class="btn" id="nRun" title="The same steps now, for at most the window\'s length">▶ Run now</button>'}</div>
       <div class="setsec">Status</div>
@@ -1621,7 +1633,8 @@ function renderSetNightly(pane){
     const val=id=>{const b=$("#"+id+" button.on");return b?b.dataset.v:"";};
     $("#nSave").onclick=()=>post2("/api/nightly/save",{enabled:val("nOn")==="1",start:$("#nStart").value,end:$("#nEnd").value,
         import:$("#nImp").checked,replace:val("nRep")==="1",dupes:val("nDup"),metadata:$("#nMeta").checked,
-        scenes:$("#nScn").checked,scenes_scope:val("nScnScope"),tagger:$("#nTag").value,subs:$("#nSub").checked,subs_scope:val("nSubScope")},
+        scenes:$("#nScn").checked,scenes_scope:val("nScnScope"),tagger:$("#nTag").value,subs:$("#nSub").checked,subs_scope:val("nSubScope"),
+        scrub:$("#nScrub").checked,scrub_scope:val("nScrubScope")},
       j=>{if(j.error){toast(j.error);return;}toast("Saved");show(j);});
     const r=$("#nRun");if(r)r.onclick=()=>post2("/api/nightly/run",{},j=>{toast(j.started?"Nightly run started":"Already running");show(j);});
     const st=$("#nStop");if(st)st.onclick=()=>post2("/api/nightly/stop",{},j=>{toast("Stopping…");show(j);});
@@ -1835,6 +1848,7 @@ function renderSetLibrary(pane){
     <div class="setrow"><span class="grow">Scan index</span><span class="cnt">${fmtBytes(c.index)}</span><button class="setbtn danger" data-clear="index">Clear</button></div>
     <div class="setrow"><span class="grow">Video probes</span><span class="cnt">${fmtBytes(c.probe)}</span><button class="setbtn danger" data-clear="probe">Clear</button></div>
     <div class="setrow"><span class="grow">Thumbnails (${c.thumbs_n||0})</span><span class="cnt">${fmtBytes(c.thumbs)}</span><button class="setbtn danger" data-clear="thumbs">Clear</button></div>
+    <div class="setrow"><span class="grow">Scrub previews (${c.scrub_n||0}) <span class="dim" title="Frames along the player's seek bar. Made when a movie is opened; slow to make again, so Clear all cache leaves them.">ⓘ</span></span><span class="cnt">${fmtBytes(c.scrub||0)}</span><button class="setbtn danger" data-clear="scrub">Clear</button></div>
     <div style="margin-top:12px;display:flex;gap:8px">
       <button class="setbtn danger" id="clearAll">Clear all cache</button>
       <button class="setbtn" id="rebuild">↻ Rebuild index now</button>
@@ -1859,7 +1873,7 @@ function renderSetLibrary(pane){
     post2("/api/setdownload",{path:p},j=>{if(j.error){toast(j.error);return;}toast("Download folder set");SET.download=p;});};
   $("#orgOpen").onclick=()=>{$("#setmodal").classList.remove("on");organizeLibrary();};
   $("#foldOpen").onclick=()=>{$("#setmodal").classList.remove("on");foldByActress();};
-  pane.querySelectorAll("[data-clear]").forEach(x=>x.onclick=()=>post2("/api/clearcache",{targets:[x.dataset.clear]},j=>{toast("Cleared "+(j.cleared||[]).join(", ")+" — rebuilding");}));
+  pane.querySelectorAll("[data-clear]").forEach(x=>x.onclick=()=>post2("/api/clearcache",{targets:[x.dataset.clear]},j=>{toast("Cleared "+(j.cleared||[]).join(", ")+(j.rescanning?" — rebuilding":""));}));
   $("#clearAll").onclick=()=>post2("/api/clearcache",{targets:["index","probe","thumbs"]},j=>toast("Cache cleared — rebuilding"));
   $("#rebuild").onclick=()=>{toast("Rebuilding…");fetch("/api/rescan").then(r=>r.json()).then(j=>{toast("Rebuilt: "+j.count+" items");reloadData();});};
 }
@@ -2801,6 +2815,7 @@ function openPlayer(it){
     ? `<div class="p-stage p-missing"><div class="pm-box"><div class="pm-ico">▶</div><div class="pm-t">HEVC / H.265 video</div><div class="pm-s">This browser can't decode HEVC. Open it in your external player (or view in Safari).</div><button class="btn pri" id="hevcopen" style="margin-top:14px">▶ Open in external player</button></div></div>`
     : `<div class="p-stage"><div class="pv-wrap" id="pvwrap">
         <video autoplay playsinline preload="auto" src="/video/${encodeURIComponent(it.uid||it.code)}${(it.parts||[]).length>1?'?part=0':''}"></video>
+        <div class="pv-big" id="pvbig"></div>
         <div class="pv-now" id="pvnow"></div>
         <div class="pv-ed" id="pved" hidden></div>
         <div class="pv-menu" id="pvmenu" hidden></div>
@@ -3113,6 +3128,8 @@ function setupScenes(p,it){
   let loadedPart=-1,training=false;   // training mode comes with /api/markers
   let reviewOpen=false;   // this part was sent back for another review pass (sidecar review_open)
   const D=()=>(vid.duration&&isFinite(vid.duration))?vid.duration:(SCN.length?SCN[SCN.length-1].t*1.05:0);
+  let dragF=null;        // seek-bar drag position while a scrub preview stands in for the video
+  let SCRUB=null,scrubPart=-1,scrubTimer=0;   // {t:[…],w,h,cols,url} of this part's preview strip
   const seekToT=t=>{vid.currentTime=Math.max(0,t);if(vid.play)vid.play().catch(()=>{});show();};
   // Lead-in: jumping to a marker starts this many seconds earlier, so you see the build-up. Display
   // only: the stored t stays where the event is visible (creampie = the pull-out), which is what the
@@ -3435,7 +3452,7 @@ function setupScenes(p,it){
       markerApi({op:'update',t:tgt.t,label:tgt.label,new_t:r1(ct)},`“${tgt.label}” starts at ${fmtTC(ct)}`);return true;}
     return false;};
   function tick(){
-    const d=vid.duration||0,ct=vid.currentTime||0,pct=d?100*ct/d:0;
+    const d=vid.duration||0,ct=dragF!=null?dragF*d:(vid.currentTime||0),pct=d?100*ct/d:0;
     fill.style.width=pct+'%';handle.style.left=pct+'%';
     if(curEl)curEl.textContent=fmtTC(ct);if(durEl&&d)durEl.textContent=fmtTC(d);
     const c=currentAt(ct);
@@ -3448,22 +3465,68 @@ function setupScenes(p,it){
     if(partOf()!==loadedPart){closeEditor();reload();}else{renderMarks();tick();}});
   vid.addEventListener('progress',()=>{try{if(vid.buffered.length){const d=vid.duration||1;
     buf.style.width=(100*vid.buffered.end(vid.buffered.length-1)/d)+'%';}}catch(_){}});
+  // ---- scrub previews: the server builds a strip of frames coarse to fine (scrub.py); poll while
+  // it works and swap in each sharper sheet. Until the first one is in, the bar seeks live as before.
+  const thumbEl=p.querySelector('#pvthumb'),bigEl=p.querySelector('#pvbig');
+  const scrubRef=encodeURIComponent(it.uid||it.code);
+  function loadScrub(){
+    clearTimeout(scrubTimer);
+    const part=partOf();
+    if(part!==scrubPart){SCRUB=null;scrubPart=part;}
+    fetch(`/api/scrub/${scrubRef}?part=${part}`).then(r=>r.json()).then(st=>{
+      if(!document.body.contains(seek)||partOf()!==part)return;
+      if(st.n&&st.pages&&(!SCRUB||SCRUB.v!==st.v)){     // swap in only once every page is loaded
+        const urls=Array.from({length:st.pages},(_,pg)=>`/scrub/${scrubRef}?part=${part}&page=${pg}&v=${st.v}`);
+        Promise.all(urls.map(u=>new Promise((ok,no)=>{const im=new Image();im.onload=ok;im.onerror=no;im.src=u;})))
+          .then(()=>{if(partOf()===part)SCRUB=Object.assign({},st,{urls});}).catch(()=>{});}
+      if(['queued','working','partial'].includes(st.state))scrubTimer=setTimeout(loadScrub,SCRUB?5000:2500);
+    }).catch(()=>{});}
+  vid.addEventListener('loadedmetadata',()=>{if(partOf()!==scrubPart)loadScrub();});
+  const frameAt=t=>{const a=SCRUB.t;let lo=0,hi=a.length-1;     // nearest frame time
+    while(lo<hi){const mid=(lo+hi)>>1;if(a[mid]<t)lo=mid+1;else hi=mid;}
+    return lo>0&&Math.abs(a[lo-1]-t)<Math.abs(a[lo]-t)?lo-1:lo;};
+  function paintFrame(el,i,w,h){                 // one cell of a page (100 frames each), scaled to w x h
+    const pg=(i/SCRUB.per)|0,j=i%SCRUB.per,c=j%SCRUB.cols,r=(j/SCRUB.cols)|0,sx=w/SCRUB.w,sy=h/SCRUB.h;
+    el.style.width=w+'px';el.style.height=h+'px';el.style.backgroundImage=`url("${SCRUB.urls[pg]}")`;
+    el.style.backgroundSize=`${SCRUB.cols*SCRUB.w*sx}px auto`;
+    el.style.backgroundPosition=`${-c*SCRUB.w*sx}px ${-r*SCRUB.h*sy}px`;}
+  function showThumb(f,t){
+    if(!SCRUB||!thumbEl)return;
+    const i=frameAt(t),big=wrap.clientWidth>900,w=big?288:224,h=Math.round(w*SCRUB.h/SCRUB.w);
+    paintFrame(thumbEl,i,w,h);
+    const bw=seek.clientWidth,x=Math.max(w/2-4,Math.min(bw-w/2+4,f*bw));   // keep it inside the bar
+    thumbEl.style.left=x+'px';thumbEl.classList.add('on');}
+  function showBig(t){                           // the frame over the video, fitted like the video
+    if(!SCRUB||!bigEl)return;
+    const vr=vid.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
+    const ar=(vid.videoWidth&&vid.videoHeight)?vid.videoWidth/vid.videoHeight:16/9;
+    let w=vr.width,h=w/ar;if(h>vr.height){h=vr.height;w=h*ar;}
+    bigEl.style.left=(vr.left-wr.left+(vr.width-w)/2)+'px';bigEl.style.top=(vr.top-wr.top+(vr.height-h)/2)+'px';
+    paintFrame(bigEl,frameAt(t),Math.round(w),Math.round(h));bigEl.classList.add('on');}
   // ---- seek (click + drag) + hover label ----
   const fracAt=e=>{const r=seek.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));};
   const seekTo=f=>{const d=vid.duration;if(d&&isFinite(d))vid.currentTime=f*d;};
   let drag=false;
+  // With a preview strip, dragging moves the bar and shows frames from the strip; the video seeks
+  // once, on release (on a NAS every live seek is a network round trip, so it stutters).
+  const dragTo=f=>{if(SCRUB&&vid.duration){dragF=f;showBig(f*vid.duration);tick();}else seekTo(f);};
+  const endDrag=()=>{if(!drag)return;drag=false;
+    if(dragF!=null){const f=dragF;dragF=null;bigEl&&bigEl.classList.remove('on');seekTo(f);tick();}
+    if(tip)tip.classList.remove('on');thumbEl&&thumbEl.classList.remove('on');};
   seek.addEventListener('pointerdown',e=>{if(e.button!==0||e.target.closest('.pv-chip'))return;  // left button only; chips handle their own pointer
     drag=true;try{seek.setPointerCapture(e.pointerId);}catch(_){}
     seekTo(fracAt(e));});
-  seek.addEventListener('pointermove',e=>{if(drag)seekTo(fracAt(e));hover(e);});
-  seek.addEventListener('pointerup',()=>{drag=false;});
-  seek.addEventListener('pointerleave',()=>{if(tip)tip.classList.remove('on');});
+  seek.addEventListener('pointermove',e=>{if(drag)dragTo(fracAt(e));hover(e);});
+  seek.addEventListener('pointerup',endDrag);
+  seek.addEventListener('pointercancel',endDrag);
+  seek.addEventListener('pointerleave',()=>{if(drag)return;if(tip)tip.classList.remove('on');thumbEl&&thumbEl.classList.remove('on');});
   function hover(e){if(!tip||e.target.closest('.pv-chip'))return;const f=fracAt(e),d=vid.duration||D()||0,t=f*d;
     const m=nearest(t,d?d*0.01:2);
     tip.style.left=(f*100)+'%';
     tip.innerHTML=(m?`<span class="tl" style="color:${labelColor(m.label)}">${esc(m.label)}</span>`:'')
       +`<span class="tt">${fmtTC(t)}</span>`;
-    tip.classList.add('on');}
+    tip.classList.add('on');
+    if(d)showThumb(f,t);}
   // right-click the bar near a marker to edit it (works when chips are hidden on small screens)
   seek.addEventListener('contextmenu',e=>{
     if(!training)return;

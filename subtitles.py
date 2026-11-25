@@ -203,7 +203,8 @@ def _one(py, opts, job):
             if "progress" in m:
                 PROGRESS["progress"] = float(m["progress"])
                 el = m.get("elapsed")
-                ph = {"listening": "Listening (Japanese) · ", "translating": "Translating · "}.get(m.get("phase") or "", "")
+                ph = {"listening": "Listening (Japanese) · ", "speakers": "Who's talking · ",
+                      "translating": "Translating · "}.get(m.get("phase") or "", "")
                 PROGRESS["line"] = (ph + "%d%%" % round(100 * m["progress"])
                                     + (" · %s elapsed" % _fmt(el) if el else ""))
             if m.get("engine"):

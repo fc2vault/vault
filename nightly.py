@@ -13,6 +13,9 @@ Inside a time window the user sets (e.g. 01:00–06:00), once per night, in this
                    and the next night carries on where it stopped.
   4. Subtitles   — the Whisper queue, the same as 💬 Transcribe; cancelled at the end of the
                    window (the movie it was on is redone the next night).
+  5. Scrub previews — the frames along the player's seek bar (scrub.py), favourites first, then
+                   newest first. Waits while something is streaming; at the end of the window the
+                   movie it was on keeps its frames and is finished the next night.
 
 Nothing here knows Vault's internals: serve.py hands in a `host` with the few calls needed.
 Standard library only.
@@ -37,6 +40,7 @@ DEFAULTS = {
     "metadata": True,
     "scenes": False, "scenes_scope": "new",      # "new" | "library"
     "subs": False, "subs_scope": "new",          # "new" | "library"
+    "scrub": False, "scrub_scope": "library",    # "new" | "library"
     "tagger": "",              # vault-scene-tagger command; empty = find it
 }
 META_RETRY = 7 * 86400         # a miss is asked again after a week, not sooner
@@ -67,7 +71,7 @@ def settings(cfg):
                 out[k] = "%02d:%02d" % divmod(_hm(v), 60)
         elif k == "dupes":
             out[k] = v if v in ("delete", "keep") else "delete"
-        elif k in ("scenes_scope", "subs_scope"):
+        elif k in ("scenes_scope", "subs_scope", "scrub_scope"):
             out[k] = v if v in SCOPES else "new"
         elif k == "tagger":
             out[k] = str(v or "").strip()
@@ -214,6 +218,8 @@ class Runner:
             p.terminate()
         if self.status.get("step") == "Subtitles":
             self.h.subs_cancel()
+        if self.status.get("step") == "Scrub previews":
+            self.h.scrub_stop()
         return self.status["running"]
 
     def _start(self, cfg, deadline, manual):
@@ -247,7 +253,8 @@ class Runner:
             steps = [("Import", cfg["import"], self._import),
                      ("Metadata", cfg["metadata"], self._metadata),
                      ("Scene markers", cfg["scenes"], self._scenes),
-                     ("Subtitles", cfg["subs"], self._subs)]
+                     ("Subtitles", cfg["subs"], self._subs),
+                     ("Scrub previews", cfg["scrub"], self._scrub)]
             todo = [s for s in steps if s[1]]
             if not todo:
                 self.log("Nothing switched on")
@@ -259,8 +266,11 @@ class Runner:
                 # scene markers working through the library would eat the whole night: leave
                 # half of what is left for the subtitles when they come after
                 until = deadline
-                if name == "Scene markers" and cfg["scenes_scope"] == "library" and cfg["subs"]:
+                if name == "Scene markers" and cfg["scenes_scope"] == "library" and (cfg["subs"] or cfg["scrub"]):
                     until = time.time() + self._left(deadline) / 2
+                # subtitles working through the library: leave a third for the scrub previews
+                if name == "Subtitles" and cfg["subs_scope"] == "library" and cfg["scrub"]:
+                    until = time.time() + self._left(deadline) * 2 / 3
                 try:
                     fn(cfg, until)
                 except Exception as e:
@@ -455,3 +465,39 @@ class Runner:
         done = self.h.subs_finished()
         self.log("Subtitles: %d done%s" % (done, ", stopped at the end of the window" if self._left(deadline) <= 0 and not self._stop
                                             else ", stopped" if self._stop else ""))
+
+    # 5 ---------------------------------------------------------------- scrub previews
+    def _scrub(self, cfg, deadline):
+        library = cfg["scrub_scope"] == "library"
+        items = [it for it in self.h.items() if not it.get("missing")] if library else self._new_items()
+        favs = self.h.favourites()
+        items.sort(key=lambda it: (it.get("code") not in favs and it.get("uid") not in favs,
+                                   -(it.get("added") or 0)))
+        self.log("Scrub previews: looking for movies without them…")
+        todo = []
+        for it in items:
+            if self._left(deadline) <= 0:
+                break
+            for pp in self.h.item_parts(it):
+                vp = pp.get("path")
+                if vp and self.h.scrub_needed(vp):
+                    todo.append(vp)
+        if not todo:
+            self.log("Scrub previews: every %s has them" % ("movie" if library else "new movie"))
+            return
+        self.log("Scrub previews: %d video%s to do…" % (len(todo), "" if len(todo) == 1 else "s"))
+        done = 0
+        for i in range(0, len(todo), 20):                # a batch at a time keeps a count going
+            batch = todo[i:i + 20]
+            self.h.scrub_enqueue(batch)
+            while self.h.scrub_busy():
+                if self._left(deadline) <= 0:
+                    self.h.scrub_stop()
+                    break
+                time.sleep(3)
+            if self._left(deadline) <= 0:
+                break
+            done += len(batch)
+            self.status["line"] = "Scrub previews: %d of %d" % (done, len(todo))
+        left = len(todo) - done
+        self.log("Scrub previews: %d done%s" % (done, (", %d left for the next night" % left) if left else ""))
