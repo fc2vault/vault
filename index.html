@@ -618,6 +618,9 @@ table.ltab td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-alig
   .top-actions{margin-left:auto;gap:6px;max-width:100%;overflow-x:auto;
     -webkit-overflow-scrolling:touch;scrollbar-width:none}
   .top-actions::-webkit-scrollbar{display:none}
+  /* that scrolling row clips anything that hangs below it: the Tools menu is pinned to the
+     screen instead (top/right set when it opens) */
+  .tmenu-pop{position:fixed;max-height:calc(100dvh - 120px);overflow-y:auto}
   /* keep the action row one line tall — wrapped labels doubled the header height */
   .top-actions .btn,.top-actions select,.seg button{white-space:nowrap;
     padding:7px 10px;font-size:13px}
@@ -953,6 +956,7 @@ const F={q:"",ident:"all",showMissing:false,fmt:"all",actress:"all",cups:new Set
 // another pass (review_open). A movie moves here from "To review" once its last part is done.
 const reviewDone=it=>!!it.manual_tags&&!it.ai_tags&&!it.review_open&&!it.missing;
 const TAG_MIN=3;   // sidebar shows tags used on >= this many movies by default (search reaches all)
+const TAG_NEW=new Set();   // tags you created this session: shown in the sidebar right away, however rare
 const resBucket=h=>!h?"":h>=1800?"4K":h>=1000?"1080p":h>=700?"720p":"SD";
 const COLS=[
   {k:"poster",label:"",html:it=>it.missing?(it.cover?`<img loading="lazy" referrerpolicy="no-referrer" src="${esc(it.cover)}">`:`<div class="gimg">◇</div>`):`<img loading="lazy" src="/thumb/${encodeURIComponent(it.code)}.jpg">`},
@@ -1049,9 +1053,9 @@ function buildSidebar(){
      <input type="range" id="agemax" min="18" max="45" value="45">
    </div>
 
-   <h4>Tags <span class="stat" style="text-transform:none;font-weight:400">${tags.filter(([t,n])=>n>=TAG_MIN).length} of ${tags.length}</span></h4>
+   <h4>Tags <span class="stat" style="text-transform:none;font-weight:400">${tags.filter(([t,n])=>n>=TAG_MIN||TAG_NEW.has(t)).length} of ${tags.length}</span></h4>
    <input class="side-input" id="tagfilter" placeholder="filter tags (search reaches all)…" autocomplete="off" style="margin-bottom:6px">
-   <div class="chips tagbox" id="tagchips">${tags.map(([t,n],i)=>`<span class="chip${n<TAG_MIN?' rare':''}" data-i="${i}" data-tag="${esc(t)}" data-tl="${esc(t.toLowerCase())}"${n<TAG_MIN?' style="display:none"':''}>${esc(t)} <em style="color:var(--dim2)">${n}</em></span>`).join("")||'<span class="stat">no tags in db yet</span>'}</div>
+   <div class="chips tagbox" id="tagchips">${tags.map(([t,n],i)=>{const rare=n<TAG_MIN&&!TAG_NEW.has(t);return `<span class="chip${rare?' rare':''}" data-i="${i}" data-tag="${esc(t)}" data-tl="${esc(t.toLowerCase())}"${rare?' style="display:none"':''}>${esc(t)} <em style="color:var(--dim2)">${n}</em></span>`;}).join("")||'<span class="stat">no tags in db yet</span>'}</div>
   `;
   // events
   $$('.frow[data-k]',s).forEach(el=>el.onclick=()=>{
@@ -1877,7 +1881,8 @@ function renderSetLibrary(pane){
     SET.custom_labels=j.custom_labels;SCENE_CUSTOM=j.custom_labels;toast(msg);renderSettings();};
   const nl=$("#newLabel");
   if(nl){const addLabel=()=>{const v=nl.value.trim();if(!v)return;
-      post2("/api/scenelabel",{op:"add",label:v},j=>labelSaved(j,j.existed?`“${j.label}” is already a label`:`Label “${j.label}” added`));};
+      post2("/api/scenelabel",{op:"add",label:v},j=>{if(!j.error)_scnLastLabel=j.label;   // next new marker starts on it
+        labelSaved(j,j.existed?`“${j.label}” is already a label`:`Label “${j.label}” added`);});};
     $("#newLabelAdd").onclick=addLabel;nl.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addLabel();}};}
   pane.querySelectorAll("[data-rmlabel]").forEach(x=>x.onclick=()=>
     post2("/api/scenelabel",{op:"remove",label:x.dataset.rmlabel},j=>labelSaved(j,`Removed “${x.dataset.rmlabel}”`)));
@@ -3111,10 +3116,25 @@ function bindTagEditor(it){
 function saveTags(it){
   fetch("/api/settags",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({code:it.code,tags:it.tags||[]})})
-    .then(r=>r.json()).then(j=>{if(j.tags)it.tags=j.tags;delete it._hay;
+    .then(r=>r.json()).then(j=>{if(j.tags)it.tags=j.tags;delete it._hay;refreshTagFacet(it.tags);
       const ed=$("#tagEd");if(ed){ed.innerHTML=tagEdHTML(it);bindTagEditor(it);
         const inp=ed.querySelector(".tag-add");if(inp)inp.focus();}
       updateCardTags(it);}).catch(()=>toast("Tag save failed"));
+}
+// The sidebar's tag list (and the editor's suggestions) come from DATA.facets, built when the page
+// loads. Recount it after a tag edit; a tag nobody had before is new and goes on the sidebar at once.
+function refreshTagFacet(tags){
+  const known=new Set((DATA.facets.tags||[]).map(([t])=>t));
+  for(const t of tags||[])if(!known.has(t))TAG_NEW.add(t);
+  const c=new Map();
+  for(const x of DATA.items){if(x.missing)continue;for(const t of x.tags||[])c.set(t,(c.get(t)||0)+1);}
+  const before=JSON.stringify(DATA.facets.tags||[]);
+  DATA.facets.tags=[...c.entries()].sort((a,b)=>b[1]-a[1]);
+  if(JSON.stringify(DATA.facets.tags)===before)return;
+  const side=$("#side"),top=side?side.scrollTop:0,q=($("#tagfilter")||{}).value||"";
+  buildSidebar();
+  const tf=$("#tagfilter");if(tf&&q){tf.value=q;tf.dispatchEvent(new Event("input"));}
+  if(side)side.scrollTop=top;
 }
 function updateCardTags(it){
   $$(`.card[data-code="${cssEsc(it.code)}"]`).forEach(card=>{
@@ -3235,6 +3255,8 @@ function setupScenes(p,it){
   let dragF=null;        // seek-bar drag position while a scrub preview stands in for the video
   let SCRUB=null,scrubPart=-1,scrubTimer=0;   // {t:[…],w,h,cols,url} of this part's preview strip
   const seekToT=t=>{vid.currentTime=Math.max(0,t);if(vid.play)vid.play().catch(()=>{});show();};
+  // clicking a marker only moves the playhead: a paused video stays paused (playing keeps playing)
+  const jumpToT=t=>{vid.currentTime=Math.max(0,t);tick();show();};
   // Lead-in: jumping to a marker starts this many seconds earlier, so you see the build-up. Display
   // only: the stored t stays where the event is visible (creampie = the pull-out), which is what the
   // training clips are cut from. Off in training mode: when reviewing you want to land exactly
@@ -3312,11 +3334,11 @@ function setupScenes(p,it){
       });
       el.addEventListener('pointerup',e=>{if(!down)return;down=false;el.classList.remove('dragging');
         if(tip)tip.classList.remove('on');
-        if(!moved){pick(m);seekToT(jumpT(m));return;}
+        if(!moved){pick(m);jumpToT(jumpT(m));return;}
         const nt=cur;
         if(Math.abs(nt-m.t)>=0.5)updateMarker(m,{new_t:nt});else layoutChips();});
       el.addEventListener('pointercancel',()=>{down=false;moved=false;el.classList.remove('dragging');layoutChips();});
-      el.onclick=e=>{e.stopPropagation();if(e.detail===0){pick(m);seekToT(jumpT(m));}};   // keyboard activation
+      el.onclick=e=>{e.stopPropagation();if(e.detail===0){pick(m);jumpToT(jumpT(m));}};   // keyboard activation
       el.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();
         if(training)openMenu(e,markerItems(m).concat([[`＋ Add marker at playhead (${fmtTC(vid.currentTime||0)})`,()=>openEditor(null)]],reviewedItem()));});
       el.onmouseenter=()=>{if(!down)tipAt(+el.dataset.cx,m.t);};
@@ -3590,37 +3612,52 @@ function setupScenes(p,it){
   const frameAt=t=>{const a=SCRUB.t;let lo=0,hi=a.length-1;     // nearest frame time
     while(lo<hi){const mid=(lo+hi)>>1;if(a[mid]<t)lo=mid+1;else hi=mid;}
     return lo>0&&Math.abs(a[lo-1]-t)<Math.abs(a[lo]-t)?lo-1:lo;};
-  function paintFrame(el,i,w,h){                 // one cell of a page (100 frames each), scaled to w x h
-    const pg=(i/SCRUB.per)|0,j=i%SCRUB.per,c=j%SCRUB.cols,r=(j/SCRUB.cols)|0,sx=w/SCRUB.w,sy=h/SCRUB.h;
+  // Frames sit on keyframes (about one every 10 s), so the one shown is a few seconds off the time
+  // under the mouse. Clicking or letting go of a drag lands on that frame's time, so the video shows
+  // what the preview showed. A frame further off than 1.5 slots isn't shown at all: while a strip is
+  // still coarse (16, 48 frames…) the nearest one can be minutes away, and the bar seeks live there.
+  const nearFrame=t=>{if(!SCRUB||!SCRUB.t||!SCRUB.t.length)return -1;const i=frameAt(t);
+    return Math.abs(SCRUB.t[i]-t)<=1.5*(SCRUB.interval||10)?i:-1;};
+  function paintFrame(el,i,w,h,ar){              // one cell of a page (100 frames each) into w x h
+    // ar: the part of the cell to show — the video's own shape (a 4:3 or upright video sits in the
+    // 16:9 cell with black bars); without it the whole cell. Scaled evenly, never stretched.
+    const pg=(i/SCRUB.per)|0,j=i%SCRUB.per,c=j%SCRUB.cols,r=(j/SCRUB.cols)|0,W=SCRUB.w,H=SCRUB.h;
+    let cw=W,ch=H;if(ar){if(ar>W/H)ch=W/ar;else cw=H*ar;}
+    const s=w/cw;
     el.style.width=w+'px';el.style.height=h+'px';el.style.backgroundImage=`url("${SCRUB.urls[pg]}")`;
-    el.style.backgroundSize=`${SCRUB.cols*SCRUB.w*sx}px auto`;
-    el.style.backgroundPosition=`${-c*SCRUB.w*sx}px ${-r*SCRUB.h*sy}px`;}
+    el.style.backgroundSize=`${SCRUB.cols*W*s}px auto`;
+    el.style.backgroundPosition=`${-(c*W+(W-cw)/2)*s}px ${-(r*H+(H-ch)/2)*s}px`;}
   function showThumb(f,t){
     if(!SCRUB||!thumbEl)return;
-    const i=frameAt(t),big=wrap.clientWidth>900,w=big?288:224,h=Math.round(w*SCRUB.h/SCRUB.w);
+    const i=nearFrame(t);if(i<0){thumbEl.classList.remove('on');return;}
+    const big=wrap.clientWidth>900,w=big?288:224,h=Math.round(w*SCRUB.h/SCRUB.w);
     paintFrame(thumbEl,i,w,h);
     const bw=seek.clientWidth,x=Math.max(w/2-4,Math.min(bw-w/2+4,f*bw));   // keep it inside the bar
     thumbEl.style.left=x+'px';thumbEl.classList.add('on');}
-  function showBig(t){                           // the frame over the video, fitted like the video
+  function showBig(i){                           // frame i over the video, fitted like the video
     if(!SCRUB||!bigEl)return;
     const vr=vid.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
     const ar=(vid.videoWidth&&vid.videoHeight)?vid.videoWidth/vid.videoHeight:16/9;
     let w=vr.width,h=w/ar;if(h>vr.height){h=vr.height;w=h*ar;}
     bigEl.style.left=(vr.left-wr.left+(vr.width-w)/2)+'px';bigEl.style.top=(vr.top-wr.top+(vr.height-h)/2)+'px';
-    paintFrame(bigEl,frameAt(t),Math.round(w),Math.round(h));bigEl.classList.add('on');}
+    paintFrame(bigEl,i,Math.round(w),Math.round(h),ar);bigEl.classList.add('on');}
   // ---- seek (click + drag) + hover label ----
   const fracAt=e=>{const r=seek.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));};
   const seekTo=f=>{const d=vid.duration;if(d&&isFinite(d))vid.currentTime=f*d;};
   let drag=false;
   // With a preview strip, dragging moves the bar and shows frames from the strip; the video seeks
   // once, on release (on a NAS every live seek is a network round trip, so it stutters).
-  const dragTo=f=>{if(SCRUB&&vid.duration){dragF=f;showBig(f*vid.duration);tick();}else seekTo(f);};
+  // The bar follows the frame's time, so letting go lands on the picture you saw.
+  const snapF=f=>{const d=vid.duration,i=d&&isFinite(d)?nearFrame(f*d):-1;return i<0?null:{i,f:SCRUB.t[i]/d};};
+  const dragTo=f=>{const s=snapF(f);
+    if(s){dragF=s.f;showBig(s.i);tick();}
+    else{if(dragF!=null){dragF=null;bigEl&&bigEl.classList.remove('on');}seekTo(f);}};
   const endDrag=()=>{if(!drag)return;drag=false;
     if(dragF!=null){const f=dragF;dragF=null;bigEl&&bigEl.classList.remove('on');seekTo(f);tick();}
     if(tip)tip.classList.remove('on');thumbEl&&thumbEl.classList.remove('on');};
   seek.addEventListener('pointerdown',e=>{if(e.button!==0||e.target.closest('.pv-chip'))return;  // left button only; chips handle their own pointer
     drag=true;try{seek.setPointerCapture(e.pointerId);}catch(_){}
-    seekTo(fracAt(e));});
+    const f=fracAt(e),s=snapF(f);seekTo(s?s.f:f);});
   seek.addEventListener('pointermove',e=>{if(drag)dragTo(fracAt(e));hover(e);});
   seek.addEventListener('pointerup',endDrag);
   seek.addEventListener('pointercancel',endDrag);
@@ -3629,7 +3666,7 @@ function setupScenes(p,it){
     const m=nearest(t,d?d*0.01:2);
     tip.style.left=(f*100)+'%';
     tip.innerHTML=(m?`<span class="tl" style="color:${labelColor(m.label)}">${esc(m.label)}</span>`:'')
-      +`<span class="tt">${fmtTC(t)}</span>`;
+      +`<span class="tt">${fmtTC(d?(i=>i<0?t:SCRUB.t[i])(nearFrame(t)):t)}</span>`;   // where a click lands
     tip.classList.add('on');
     if(d)showThumb(f,t);}
   // right-click the bar near a marker to edit it (works when chips are hidden on small screens)
@@ -3708,7 +3745,8 @@ function setupScenes(p,it){
     const createLabel=()=>{const v=newIn.value.trim();if(!v){newIn.focus();return;}
       post2('/api/scenelabel',{op:'add',label:v},j=>{if(j.error){toast(j.error);return;}
         SCENE_CUSTOM=j.custom_labels||SCENE_CUSTOM;
-        sel.innerHTML=scnLabelOptions(j.label);prevLabel=j.label;newRow.hidden=true;sel.focus();
+        _scnLastLabel=j.label;      // the new label is the active one: this marker and the next ＋ use it
+        sel.innerHTML=scnLabelOptions(j.label);sel.value=j.label;prevLabel=j.label;newRow.hidden=true;sel.focus();
         toast(j.existed?`“${j.label}” is already a label`:`Label “${j.label}” created`);});};
     sel.focus();
     ed.onkeydown=e=>{e.stopPropagation();   // keep player shortcuts (space, Esc, arrows) out of the editor
@@ -3776,6 +3814,8 @@ function setupScenes(p,it){
     // an edited selected marker stays selected under its new start / label
     if(body.op==='update'&&selKey===body.label+'@'+body.t)
       selKey=(body.new_label||body.label)+'@'+(body.new_t!=null?body.new_t:body.t);
+    // a marker you just added is the active one: its range handles, Shift+A / Shift+D act on it
+    if(body.op==='add')selKey=body.label+'@'+body.t;
     try{const r=await fetch('/api/marker',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify(Object.assign({code:it.uid||it.code,part:partOf()},body))});
       const j=await r.json();
@@ -4090,7 +4130,14 @@ function bindUI(){
   $("#transbtn").onclick=openTranscribe;
   // Tools menu: open / close; picking an item closes it
   {const tb=$("#toolsbtn"),pop=$("#toolspop");
-   const set=on=>{pop.hidden=!on;tb.setAttribute("aria-expanded",on?"true":"false");};
+   const set=on=>{
+     if(on&&getComputedStyle(pop).position==="fixed"){         // phones: placed under the button
+       const r=tb.getBoundingClientRect();
+       pop.style.top=Math.round(r.bottom+6)+"px";pop.style.right=Math.max(8,Math.round(innerWidth-r.right))+"px";}
+     pop.hidden=!on;tb.setAttribute("aria-expanded",on?"true":"false");};
+   tb.parentElement.closest(".top-actions")?.addEventListener("scroll",()=>{if(!pop.hidden)set(false);},{passive:true});
+   let lastW=innerWidth;     // iOS resizes when its URL bar slides: only a width change closes it
+   addEventListener("resize",()=>{if(innerWidth!==lastW&&!pop.hidden)set(false);lastW=innerWidth;});
    tb.onclick=e=>{e.stopPropagation();set(pop.hidden);};
    pop.addEventListener("click",e=>{if(e.target.closest(".tmi"))set(false);});
    document.addEventListener("click",e=>{if(!pop.hidden&&!e.target.closest("#tmenu"))set(false);});

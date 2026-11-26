@@ -92,7 +92,7 @@ import vault_service
 # Writable data dir. Dev / portable-folder use keeps everything next to serve.py (HERE).
 # A macOS .app (read-only in /Applications) sets VAULT_DATA to a user folder
 # (~/Library/Application Support/Vault) so cache/config/DB land somewhere writable.
-VAULT_VERSION = "1.13.1"
+VAULT_VERSION = "1.13.2"
 # Training mode (editing scene markers to make training data) is the author's own workflow, not part
 # of the public package: make_release.sh --public sets this to False, which hides the switch and
 # refuses marker/label edits. Viewing markers is unaffected.
@@ -1978,7 +1978,8 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/scrubbed":
                 return self._scrubbed()
             if p.startswith("/api/scrub/"):
-                return self._scrub_status(p[len("/api/scrub/"):], q.get("part", [None])[0])
+                return self._scrub_status(p[len("/api/scrub/"):], q.get("part", [None])[0],
+                                         background=q.get("bg", [""])[0] == "1")
             if p.startswith("/scrub/"):
                 return self._scrub_sheet(p[len("/scrub/"):], q.get("part", [None])[0],
                                          q.get("page", ["0"])[0], q.get("flick", [""])[0] == "1")
@@ -2916,17 +2917,18 @@ class Handler(BaseHTTPRequestHandler):
             idx = 0
         return parts[idx].get("path") if 0 <= idx < len(parts) else None
 
-    def _scrub_status(self, ref, part):
+    def _scrub_status(self, ref, part, background=False):
         """The part's scrub preview index; starts building it (first in line) when there is none.
         The player polls this while the state is queued / working, and reloads the sheet when
-        `v` changes (a sharper level is in)."""
+        `v` changes (a sharper level is in). background (?bg=1, for batch jobs): queued at the
+        back like the nightly run — it waits while a video plays and never pushes ahead of one."""
         it = self._item_ref(ref.strip("/"))
         vp = self._part_path(it, part) if it else None
         if not vp or not os.path.isfile(vp):
             return self._json({"state": "none"}, 404)
         st = SCRUB.status(vp)
         if st["state"] in ("none", "partial", "failed"):
-            st = SCRUB.request(vp, front=True)
+            st = SCRUB.request(vp, front=not background, background=background)
         return self._json(st)
 
     def _scrubbed(self):

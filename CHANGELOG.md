@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.13.2 — Previews that land where you point
+
+- **Fixed: the scrub preview and the video didn't match after a seek.** Preview frames are taken
+  at keyframes, a few seconds off the time under the mouse (about 2.5 s typically, up to 8), and
+  the video went to the exact mouse time, so you landed a few seconds past or before the picture
+  you'd picked. Clicking the seek bar or letting go of a drag now lands on the previewed frame
+  itself, and the time label shows that time. While a movie's preview is still being made, a frame
+  that's far from the mouse (minutes, early on) isn't shown at all; the bar seeks live there instead.
+- The big frame shown over the video while you drag the seek bar is no longer stretched (or taken
+  from the wrong spot of the sheet) for a video that isn't 16:9.
+- **Fixed: the Tools menu didn't open on a phone.** On narrow screens the button row scrolls
+  sideways, and that hid the menu hanging below it. The menu now opens under the button.
+- **A tag you add to a movie is usable at once:** a brand-new one shows up in the sidebar's tag
+  list (even while only a movie or two has it) and in the suggestions for the next movie, without
+  reloading the page.
+- Clicking a marker on the seek bar **jumps there without starting playback**: a paused video stays
+  paused (one that's playing keeps playing).
+
 ## 1.13.1 — Flick through a movie on its poster
 
 - **Flick through a movie on its poster.** In the grid, a movie with scrub previews shows frames
